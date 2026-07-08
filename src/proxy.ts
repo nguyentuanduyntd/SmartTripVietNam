@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     let supabaseResponse = NextResponse.next({request});
 
     const supabase = createServerClient(
@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
     //Bảo vệ route /admin
     if(pathname.startsWith('/admin')){
         if(!user){
-            return NextResponse.redirect(new URL('/login', request.url));
+            return NextResponse.redirect(new URL('/auth/login', request.url));
         }
         const role = user.app_metadata?.role;
         if(role !== 'admin'){
@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
         }
     }
     // Login rồi mà vào lại login or register -> chuyển về home
-    if((pathname ==='/login' || pathname === '/register') && user){
+    if((pathname ==='/auth/login' || pathname === '/auth/register') && user){
         return NextResponse.redirect(new URL('/', request.url));
     }
 
