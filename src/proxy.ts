@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function proxy(request: NextRequest) {
     let supabaseResponse = NextResponse.next({request});
@@ -29,21 +29,35 @@ export async function proxy(request: NextRequest) {
 
     const {pathname} = request.nextUrl;
 
+    function redirectWithCookies(path:string){
+        const redirectResponse = NextResponse.redirect(
+            new URL(path, request.url),
+        );
+
+        for(const cookie of supabaseResponse.cookies.getAll()){
+            redirectResponse.cookies.set(
+                cookie.name,
+                cookie.value,
+                cookie,
+            );
+        }
+        return redirectResponse;
+    }
+
     //Bảo vệ route /admin
     if(pathname.startsWith('/admin')){
         if(!user){
-            return NextResponse.redirect(new URL('/auth/login', request.url));
+            return redirectWithCookies("/auth/login");
         }
-        const role = user.app_metadata?.role;
-        if(role !== 'admin'){
-            return NextResponse.redirect(new URL('/', request.url));
-        }
-    }
-    // Login rồi mà vào lại login or register -> chuyển về home
-    if((pathname ==='/auth/login' || pathname === '/auth/register') && user){
-        return NextResponse.redirect(new URL('/', request.url));
-    }
+        const { data: profile, error} = await supabase.from("profiles").select("role").eq("id",user.id).single();
 
+        if(error || profile?.role !== "admin"){
+            return redirectWithCookies("/");
+        }
+    }
+    if ( user && (pathname === "/auth/login" || pathname === "/auth/register")){
+        return redirectWithCookies("/");
+    }
     return supabaseResponse;
 }
 

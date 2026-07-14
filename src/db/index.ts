@@ -3,20 +3,24 @@ import postgres from "postgres";
 
 import *as schema from "./schema";
 
-if(!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not defined.");
+const databaseUrl = process.env.DATABASE_URL;
+
+if(!databaseUrl){
+    throw new Error("Database_url is not defined");
 }
 
 const globalForDb = globalThis as unknown as{
-    sql?: ReturnType<typeof postgres>;
+    postgresClient?: ReturnType<typeof postgres>;
 };
 
-const sql = globalForDb.sql ?? postgres(process.env.DATABASE_URL,{
+const postgresClient = globalForDb.postgresClient ?? postgres(databaseUrl,{
     prepare: false,
 });
 
 if(process.env.NODE_ENV !== "production"){
-    globalForDb.sql = sql;
+    globalForDb.postgresClient = postgresClient;
 }
 
-export const db = drizzle(sql, {schema});
+export const db = drizzle(postgresClient,{
+    schema,
+});
