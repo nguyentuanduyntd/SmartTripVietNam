@@ -15,6 +15,27 @@
       "when": 1783664582887,
       "tag": "0001_complex_morg",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784032941536,
+      "tag": "0002_enable_pgvector_extension",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784033290913,
+      "tag": "0003_powerful_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784033587955,
+      "tag": "0004_clean_firebird",
+      "breakpoints": true
     }
   ]
 }

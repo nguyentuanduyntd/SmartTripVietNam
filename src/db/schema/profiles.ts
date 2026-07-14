@@ -7,9 +7,15 @@ export const userRoleEnum = pgEnum("user_role",[
 
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
+
   fullName: text("full_name"),
+
   avatarUrl: text("avatar_url"),
+
+  avatarPublicId: text("avatar_public_id"),
+
   role: userRoleEnum("role").notNull().default("user"),
+  
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
