@@ -4,3 +4,7 @@ export * from "./destination_categories";
 export * from "./destinations";
 export * from "./cuisines";
 export * from "./destination_embeddings";
+export * from "./community";
+export * from "./tours";
+export * from "./tour_community_enums";
+export * from "./tour_community_relations";

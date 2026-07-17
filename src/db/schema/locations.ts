@@ -13,8 +13,8 @@ export const locations = pgTable("locations",{
     description: text("description"),
     descriptionEn: text("description_en"),
 
-    createAt: timestamp("created_at", {withTimezone: true}).defaultNow().notNull(),
-    updateAt: timestamp("updated_at",{withTimezone: true}).defaultNow().notNull(),
+    createdAt: timestamp("created_at", {withTimezone: true}).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at",{withTimezone: true}).defaultNow().notNull(),
 
 });
 

@@ -12,7 +12,8 @@ export const destinationCategories = pgTable("destination_categories",{
 
     icon: text("icon"),
 
-    createAt: timestamp("created_at",{withTimezone: true}).defaultNow().notNull(),
+    createdAt: timestamp("created_at",{withTimezone: true}).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at",{withTimezone: true}).defaultNow().notNull(),
 
 });
 
