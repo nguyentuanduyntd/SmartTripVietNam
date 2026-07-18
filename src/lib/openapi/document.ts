@@ -1,6 +1,8 @@
 import { OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import { registerProfileAvatarOpenApi } from "@/src/openapi/profile_avatar.openapi";
 import { openApiRegistry } from "./registry";
+import { registerLocationOpenApi } from "@/src/openapi/location.openapi";
+import { registerDestinationOpenApi } from "@/src/openapi/destination.openapi";
 
 let registered = false;
 
@@ -9,7 +11,9 @@ function registerOpenApiRoutes(){
         return;
     }
     registerProfileAvatarOpenApi(openApiRegistry);
-
+    registerLocationOpenApi(openApiRegistry);
+    registerDestinationOpenApi(openApiRegistry);
+    
     registered =true;
 
 }

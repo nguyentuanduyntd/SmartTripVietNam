@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { CLOUDINARY_FOLDERS, uploadImage } from "@/src/services/image.service";
 
-export const runtime = "node.js";
+export const runtime = "nodejs";
 
 const uploadTypeSchema = z.enum([
     "profile-avatar",

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/src/lib/supabase/server";
 import { ProfileNotFoundError, removeProfileAvatar, replaceProfileAvatar } from "@/src/services/profile.service";
 
-export const runtime = "node.js";
+export const runtime = "nodejs";
 
 function errorResponse(error: unknown){
     if(error instanceof ProfileNotFoundError){
