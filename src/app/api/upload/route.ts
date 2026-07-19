@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { CLOUDINARY_FOLDERS, uploadImage } from "@/src/services/image.service";
+import { requireAdmin } from "@/src/lib/auth/require-admin";
+import { errorResponse } from "@/src/utils/api_response";
 
 export const runtime = "nodejs";
 
@@ -17,6 +19,12 @@ const folderByUploadType = {
 } as const;
 
 export async function POST(request: Request){
+    const authResult = await requireAdmin();
+
+    if(!authResult.ok){
+        return errorResponse(authResult.message, authResult.status);
+    }
+
     try{
         const formData = await request.formData();
         const file = formData.get("file");
@@ -44,11 +52,17 @@ export async function POST(request: Request){
             {data: image,},
             {status: 201},
         );
-    } catch (error){
-        const message = error instanceof Error ? error.message : "Không thể upload ảnh";
+    } catch (error) {
+        console.error("CLOUDINARY UPLOAD ERROR:", error);
+
+        const message =
+            error instanceof Error
+            ? error.message
+            : "Không thể upload ảnh";
+
         return NextResponse.json(
-            {message},
-            {status: 400},
+            { message },
+            { status: 500 },
         );
     }
 }

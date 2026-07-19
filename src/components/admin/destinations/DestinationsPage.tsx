@@ -1,18 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+
+import {
+  DestinationFormDialog,
+  type DestinationFormSubmitData,
+} from "@/src/components/admin/destinations/DestinationFormDialog";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
-import { DataTable, type DataTableColumn, type SortDirection } from "@/src/components/ui/DataTable";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import { DestinationFormDialog } from "@/src/components/admin/destinations/DestinationFormDialog";
+import {
+  DataTable,
+  type DataTableColumn,
+  type SortDirection,
+} from "@/src/components/ui/DataTable";
 import {
   destinationsApi,
   type Destination,
   type DestinationInput,
 } from "@/src/lib/api-client/destinations";
-import { locationsApi, type Location } from "@/src/lib/api-client/locations";
 import { ApiRequestError } from "@/src/lib/api-client/http";
+import {
+  locationsApi,
+  type Location,
+} from "@/src/lib/api-client/locations";
+import {
+  uploadsApi,
+  type UploadedImage,
+} from "@/src/lib/api-client/uploads";
 
 type SortKey = "name" | "updatedAt";
 
@@ -24,62 +44,103 @@ export function DestinationsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [sortDirection, setSortDirection] =
+    useState<SortDirection>(null);
+  const [filterValues, setFilterValues] = useState<
+    Record<string, string>
+  >({});
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
+  const [editingDestination, setEditingDestination] =
+    useState<Destination | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>();
+  const [fieldErrors, setFieldErrors] = useState<
+    Record<string, string[]>
+  >();
 
-  const [deleteTarget, setDeleteTarget] = useState<Destination | null>(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState<Destination | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Chỉ locationId lọc theo server (API hỗ trợ sẵn); tên lọc client-side
-  // trên trang hiện tại để phản hồi tức thì khi gõ.
-  async function loadDestinations() {
+  const locationFilter = filterValues.locationId;
+
+  const loadDestinations = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
+
     try {
       const { data, meta } = await destinationsApi.list({
         page: 1,
         limit: 50,
-        locationId: filterValues.locationId || undefined,
+        locationId: locationFilter || undefined,
       });
+
       setRows(data);
       setTotal(meta.total);
     } catch (error) {
       setErrorMessage(
-        error instanceof ApiRequestError ? error.message : "Không tải được danh sách địa danh",
+        error instanceof ApiRequestError
+          ? error.message
+          : "Không tải được danh sách địa danh",
       );
     } finally {
       setLoading(false);
     }
-  }
+  }, [locationFilter]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data fetching on mount/filter change
-    loadDestinations();
-    locationsApi.list().then(setLocations).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterValues.locationId]);
+    void loadDestinations();
+  }, [loadDestinations]);
+
+  useEffect(() => {
+    let active = true;
+
+    locationsApi
+      .list()
+      .then((data) => {
+        if (active) setLocations(data);
+      })
+      .catch((error) => {
+        console.error("Không tải được danh sách khu vực:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const categoryOptions = useMemo(() => {
     const map = new Map<string, string>();
-    rows.forEach((row) => row.categories.forEach((c) => map.set(c.id, c.name)));
-    return Array.from(map, ([value, label]) => ({ value, label }));
+
+    rows.forEach((row) => {
+      row.categories.forEach((category) => {
+        map.set(category.id, category.name);
+      });
+    });
+
+    return Array.from(map, ([value, label]) => ({
+      value,
+      label,
+    }));
   }, [rows]);
 
   const visibleRows = useMemo(() => {
     let result = rows;
 
     if (filterValues.name) {
-      const keyword = filterValues.name.toLowerCase();
-      result = result.filter((r) => r.name.toLowerCase().includes(keyword));
+      const keyword = filterValues.name.trim().toLowerCase();
+
+      result = result.filter((row) =>
+        row.name.toLowerCase().includes(keyword),
+      );
     }
+
     if (filterValues.categoryId) {
-      result = result.filter((r) =>
-        r.categories.some((c) => c.id === filterValues.categoryId),
+      result = result.filter((row) =>
+        row.categories.some(
+          (category) =>
+            category.id === filterValues.categoryId,
+        ),
       );
     }
 
@@ -87,74 +148,154 @@ export function DestinationsPage() {
       result = [...result].sort((a, b) => {
         const valueA = sortKey === "name" ? a.name : a.updatedAt;
         const valueB = sortKey === "name" ? b.name : b.updatedAt;
-        const compare = valueA.localeCompare(valueB);
-        return sortDirection === "asc" ? compare : -compare;
+        const comparison = valueA.localeCompare(valueB);
+
+        return sortDirection === "asc"
+          ? comparison
+          : -comparison;
       });
     }
 
     return result;
-  }, [rows, filterValues, sortKey, sortDirection]);
+  }, [filterValues, rows, sortDirection, sortKey]);
 
   function handleSortChange(key: string) {
-    if (sortKey !== key) {
-      setSortKey(key as SortKey);
+    const nextKey = key as SortKey;
+
+    if (sortKey !== nextKey) {
+      setSortKey(nextKey);
       setSortDirection("asc");
       return;
     }
-    setSortDirection((prev) =>
-      prev === "asc" ? "desc" : prev === "desc" ? null : "asc",
-    );
-    if (sortDirection === "desc") setSortKey(null);
+
+    if (sortDirection === "asc") {
+      setSortDirection("desc");
+      return;
+    }
+
+    if (sortDirection === "desc") {
+      setSortKey(null);
+      setSortDirection(null);
+      return;
+    }
+
+    setSortDirection("asc");
   }
 
   function handleFilterChange(key: string, value: string) {
-    setFilterValues((prev) => ({ ...prev, [key]: value }));
+    setFilterValues((current) => ({
+      ...current,
+      [key]: value,
+    }));
   }
 
   function openCreateForm() {
     setEditingDestination(null);
     setFieldErrors(undefined);
+    setErrorMessage(null);
     setFormOpen(true);
   }
 
   function openEditForm(destination: Destination) {
     setEditingDestination(destination);
     setFieldErrors(undefined);
+    setErrorMessage(null);
     setFormOpen(true);
   }
 
-  async function handleSubmitForm(input: DestinationInput) {
+  function closeForm() {
+    setFormOpen(false);
+    setEditingDestination(null);
+    setFieldErrors(undefined);
+    setErrorMessage(null);
+  }
+
+  async function handleSubmitForm({
+    input,
+    coverFile,
+    removeCover,
+  }: DestinationFormSubmitData) {
     setSubmitting(true);
     setFieldErrors(undefined);
+    setErrorMessage(null);
+
+    let uploadedImage: UploadedImage | null = null;
+    let destinationSaved = false;
+
     try {
-      if (editingDestination) {
-        await destinationsApi.update(editingDestination.id, input);
-      } else {
-        await destinationsApi.create(input);
+      const payload: DestinationInput = {
+        ...input,
+      };
+
+      if (coverFile) {
+        uploadedImage = await uploadsApi.upload(
+          coverFile,
+          "destination-cover",
+        );
+
+        payload.coverImageUrl = uploadedImage.url;
+        payload.coverImagePublicId = uploadedImage.publicId;
+      } else if (removeCover) {
+        payload.coverImageUrl = null;
+        payload.coverImagePublicId = null;
       }
-      setFormOpen(false);
+
+      if (editingDestination) {
+        await destinationsApi.update(
+          editingDestination.id,
+          payload,
+        );
+      } else {
+        await destinationsApi.create(payload);
+      }
+
+      destinationSaved = true;
+      closeForm();
       await loadDestinations();
     } catch (error) {
+      // Upload thành công nhưng lưu database thất bại:
+      // xóa ảnh vừa upload để tránh ảnh rác trên Cloudinary.
+      if (uploadedImage && !destinationSaved) {
+        await uploadsApi
+          .remove(uploadedImage.publicId)
+          .catch((cleanupError) => {
+            console.error(
+              "Không thể rollback ảnh Cloudinary:",
+              cleanupError,
+            );
+          });
+      }
+
       if (error instanceof ApiRequestError) {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
+      } else {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Không thể lưu địa danh, vui lòng thử lại",
+        );
       }
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Bước xác nhận bắt buộc trước khi xóa — không xóa trực tiếp từ icon.
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
+
     setDeleting(true);
+    setErrorMessage(null);
+
     try {
       await destinationsApi.remove(deleteTarget.id);
       setDeleteTarget(null);
       await loadDestinations();
     } catch (error) {
       setErrorMessage(
-        error instanceof ApiRequestError ? error.message : "Không xóa được địa danh",
+        error instanceof ApiRequestError
+          ? error.message
+          : "Không xóa được địa danh",
       );
     } finally {
       setDeleting(false);
@@ -166,11 +307,16 @@ export function DestinationsPage() {
       key: "name",
       header: "Tên",
       sortable: true,
-      filter: { type: "text", placeholder: "Tìm theo tên…" },
+      filter: {
+        type: "text",
+        placeholder: "Tìm theo tên…",
+      },
       render: (row) => (
         <div>
           <div className="font-medium">{row.name}</div>
-          <div className="font-mono text-[11px] text-admin-muted">{row.slug}</div>
+          <div className="font-mono text-[11px] text-admin-muted">
+            {row.slug}
+          </div>
         </div>
       ),
     },
@@ -179,25 +325,35 @@ export function DestinationsPage() {
       header: "Khu vực",
       filter: {
         type: "select",
-        options: locations.map((l) => ({ value: l.id, label: l.name })),
+        options: locations.map((location) => ({
+          value: location.id,
+          label: location.name,
+        })),
       },
-      render: (row) => locations.find((l) => l.id === row.locationId)?.name ?? "—",
+      render: (row) =>
+        locations.find(
+          (location) => location.id === row.locationId,
+        )?.name ?? "—",
     },
     {
       key: "categoryId",
       header: "Danh mục",
-      filter: { type: "select", options: categoryOptions },
+      filter: {
+        type: "select",
+        options: categoryOptions,
+      },
       render: (row) => (
         <div className="flex flex-wrap gap-1">
           {row.categories.length === 0 && (
             <span className="text-admin-muted">—</span>
           )}
-          {row.categories.map((c) => (
+
+          {row.categories.map((category) => (
             <span
-              key={c.id}
+              key={category.id}
               className="rounded-full bg-admin-moss-light px-2 py-0.5 text-[11px] text-admin-moss"
             >
-              {c.name}
+              {category.name}
             </span>
           ))}
         </div>
@@ -216,27 +372,30 @@ export function DestinationsPage() {
     {
       key: "actions",
       header: "",
+      widthClassName: "w-20",
       render: (row) => (
         <div className="flex justify-end gap-3 text-admin-muted">
           <button
             type="button"
             onClick={() => openEditForm(row)}
+            disabled={submitting || deleting}
             aria-label={`Sửa ${row.name}`}
-            className="hover:text-admin-ink"
+            className="transition hover:text-admin-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil size={16} strokeWidth={1.75} />
           </button>
+
           <button
             type="button"
             onClick={() => setDeleteTarget(row)}
+            disabled={submitting || deleting}
             aria-label={`Xóa ${row.name}`}
-            className="hover:text-admin-seal"
+            className="transition hover:text-admin-seal disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={16} strokeWidth={1.75} />
           </button>
         </div>
       ),
-      widthClassName: "w-20",
     },
   ];
 
@@ -249,7 +408,8 @@ export function DestinationsPage() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="flex items-center gap-1.5 rounded-md border border-admin-gold bg-admin-gold px-3 py-2 text-sm font-medium text-admin-ink hover:opacity-90"
+            disabled={submitting || deleting}
+            className="flex items-center gap-1.5 rounded-md border border-admin-gold bg-admin-gold px-3 py-2 text-sm font-medium text-admin-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={16} strokeWidth={2} />
             Thêm địa danh
@@ -291,7 +451,7 @@ export function DestinationsPage() {
         submitting={submitting}
         fieldErrors={fieldErrors}
         onSubmit={handleSubmitForm}
-        onClose={() => setFormOpen(false)}
+        onClose={closeForm}
       />
 
       <ConfirmDialog

@@ -1,17 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import type { Destination, DestinationInput } from "@/src/lib/api-client/destinations";
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { ImagePlus, Trash2, X } from "lucide-react";
+
+import type {
+  Destination,
+  DestinationInput,
+} from "@/src/lib/api-client/destinations";
 import type { Location } from "@/src/lib/api-client/locations";
+
+export type DestinationFormSubmitData = {
+  input: DestinationInput;
+  coverFile: File | null;
+  removeCover: boolean;
+};
 
 type DestinationFormDialogProps = {
   open: boolean;
   locations: Location[];
-  initialValue: Destination | null; // null = tạo mới, có giá trị = sửa
+  initialValue: Destination | null;
   submitting: boolean;
   fieldErrors?: Record<string, string[]>;
-  onSubmit: (input: DestinationInput) => void;
+  onSubmit: (
+    data: DestinationFormSubmitData,
+  ) => void | Promise<void>;
   onClose: () => void;
 };
 
@@ -21,6 +39,15 @@ const emptyForm: DestinationInput = {
   address: "",
   description: "",
 };
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+];
 
 export function DestinationFormDialog({
   open,
@@ -32,83 +59,226 @@ export function DestinationFormDialog({
   onClose,
 }: DestinationFormDialogProps) {
   const [form, setForm] = useState<DestinationInput>(emptyForm);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  const objectUrlRef = useRef<string | null>(null);
+
+  const revokeObjectUrl = useCallback(() => {
+    if (!objectUrlRef.current) return;
+
+    URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+  }, []);
 
   useEffect(() => {
+    if (!open) {
+      revokeObjectUrl();
+      return;
+    }
+
+    revokeObjectUrl();
+
     if (initialValue) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form state when the target record changes
       setForm({
         locationId: initialValue.locationId,
         name: initialValue.name,
         address: initialValue.address ?? "",
         description: initialValue.description ?? "",
       });
+      setPreviewUrl(initialValue.coverImageUrl);
     } else {
       setForm(emptyForm);
+      setPreviewUrl(null);
     }
-  }, [initialValue, open]);
+
+    setCoverFile(null);
+    setRemoveCover(false);
+    setImageError(null);
+  }, [initialValue, open, revokeObjectUrl]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose, open]);
+
+  useEffect(() => {
+    return () => {
+      revokeObjectUrl();
+    };
+  }, [revokeObjectUrl]);
+
+  function handleCoverChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+
+    // Cho phép chọn lại đúng file vừa chọn trước đó.
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageError(
+        "Chỉ chấp nhận ảnh JPEG, PNG, WebP hoặc AVIF",
+      );
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setImageError("Kích thước ảnh không được vượt quá 5MB");
+      return;
+    }
+
+    revokeObjectUrl();
+
+    const objectUrl = URL.createObjectURL(file);
+    objectUrlRef.current = objectUrl;
+
+    setCoverFile(file);
+    setPreviewUrl(objectUrl);
+    setRemoveCover(false);
+    setImageError(null);
+  }
+
+  function handleRemoveCover() {
+    revokeObjectUrl();
+
+    setCoverFile(null);
+    setPreviewUrl(null);
+    setImageError(null);
+    setRemoveCover(Boolean(initialValue?.coverImageUrl));
+  }
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-admin-ink/40 px-4">
-      <div className="w-full max-w-md rounded-lg border border-admin-line bg-admin-paper-card p-5 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-medium text-admin-ink">
-            {initialValue ? "Sửa địa danh" : "Thêm địa danh mới"}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="destination-form-title"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl border border-admin-line bg-admin-paper-card p-6 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mb-5 flex items-center justify-between">
+          <h2
+            id="destination-form-title"
+            className="font-display text-2xl font-semibold text-admin-ink"
+          >
+            {initialValue
+              ? "Sửa địa danh"
+              : "Thêm địa danh mới"}
           </h2>
+
           <button
             type="button"
             onClick={onClose}
             aria-label="Đóng"
-            className="rounded p-1 text-admin-muted hover:bg-admin-line/50 hover:text-admin-ink"
+            className="rounded-md p-1 text-admin-muted transition hover:bg-admin-paper hover:text-admin-ink"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit(form);
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+
+            void onSubmit({
+              input: form,
+              coverFile,
+              removeCover,
+            });
           }}
-          className="space-y-3.5"
         >
           <div>
-            <label className="mb-1 block text-xs font-medium text-admin-muted">
+            <label
+              htmlFor="destination-name"
+              className="mb-1.5 block text-sm font-medium text-admin-muted"
+            >
               Tên địa danh
             </label>
+
             <input
-              required
+              id="destination-name"
               value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold"
+              required
+              disabled={submitting}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
+              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
               placeholder="Chùa Thiên Mụ"
             />
-            {fieldErrors?.name && (
-              <p className="mt-1 text-xs text-admin-seal">{fieldErrors.name[0]}</p>
+
+            {fieldErrors?.name?.[0] && (
+              <p className="mt-1 text-xs text-admin-seal">
+                {fieldErrors.name[0]}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-admin-muted">
+            <label
+              htmlFor="destination-location"
+              className="mb-1.5 block text-sm font-medium text-admin-muted"
+            >
               Khu vực
             </label>
+
             <select
-              required
+              id="destination-location"
               value={form.locationId}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, locationId: e.target.value }))
+              required
+              disabled={submitting}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  locationId: event.target.value,
+                }))
               }
-              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold"
+              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
             >
               <option value="">— Chọn khu vực —</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
+
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
                 </option>
               ))}
             </select>
-            {fieldErrors?.locationId && (
+
+            {fieldErrors?.locationId?.[0] && (
               <p className="mt-1 text-xs text-admin-seal">
                 {fieldErrors.locationId[0]}
               </p>
@@ -116,46 +286,153 @@ export function DestinationFormDialog({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-admin-muted">
+            <label
+              htmlFor="destination-address"
+              className="mb-1.5 block text-sm font-medium text-admin-muted"
+            >
               Địa chỉ
             </label>
+
             <input
+              id="destination-address"
               value={form.address ?? ""}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, address: e.target.value }))
+              disabled={submitting}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  address: event.target.value,
+                }))
               }
-              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold"
+              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-admin-muted">
+            <label
+              htmlFor="destination-description"
+              className="mb-1.5 block text-sm font-medium text-admin-muted"
+            >
               Mô tả
             </label>
+
             <textarea
-              rows={3}
+              id="destination-description"
+              rows={4}
               value={form.description ?? ""}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, description: e.target.value }))
+              disabled={submitting}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  description: event.target.value,
+                }))
               }
-              className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold"
+              className="w-full resize-y rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div>
+            <span className="mb-1.5 block text-sm font-medium text-admin-muted">
+              Ảnh bìa
+            </span>
+
+            {previewUrl ? (
+              <div className="relative overflow-hidden rounded-lg border border-admin-line bg-admin-paper">
+                {/* Hỗ trợ cả URL Cloudinary và blob URL dùng để preview. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Ảnh bìa địa danh"
+                  className="h-48 w-full object-cover"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleRemoveCover}
+                  disabled={submitting}
+                  className="absolute right-2 top-2 inline-flex items-center gap-1.5 rounded-md bg-black/70 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                  Xóa ảnh
+                </button>
+              </div>
+            ) : (
+              <label
+                htmlFor="destination-cover"
+                className={`flex h-40 flex-col items-center justify-center rounded-lg border border-dashed border-admin-line bg-admin-paper text-admin-muted transition ${
+                  submitting
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:border-admin-gold hover:text-admin-ink"
+                }`}
+              >
+                <ImagePlus size={28} />
+
+                <span className="mt-2 text-sm font-medium">
+                  Chọn ảnh bìa
+                </span>
+
+                <span className="mt-1 text-xs">
+                  JPEG, PNG, WebP, AVIF — tối đa 5MB
+                </span>
+              </label>
+            )}
+
+            <input
+              id="destination-cover"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              disabled={submitting}
+              onChange={handleCoverChange}
+              className="hidden"
+            />
+
+            {previewUrl && (
+              <label
+                htmlFor="destination-cover"
+                className={`mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-admin-gold ${
+                  submitting
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer hover:underline"
+                }`}
+              >
+                <ImagePlus size={15} />
+                Chọn ảnh khác
+              </label>
+            )}
+
+            {coverFile && (
+              <p className="mt-1 break-all text-xs text-admin-muted">
+                Đã chọn: {coverFile.name}
+              </p>
+            )}
+
+            {imageError && (
+              <p className="mt-1 text-xs text-admin-seal">
+                {imageError}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-admin-line px-3 py-1.5 text-sm font-medium text-admin-ink hover:bg-admin-paper"
+              className="rounded-md border border-admin-line px-3 py-1.5 text-sm font-medium text-admin-ink transition hover:bg-admin-paper"
             >
               Hủy
             </button>
+
             <button
               type="submit"
-              disabled={submitting}
-              className="rounded-md border border-admin-gold bg-admin-gold px-3 py-1.5 text-sm font-medium text-admin-ink hover:opacity-90 disabled:opacity-50"
+              disabled={submitting || Boolean(imageError)}
+              className="rounded-md border border-admin-gold bg-admin-gold px-3 py-1.5 text-sm font-medium text-admin-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Đang lưu…" : initialValue ? "Lưu thay đổi" : "Tạo địa danh"}
+              {submitting
+                ? coverFile
+                  ? "Đang upload ảnh…"
+                  : "Đang lưu…"
+                : initialValue
+                  ? "Lưu thay đổi"
+                  : "Tạo địa danh"}
             </button>
           </div>
         </form>

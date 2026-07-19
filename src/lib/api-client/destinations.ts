@@ -16,8 +16,10 @@ export type Destination = {
     latitude: number | null;
     longitude: number | null;
     coverImageUrl: string | null;
+    coverImagePublicId: string | null;
     updatedAt: string;
     categories: DestinationCategory[];
+    
 };
 
 export type DestinationListParams = {
@@ -36,6 +38,8 @@ export type DestinationInput = {
   address?: string | null;
   description?: string | null;
   categoryIds?: string[];
+  coverImageUrl?: string | null;
+  coverImagePublicId?: string | null;
 };
 
 function toQueryString(params: DestinationListParams) {

@@ -4,6 +4,7 @@ import {createDestination,deleteDestination,findCategoriesByDestinationIds,findD
   findDestinationById,findDestinations,findExistingCategoryIds,updateDestination,type DestinationFilters,} from "@/src/repositories/destination.repository";
 import type {CreateDestinationRequest,UpdateDestinationRequest,} from "@/src/schemas/destination.schema";
 import { slugify } from "@/src/utils/slugify";
+import { deleteImage } from "./image.service";
 
 export class DestinationNotFoundError extends Error {
   constructor() {
@@ -68,6 +69,21 @@ async function attachCategories<T extends { id: string }>(rows: T[]) {
   }));
 }
 
+async function deleteImageSafely(
+  publicId: string | null | undefined,
+) {
+  if (!publicId) return;
+
+  try {
+    await deleteImage(publicId);
+  } catch (error) {
+    console.error(
+      `Không thể xóa ảnh Cloudinary "${publicId}":`,
+      error,
+    );
+  }
+}
+
 export async function listDestinations(filters: DestinationFilters) {
   const { rows, total } = await findDestinations(filters);
   const data = await attachCategories(rows);
@@ -130,12 +146,14 @@ export async function updateDestinationService(
   input: UpdateDestinationRequest,
 ) {
   const existing = await findDestinationById(id);
+
   if (!existing) {
     throw new DestinationNotFoundError();
   }
 
   if (input.locationId) {
     const location = await findLocationById(input.locationId);
+
     if (!location) {
       throw new LocationNotFoundForDestinationError();
     }
@@ -149,11 +167,30 @@ export async function updateDestinationService(
     await ensureCategoriesExist(input.categoryIds);
   }
 
+  const oldCoverPublicId = existing.coverImagePublicId;
+
+  const coverWasChanged =
+    input.coverImagePublicId !== undefined &&
+    input.coverImagePublicId !== oldCoverPublicId;
+
   const { categoryIds, ...rest } = input;
 
-  const updated = await updateDestination(id, rest, categoryIds);
+  const updated = await updateDestination(
+    id,
+    rest,
+    categoryIds,
+  );
+
   if (!updated) {
     throw new DestinationNotFoundError();
+  }
+
+  /*
+   * Database đã cập nhật thành công mới xóa ảnh cũ.
+   * Nếu xóa Cloudinary thất bại thì vẫn giữ kết quả update DB.
+   */
+  if (coverWasChanged && oldCoverPublicId) {
+    await deleteImageSafely(oldCoverPublicId);
   }
 
   const [withCategories] = await attachCategories([updated]);
@@ -163,14 +200,18 @@ export async function updateDestinationService(
 
 export async function deleteDestinationService(id: string) {
   const existing = await findDestinationById(id);
+
   if (!existing) {
     throw new DestinationNotFoundError();
   }
 
   const deleted = await deleteDestination(id);
+
   if (!deleted) {
     throw new DestinationNotFoundError();
   }
+
+  await deleteImageSafely(existing.coverImagePublicId);
 
   return deleted;
 }
