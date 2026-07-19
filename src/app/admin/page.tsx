@@ -1,7 +1,5 @@
-export default function AdminPage() {
-  return (
-    <main>
-      <h1>Admin Dashboard</h1>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+export default function AdminRootPage() {
+  redirect("/admin/destinations");
 }
