@@ -22,7 +22,7 @@ const plexMono = IBM_Plex_Mono({
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} flex min-h-screen bg-admin-paper font-sans text-admin-ink`}
+      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} flex h-screen overflow-hidden bg-admin-paper font-sans text-admin-ink`}
       style={
         {
           "--font-sans": "var(--font-plex-sans)",
@@ -31,7 +31,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
     >
       <AdminSidebar />
-      <main className="flex-1 px-10 py-8">{children}</main>
+
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-10 py-8">
+        {children}
+      </main>
     </div>
   );
 }

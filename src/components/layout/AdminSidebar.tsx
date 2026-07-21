@@ -33,7 +33,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-admin-indigo px-4 py-7 text-[#C8CDD3]">
+    <aside className="h-screen w-60 flex-shrink-0 overflow-y-auto bg-admin-indigo px-4 py-7 text-[#C8CDD3]">
       <div className="mb-6 flex items-center gap-2.5 border-b border-white/10 pb-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-admin-seal font-display text-base font-semibold text-admin-seal-light">
           S

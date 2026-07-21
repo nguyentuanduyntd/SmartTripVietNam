@@ -545,12 +545,9 @@ async function seedCuisines(destinationMap: Map<string, string>) {
       CUISINES_DATA.map(({ slug, name, nameEn, description, avgPrice }) => ({
         slug,
         name,
-        // Lưu ý: cột này trong schema hiện tại đặt tên field JS là "name_en"
-        // (snake_case), không phải "nameEn" như các bảng khác — giữ nguyên
-        // để khớp cuisines.ts, nhưng nên coi đây là điểm cần chuẩn hoá lại.
-        name_en: nameEn,
+        nameEn,
         description,
-        avgPrice,
+        avgPrice: Number(avgPrice),
       })),
     )
     .onConflictDoNothing({ target: cuisines.slug });

@@ -10,12 +10,14 @@ const uploadTypeSchema = z.enum([
     "profile-avatar",
     "destination-cover",
     "destination-gallery",
+    "cuisine-cover",
 ]);
 
 const folderByUploadType = {
     "profile-avatar": CLOUDINARY_FOLDERS.profiles,
     "destination-cover": CLOUDINARY_FOLDERS.destinationCovers,
     "destination-gallery": CLOUDINARY_FOLDERS.destinationGallery,
+    "cuisine-cover": CLOUDINARY_FOLDERS.cuisineCovers,
 } as const;
 
 export async function POST(request: Request){

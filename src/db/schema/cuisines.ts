@@ -6,17 +6,20 @@ export const cuisines = pgTable("cuisines",{
     id: uuid("id").primaryKey().defaultRandom(),
 
     name: text("name").notNull(),
-    name_en: text("name_en"),
+    nameEn: text("name_en"),
 
     slug: text("slug").notNull().unique(),
 
     description: text("description"),
     descriptionEn: text("description_en"),
 
-    avgPrice: numeric("avg_price", {precision: 12, scale: 0}),
+    avgPrice: numeric("avg_price", {precision: 12, scale: 0, mode: "number"}),
 
     coverImageUrl: text("cover_image_url"),
     coverImagePublicId: text("cover_image_public_id"),  
+
+    createdAt: timestamp("created_at", {withTimezone: true}).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", {withTimezone: true}).defaultNow().notNull(),
 
 });
 
@@ -25,6 +28,9 @@ export const cuisinesToDestinations = pgTable("cuisines_to_destinations",{
     destinationId: uuid("destination_id").notNull().references(() => destinations.id,{onDelete:"cascade"}),
     },
     (table) => [ primaryKey({columns: [table.cuisineId, table.destinationId]}),
+
+    index("cuisines_to_destinations_cuisine_id_idx").on(table.cuisineId),
+    index("cuisines_to_destinations_destination_id_idx").on(table.destinationId),
     ],
 );
 

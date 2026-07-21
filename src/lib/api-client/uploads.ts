@@ -1,6 +1,6 @@
 import { apiFetch, ApiRequestError } from "./http";
 
-export type UploadType = | "profile-avatar" | "destination-cover" | "destination-gallery";
+export type UploadType = | "profile-avatar" | "destination-cover" | "destination-gallery" | "cuisine-cover";
 
 export type UploadedImage = {
     url: string;
