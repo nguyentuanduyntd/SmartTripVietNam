@@ -1,55 +1,102 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+    --background: #fffaf1;
+    --foreground: #173a3b;
 
-  --admin-ink: #2a2823;
-  --admin-paper: #ede9e1;
-  --admin-paper-card: #f6f4ee;
-  --admin-line: #d9d3c4;
-  --admin-indigo: #1b2430;
-  --admin-indigo-2: #242f3e;
-  --admin-seal: #a6303f;
-  --admin-seal-light: #f3dee0;
-  --admin-gold: #b98b3e;
-  --admin-gold-light: #f2e6cc;
-  --admin-moss: #4f6d5a;
-  --admin-moss-light: #dfe7df;
-  --admin-muted: #8a8575;
+    --admin-ink: #2a2823;
+    --admin-paper: #ede9e1;
+    --admin-paper-card: #f6f4ee;
+    --admin-line: #d9d3c4;
+    --admin-indigo: #1b2430;
+    --admin-indigo-2: #242f3e;
+    --admin-seal: #a6303f;
+    --admin-seal-light: #f3dee0;
+    --admin-gold: #b98b3e;
+    --admin-gold-light: #f2e6cc;
+    --admin-moss: #4f6d5a;
+    --admin-moss-light: #dfe7df;
+    --admin-muted: #8a8575;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-sans: var(--font-body);
+    --font-display: var(--font-display);
 
-  --color-admin-ink: var(--admin-ink);
-  --color-admin-paper: var(--admin-paper);
-  --color-admin-paper-card: var(--admin-paper-card);
-  --color-admin-line: var(--admin-line);
-  --color-admin-indigo: var(--admin-indigo);
-  --color-admin-indigo-2: var(--admin-indigo-2);
-  --color-admin-seal: var(--admin-seal);
-  --color-admin-seal-light: var(--admin-seal-light);
-  --color-admin-gold: var(--admin-gold);
-  --color-admin-gold-light: var(--admin-gold-light);
-  --color-admin-moss: var(--admin-moss);
-  --color-admin-moss-light: var(--admin-moss-light);
-  --color-admin-muted: var(--admin-muted);
-  --font-display: var(--font-fraunces);
+    --color-admin-ink: var(--admin-ink);
+    --color-admin-paper: var(--admin-paper);
+    --color-admin-paper-card: var(--admin-paper-card);
+    --color-admin-line: var(--admin-line);
+    --color-admin-indigo: var(--admin-indigo);
+    --color-admin-indigo-2: var(--admin-indigo-2);
+    --color-admin-seal: var(--admin-seal);
+    --color-admin-seal-light: var(--admin-seal-light);
+    --color-admin-gold: var(--admin-gold);
+    --color-admin-gold-light: var(--admin-gold-light);
+    --color-admin-moss: var(--admin-moss);
+    --color-admin-moss-light: var(--admin-moss-light);
+    --color-admin-muted: var(--admin-muted);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    background: var(--background);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body), Arial, Helvetica, sans-serif;
+    text-rendering: optimizeLegibility;
+}
+
+a,
+button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button {
+    cursor: pointer;
+}
+
+::selection {
+    background: #f25f4b;
+    color: #ffffff;
+}
+
+.home-hero-image {
+    position: relative;
+}
+
+@keyframes homeFade {
+    from {
+        opacity: 0.35;
+        transform: scale(1.035);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

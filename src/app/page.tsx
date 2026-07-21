@@ -1,10 +1,5 @@
-import { AuthStatus } from '@/src/components/common/AuthStatus';
+import {HomePage} from "@/src/components/home/HomePage";
 
-export default function Home(){
-  return (
-    <main>
-      <h1>SmartTripVietNam</h1>
-      <AuthStatus/>
-    </main>
-  );
+export default function Home() {
+    return <HomePage />;
 }
