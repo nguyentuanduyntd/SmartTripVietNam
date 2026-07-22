@@ -109,7 +109,7 @@ export const cuisineListResponseSchema = z.object({
     data: z.array(cuisineSchema),
     meta: z.object({
         page: z.number().int(),
-        litmit: z.number().int(),
+        limit: z.number().int(),
         total: z.number().int(),
     }),
 }).meta({id : "CuisineListResponse"});

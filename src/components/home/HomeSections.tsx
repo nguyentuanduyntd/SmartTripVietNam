@@ -2,9 +2,9 @@
 import Link from "next/link";
 import {ArrowRight,Bot,ChevronRight,Clock3,Heart,MapPin,MessageCircle,Route,Sparkles,Star,} from "lucide-react";
 import {useMemo,useState,} from "react";
-import {BRAND_FEATURES,CITY_EDITORIAL,CUISINES,EXPERIENCE_ITEMS,FEATURED_DESTINATIONS,HOME_CITIES,JOURNEYS,STORIES,type CityId,} from "@/src/constants/home-data";
+import {BRAND_FEATURES,CITY_EDITORIAL,CUISINES,EXPERIENCE_ITEMS,FEATURED_DESTINATIONS,HOME_CITIES,JOURNEYS,STORIES,type CityId, type CuisineCardData, type DestinationCardData} from "@/src/constants/home-data";
 import {CloudinaryVisual,} from "./CloudinaryVisual";
-
+import type { CityEditorialCardData } from "@/src/lib/home-data-mapper";
 const CITY_FILTERS: Array<{
     id: "all" | CityId;
     label: string;
@@ -63,7 +63,13 @@ function SectionHeading({
     );
 }
 
-export function CityEditorialSection() {
+interface CityEditorialSectionProps {
+    items?: readonly CityEditorialCardData[];
+}
+
+export function CityEditorialSection({
+    items = CITY_EDITORIAL,
+}: CityEditorialSectionProps) {
     return (
         <section
             id="kham-pha"
@@ -96,7 +102,7 @@ export function CityEditorialSection() {
                 </div>
 
                 <div className="mt-14 grid gap-5 lg:grid-cols-3">
-                    {CITY_EDITORIAL.map(
+                    {items.map(
                         (item, index) => {
                             const Icon = item.icon;
 
@@ -157,19 +163,21 @@ export function CityEditorialSection() {
     );
 }
 
-export function FeaturedDestinationsSection() {
-    const [filter, setFilter] =
-        useState<"all" | CityId>("all");
+interface FeaturedDestinationsSectionProps {
+    items?: readonly DestinationCardData[];
+}
+
+export function FeaturedDestinationsSection({
+    items = FEATURED_DESTINATIONS,
+}: FeaturedDestinationsSectionProps) {
+    const [filter, setFilter] = useState<"all" | CityId>("all");
 
     const visibleItems = useMemo(
         () =>
             filter === "all"
-                ? FEATURED_DESTINATIONS
-                : FEATURED_DESTINATIONS.filter(
-                      (item) =>
-                          item.city === filter,
-                  ),
-        [filter],
+                ? items
+                : items.filter((item) => item.city === filter),
+        [filter, items],
     );
 
     return (
@@ -289,7 +297,13 @@ export function FeaturedDestinationsSection() {
     );
 }
 
-export function CuisineSection() {
+interface CuisineSectionProps {
+    items?: readonly CuisineCardData[];
+}
+
+export function CuisineSection({
+    items = CUISINES,
+}: CuisineSectionProps) {
     return (
         <section
             id="am-thuc"
@@ -338,7 +352,7 @@ export function CuisineSection() {
                 </div>
 
                 <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    {CUISINES.map(
+                    {items.map(
                         (item, index) => (
                             <Link
                                 key={item.name}

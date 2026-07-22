@@ -1,22 +1,31 @@
 "use client";
 import Link from "next/link";
 import {ArrowDown,ArrowRight,MapPin,Sparkles,} from "lucide-react";
-import {HOME_CITIES,type CityId,} from "@/src/constants/home-data";
+import {HOME_CITIES,type CityId, type HomeCity } from "@/src/constants/home-data";
 import {CloudinaryVisual,} from "./CloudinaryVisual";
 
 interface HeroSectionProps {
+    cities?: readonly HomeCity[];
     activeCityId: CityId;
     onCityChange: (cityId: CityId) => void;
 }
 
 export function HeroSection({
+    cities = HOME_CITIES,
     activeCityId,
     onCityChange,
 }: HeroSectionProps) {
+    const cityList =
+        cities && cities.length > 0 ? cities : HOME_CITIES;
+
     const activeCity =
-        HOME_CITIES.find(
-            (city) => city.id === activeCityId,
-        ) ?? HOME_CITIES[0];
+        cityList.find((city) => city.id === activeCityId) ??
+        cityList[0] ??
+        HOME_CITIES[0];
+
+    if (!activeCity) {
+        return null;
+    }
 
     return (
         <section className="relative min-h-[860px] overflow-hidden bg-[#f7efe1] pt-24 lg:min-h-[900px] lg:pt-0">
@@ -81,7 +90,7 @@ export function HeroSection({
                     </div>
 
                     <div className="mt-10 grid max-w-[650px] grid-cols-1 gap-3 sm:grid-cols-3">
-                        {HOME_CITIES.map((city) => {
+                        {cityList.map((city) => {
                             const Icon = city.icon;
                             const isActive =
                                 city.id === activeCityId;
