@@ -57,37 +57,16 @@ function getLoginErrorMessage(message: string): string {
 
 export default function LoginPage() {
     const router = useRouter();
-
-    const supabase = useMemo(
-        () => createClient(),
-        [],
-    );
-
-    const loginVisual =
-        HOME_CITIES.find(
-            (city) => city.id === "hoi-an",
-        ) ?? HOME_CITIES[0];
-
+    const supabase = useMemo(() => createClient(),[],);
+    const loginVisual =HOME_CITIES.find((city) => city.id === "hoi-an",) ?? HOME_CITIES[0];
     const [email, setEmail] = useState("");
-    const [password, setPassword] =
-        useState("");
+    const [password, setPassword] =useState("");
+    const [showPassword,setShowPassword,] = useState(false);
+    const [error, setError] =useState<string | null>(null);
+    const [isSubmitting,setIsSubmitting,] = useState(false);
+    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
-    const [
-        showPassword,
-        setShowPassword,
-    ] = useState(false);
-
-    const [error, setError] =
-        useState<string | null>(null);
-
-    const [
-        isSubmitting,
-        setIsSubmitting,
-    ] = useState(false);
-
-    async function handleLogin(
-        event: FormEvent<HTMLFormElement>,
-    ) {
+    async function handleLogin(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         if (isSubmitting) {
@@ -133,6 +112,35 @@ export default function LoginPage() {
             );
         } finally {
             setIsSubmitting(false);
+        }
+    }
+
+    async function handleGoogleLogin(){
+        if(isSubmitting || isGoogleSubmitting){
+            return;
+        }
+        setError(null);
+        setIsGoogleSubmitting(true);
+
+        try{
+            const {error: gooleError} = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                    queryParams: {
+                        prompt: "select_account",
+                    },
+                },
+            });
+            if(gooleError){
+                console.error("Lỗi đăng nhập Google: ", gooleError);
+                setError("Không thể đăng nhập bằng Google. Vui lòng thử lại.");
+                setIsGoogleSubmitting(false);
+            }
+        } catch (caughtError){
+            console.error("Lỗi đăng nhập Google: ", caughtError);
+            setError("Đã xảy ra lỗi khi kết nối với Google. Vui lòng thử lại.");
+            setIsGoogleSubmitting(false);
         }
     }
 
@@ -451,6 +459,39 @@ export default function LoginPage() {
                                     ) : null}
                                 </button>
                             </form>
+
+                            <div className="my-7 flex items-center gap-4">
+                                <span className="h-px flex-1 bg-[#ddd2c1]" />
+
+                                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#87918e]">
+                                    Hoặc tiếp tục với
+                                </span>
+
+                                <span className="h-px flex-1 bg-[#ddd2c1]" />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick ={handleGoogleLogin}
+                                disabled={isSubmitting || isGoogleSubmitting}
+                                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#d8cdbc] bg-white px-6 font-bold text-[#294748] transition-all hover:-translate-y-0.5 hover:border-[#b9aa96] hover:bg-[#fffdf8] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+                            >
+                                <svg
+                                    width="21"
+                                    height="21"
+                                    viewBox ="0 0 24 24"
+                                    aria-hidden = "true"
+                                >
+                                    <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"/>
+                                    <path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.62-2.36l-3.24-2.54c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"/>
+                                    <path fill="#FBBC05" d="M6.39 13.93A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.55l3.35-2.62Z"/>
+                                    <path fill="#EA4335" d="M12 5.94c1.47 0 2.79.51 3.83 1.5l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"/>
+                                </svg>
+
+                                {isGoogleSubmitting ? "Đang kết nối Google..." : "Tiếp tục với Google"}
+
+                            </button>
+
 
                             <div className="my-7 flex items-center gap-4">
                                 <span className="h-px flex-1 bg-[#ddd2c1]" />
