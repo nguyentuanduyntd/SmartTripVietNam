@@ -34,6 +34,7 @@ export default function RootLayout({
     return (
         <html
             lang="vi"
+            data-scroll-behavior="smooth"
             className={`${bodyFont.variable} ${displayFont.variable}`}
         >
             <body>{children}</body>

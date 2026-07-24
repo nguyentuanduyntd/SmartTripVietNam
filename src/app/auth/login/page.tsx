@@ -98,7 +98,7 @@ export default function LoginPage() {
         setIsSubmitting(true);
 
         try {
-            const { error: loginError } =
+            const { data, error: loginError } =
                 await supabase.auth.signInWithPassword({
                     email: email.trim(),
                     password,
@@ -114,8 +114,14 @@ export default function LoginPage() {
                 return;
             }
 
-            router.replace("/");
-            router.refresh();
+            if(!data.session){
+                setError("Đăng nhập thành công nhưng chưa tạo được phiên làm việc.");
+                return;
+            }
+
+            window.location.assign("/");
+            // router.replace("/");
+            // router.refresh();
         } catch (caughtError) {
             console.error(
                 "Lỗi đăng nhập:",
