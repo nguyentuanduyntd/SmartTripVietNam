@@ -4,7 +4,6 @@ import { LocationInUseError, LocationNotFoundError, LocationSlugConflictError,
     deleteLocationService, getLocationById, updateLocationService,
 } from "@/src/services/location.service";
 import { errorResponse, successResponse, zodErrorToFieldErrors } from "@/src/utils/api_response";
-import { error } from "console";
 
 type RouteContext = {params: Promise<{id : string}>};
 

@@ -111,7 +111,7 @@ export function HomeFooter() {
                             </Link>
 
                             <Link
-                                href="/login"
+                                href="/auth/login"
                                 className="hover:text-white"
                             >
                                 Đăng nhập

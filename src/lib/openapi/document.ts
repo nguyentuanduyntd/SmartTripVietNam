@@ -3,6 +3,7 @@ import { registerProfileAvatarOpenApi } from "@/src/openapi/profile_avatar.opena
 import { openApiRegistry } from "./registry";
 import { registerLocationOpenApi } from "@/src/openapi/location.openapi";
 import { registerDestinationOpenApi } from "@/src/openapi/destination.openapi";
+import { registerCuisineOpenApi } from "@/src/openapi/cuisine.openapi";
 
 let registered = false;
 
@@ -13,7 +14,8 @@ function registerOpenApiRoutes(){
     registerProfileAvatarOpenApi(openApiRegistry);
     registerLocationOpenApi(openApiRegistry);
     registerDestinationOpenApi(openApiRegistry);
-    
+    registerCuisineOpenApi(openApiRegistry);
+
     registered =true;
 
 }
@@ -39,13 +41,19 @@ export function generateOpenApiDocument(){
          tags: [
         {
             name: "Profile",
-            description:
-            "Các chức năng liên quan đến hồ sơ người dùng",
+            description: "Các chức năng liên quan đến hồ sơ người dùng",
         },
         {
             name: "Destinations",
-            description:
-            "Quản lý địa điểm du lịch và hình ảnh",
+            description: "Quản lý địa điểm du lịch và hình ảnh",
+        },
+        {
+            name: "Locations",
+            description: "Quản lý khu vực du lịch (Huế, Đà Nẵng, Hội An)",
+        },
+        {
+            name: "Cuisines",
+            description: "Quản lý món ăn đặc trưng và hình ảnh",
         },
         ],
     });

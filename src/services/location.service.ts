@@ -2,7 +2,6 @@ import "server-only";
 import { countDestinationByLocation,createLocation, deleteLocation, findAllLocations, findLocationById, findLocationBySlug, updateLocation } from "../repositories/location.repository";
 import type { CreateLocationRequest, UpdateLocationRequest } from "../schemas/location.schema";
 import { slugify } from "../utils/slugify";
-import { en } from "zod/locales";
 
 export class LocationNotFoundError extends Error {
     constructor(){

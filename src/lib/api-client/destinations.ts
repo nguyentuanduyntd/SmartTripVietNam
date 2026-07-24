@@ -3,6 +3,9 @@ import { apiFetch, apiFetchPaginated } from "./http";
 export type DestinationCategory = {
     id: string;
     name: string;
+    nameEn: string | null;
+    slug: string;
+    icon: string | null;
 };
 
 export type Destination = {
@@ -13,10 +16,13 @@ export type Destination = {
     slug: string;
     address: string | null;
     description: string | null;
+    history: string | null;
+    historyEn: string | null;
     latitude: number | null;
     longitude: number | null;
     coverImageUrl: string | null;
     coverImagePublicId: string | null;
+    createdAt: string;
     updatedAt: string;
     categories: DestinationCategory[];
     
