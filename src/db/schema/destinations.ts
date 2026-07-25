@@ -1,7 +1,6 @@
 import { doublePrecision,integer ,pgTable, primaryKey,index, uniqueIndex, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { destinationCategories } from "./destination_categories";
 import { locations } from "./locations";
-import { CONTENT_STATUSES } from "@/src/constants/tour_community";
 export const destinations = pgTable("destinations",{
 
     id: uuid("id").primaryKey().defaultRandom(),

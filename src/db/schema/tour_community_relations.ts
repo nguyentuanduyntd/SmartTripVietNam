@@ -4,7 +4,7 @@ import { destinations } from "./destinations";
 import { locations } from "./locations";
 import { profiles } from "./profiles";
 import {communityPosts,postComments,postDestinations,postImages,postLikes,} from "./community";
-import { TourComment, tourDays, tourItems,tourComments, tourLikes, tourMealCuisines, tourMeals, tours } from "./tours";
+import { tourDays, tourItems,tourComments, tourLikes, tourMealCuisines, tourMeals, tours } from "./tours";
 
 export const toursRelations = relations(tours, ({ one, many }) => ({
   startLocation: one(locations, {

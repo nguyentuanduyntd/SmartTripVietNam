@@ -58,16 +58,50 @@ export interface CuisineApiItem {
     updatedAt: string;
 }
 
+export type TourStatus = "draft" | "published" | "hidden";
+
+export interface TourStartLocationApiItem {
+    id: string;
+    name: string;
+    nameEn: string | null;
+    slug: string;
+}
+
+export interface TourApiItem {
+    id: string;
+    name: string;
+    nameEn: string | null;
+    slug: string;
+    description: string | null;
+    descriptionEn: string | null;
+    coverImageUrl: string | null;
+    coverImagePublicId: string | null;
+    durationDays: number;
+    durationNights: number;
+    estimatedPrice: string | null;
+    startLocationId: string;
+    meetingPoint: string | null;
+    status: TourStatus;
+    publishedAt: string | null;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    startLocation: TourStartLocationApiItem;
+}
+
+
 export interface HomeApiData {
     locations: LocationApiItem[];
     destinations: DestinationApiItem[];
     cuisines: CuisineApiItem[];
+    tours: TourApiItem[];
 }
 
 export interface ApiSuccessResponse<T> {
     success: true;
     data: T;
     message?: string;
+    meta?: Record<string, unknown>;
 }
 
 export interface ApiErrorResponse {

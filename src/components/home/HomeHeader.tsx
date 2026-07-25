@@ -213,11 +213,7 @@ export function HomeHeader() {
         let isMounted = true;
 
         if (!user) {
-            setProfile(null);
-
-            return () => {
-                isMounted = false;
-            };
+            return;
         }
 
         async function loadProfile() {

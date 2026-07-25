@@ -1,9 +1,8 @@
-import { Summary, type LucideIcon } from "lucide-react";
-import { CITY_EDITORIAL, CUISINES, FEATURED_DESTINATIONS, HOME_CITIES,
-    type CityId, type CuisineCardData, type DestinationCardData, type HomeCity
+import type { LucideIcon } from "lucide-react";
+import { CITY_EDITORIAL, CUISINES, FEATURED_DESTINATIONS, HOME_CITIES,HOME_MEDIA, JOURNEYS,
+    type CityId, type CuisineCardData, type DestinationCardData, type HomeCity, type JourneyCardData
 } from "../constants/home-data";
-import type { CuisineApiItem, DestinationApiItem, HomeApiData, LocationApiItem } from "../types/home-api";
-import { CityEditorialSection } from "../components/home/HomeSections";
+import type { CuisineApiItem, DestinationApiItem, HomeApiData, LocationApiItem, TourApiItem } from "../types/home-api";
 
 export interface CityEditorialCardData {
     city: string;
@@ -20,7 +19,10 @@ export interface HomeViewData {
     cityEditorial: CityEditorialCardData[];
     featuredDestinations: DestinationCardData[];
     cuisines: CuisineCardData[];
+    journeys: JourneyCardData[];
 }
+
+const JOURNEY_TONES = ["coral","teal","gold",] as const;
 
 function getCityIdFromLocationSlug(
     slug: string,
@@ -46,16 +48,53 @@ function getLocationByCityId(
 function getCityFallBackImage(
     cityId: CityId,
 ): string {
-    return(HOME_CITIES.find((city)=> city.id === cityId,)?.image ?? HOME_CITIES[0].image);
+    return (HOME_CITIES.find((city) => city.id === cityId)?.image ?? HOME_MEDIA.heroHue);
 }
 
-function formatPrice(
+function formatCuisinePrice(
     price: number | null,
 ): string {
-    
-    if(price === null){return "Giá tham khảo";}
-    
-    return `Khoảng ${new Intl.NumberFormat("vi-VN",).format(price)}đ`;
+    if (price === null) {
+        return "Giá tham khảo";
+    }
+
+    return `Khoảng ${new Intl.NumberFormat(
+        "vi-VN",
+    ).format(price)}đ`;
+}
+
+function formatTourPrice(
+    price: string | null,
+): string {
+    if (!price) {
+        return "Liên hệ";
+    }
+
+    const numericPrice = Number(price);
+
+    if (
+        !Number.isFinite(numericPrice) ||
+        numericPrice < 0
+    ) {
+        return "Liên hệ";
+    }
+
+    return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+        maximumFractionDigits: 0,
+    }).format(numericPrice);
+}
+
+function formatTourDuration(
+    durationDays: number,
+    durationNights: number,
+): string {
+    if (durationNights > 0) {
+        return `${durationDays} ngày ${durationNights} đêm`;
+    }
+
+    return `${durationDays} ngày`;
 }
 
 function createDynamicCities(
@@ -84,7 +123,15 @@ function createCityEditorial(
     return CITY_EDITORIAL.map(
         (staticItem, index) => {
             const staticCity = HOME_CITIES[index];
-            const location = getLocationByCityId(locations, staticCity.id,);
+
+            if (!staticCity) {
+                return {
+                    ...staticItem,
+                };
+            }
+
+            const location = getLocationByCityId(locations, staticCity.id);
+
             const destinationCount = location ? destinations.filter((destination) => destination.locationId === location.id,).length : 0;
 
             return {
@@ -167,7 +214,7 @@ function createCuisineCards(
         return {
             name: cuisine.name,
             city: uniqueLocationNames.length> 0 ? uniqueLocationNames.join(",",) : "Miền Trung",
-            price: formatPrice(cuisine.avgPrice),
+            price: formatCuisinePrice(cuisine.avgPrice),
             description: cuisine.description ??  `Khám phá hương vị ${cuisine.name}.`,
             image: cuisine.coverImageUrl ?? getCityFallBackImage(firstCityId ?? "hue"),
             imageAlt: cuisine.name,
@@ -178,6 +225,54 @@ function createCuisineCards(
     return mappedItems.length > 0 ? mappedItems.slice(0, 4) : CUISINES;
 }
 
+function createJourneyCards(
+    tours: TourApiItem[],
+): JourneyCardData[] {
+    if (tours.length === 0) {
+        return JOURNEYS;
+    }
+
+    return tours.slice(0, 3).map(
+        (tour, index) => {
+            const cityId =
+                getCityIdFromLocationSlug(
+                    tour.startLocation.slug,
+                );
+
+            const tone =
+                JOURNEY_TONES[
+                    index % JOURNEY_TONES.length
+                ] ?? "coral";
+
+            return {
+                id: tour.id,
+                duration: formatTourDuration(
+                    tour.durationDays,
+                    tour.durationNights,
+                ),
+                title: tour.name,
+                description:
+                    tour.description ??
+                    `Khám phá hành trình ${tour.name} khởi hành từ ${tour.startLocation.name}.`,
+                startLocation:
+                    tour.startLocation.name,
+                price: formatTourPrice(
+                    tour.estimatedPrice,
+                ),
+                image:
+                    tour.coverImageUrl ??
+                    getCityFallBackImage(
+                        cityId ?? "hue",
+                    ),
+                imageAlt: tour.name,
+                tone,
+                href: `/tours/${tour.slug}`,
+            };
+        },
+    );
+}
+
+
 export function createHomeViewData(
     apiData: HomeApiData,
 ): HomeViewData{
@@ -186,6 +281,7 @@ export function createHomeViewData(
         cityEditorial: createCityEditorial(apiData.locations, apiData.destinations),
         featuredDestinations: createDestinationCards(apiData.locations, apiData.destinations),
         cuisines: createCuisineCards(apiData.locations, apiData.destinations, apiData.cuisines),
+        journeys: createJourneyCards(apiData.tours),
     };
 }
 
@@ -195,5 +291,6 @@ export function getFallbackHomeViewData(): HomeViewData {
         cityEditorial:CITY_EDITORIAL.map((item) => ({...item,})),
         featuredDestinations:FEATURED_DESTINATIONS,
         cuisines: CUISINES,
+        journeys: JOURNEYS,
     };
 }

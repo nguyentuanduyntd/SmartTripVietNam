@@ -30,13 +30,42 @@ type CuisineFormState = {
 };
 
 const emptyForm: CuisineFormState = {
-  name: "",
-  nameEn: "",
-  description: "",
-  descriptionEn: "",
-  avgPrice: "",
-  destinationIds: [],
+    name: "",
+    nameEn: "",
+    description: "",
+    descriptionEn: "",
+    avgPrice: "",
+    destinationIds: [],
 };
+
+function createInitialForm(
+    initialValue: Cuisine | null,
+): CuisineFormState {
+    if (!initialValue) {
+        return {
+            ...emptyForm,
+            destinationIds: [],
+        };
+    }
+
+    return {
+        name: initialValue.name,
+        nameEn: initialValue.nameEn ?? "",
+        description:
+            initialValue.description ?? "",
+        descriptionEn:
+            initialValue.descriptionEn ?? "",
+        avgPrice:
+            initialValue.avgPrice !== null
+                ? String(initialValue.avgPrice)
+                : "",
+        destinationIds:
+            initialValue.destinations.map(
+                (destination) =>
+                    destination.id,
+            ),
+    };
+}
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -56,9 +85,9 @@ export function CuisineFormDialog({
   onSubmit,
   onClose,
 }: CuisineFormDialogProps) {
-  const [form, setForm] = useState<CuisineFormState>(emptyForm);
+  const [form, setForm] = useState<CuisineFormState>(() => createInitialForm(initialValue));
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() => initialValue?.coverImageUrl ?? null);
   const [removeCover, setRemoveCover] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -70,37 +99,6 @@ export function CuisineFormDialog({
     URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = null;
   }, []);
-
-  useEffect(() => {
-    if (!open) {
-      revokeObjectUrl();
-      return;
-    }
-
-    revokeObjectUrl();
-
-    if (initialValue) {
-      setForm({
-        name: initialValue.name,
-        nameEn: initialValue.nameEn ?? "",
-        description: initialValue.description ?? "",
-        descriptionEn: initialValue.descriptionEn ?? "",
-        avgPrice:
-          initialValue.avgPrice !== null
-            ? String(initialValue.avgPrice)
-            : "",
-        destinationIds: initialValue.destinations.map((d) => d.id),
-      });
-      setPreviewUrl(initialValue.coverImageUrl);
-    } else {
-      setForm(emptyForm);
-      setPreviewUrl(null);
-    }
-
-    setCoverFile(null);
-    setRemoveCover(false);
-    setImageError(null);
-  }, [initialValue, open, revokeObjectUrl]);
 
   useEffect(() => {
     if (!open) return;

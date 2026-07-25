@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import {ArrowRight,Bot,ChevronRight,Clock3,Heart,MapPin,MessageCircle,Route,Sparkles,Star,} from "lucide-react";
+import {ArrowRight,Bot,ChevronRight,Clock3,Heart,MapPin,MessageCircle,Route,Sparkles,Star,WalletCards} from "lucide-react";
 import {useMemo,useState,} from "react";
-import {BRAND_FEATURES,CITY_EDITORIAL,CUISINES,EXPERIENCE_ITEMS,FEATURED_DESTINATIONS,HOME_CITIES,JOURNEYS,STORIES,type CityId, type CuisineCardData, type DestinationCardData} from "@/src/constants/home-data";
+import {BRAND_FEATURES,CITY_EDITORIAL,CUISINES,EXPERIENCE_ITEMS,FEATURED_DESTINATIONS,HOME_CITIES,JOURNEYS,STORIES,type CityId, type CuisineCardData, type DestinationCardData, type JourneyCardData} from "@/src/constants/home-data";
 import {CloudinaryVisual,} from "./CloudinaryVisual";
 import type { CityEditorialCardData } from "@/src/lib/home-data-mapper";
 const CITY_FILTERS: Array<{
@@ -427,7 +427,13 @@ export function CuisineSection({
     );
 }
 
-export function JourneySection() {
+interface JourneySectionProps {
+    items?: readonly JourneyCardData[];
+}
+
+export function JourneySection({
+    items = JOURNEYS,
+}: JourneySectionProps) {
     const toneClasses = {
         coral: "bg-[#f25f4b] text-white",
         teal: "bg-[#2f8f8b] text-white",
@@ -443,101 +449,126 @@ export function JourneySection() {
                 <SectionHeading
                     eyebrow="Hành trình gợi ý"
                     title="Đi theo một lộ trình vừa đủ để còn muốn quay lại."
-                    description="Các lịch trình mẫu được thiết kế theo nhịp trải nghiệm, không nhồi quá nhiều điểm và luôn có khoảng trống để bạn tận hưởng thành phố."
+                    description="Các lịch trình được thiết kế theo nhịp trải nghiệm, không nhồi quá nhiều điểm và luôn có khoảng trống để bạn tận hưởng thành phố."
                     align="center"
                 />
 
                 <div className="mt-14 grid gap-6 lg:grid-cols-3">
-                    {JOURNEYS.map(
-                        (item, index) => (
-                            <article
-                                key={item.title}
-                                className={`overflow-hidden rounded-[32px] bg-[#fffaf1] shadow-[0_18px_65px_rgba(32,54,51,0.08)] ${
-                                    index === 1
-                                        ? "lg:-translate-y-5"
-                                        : ""
-                                }`}
-                            >
-                                <div className="relative h-64 overflow-hidden">
-                                    <CloudinaryVisual
-                                        source={item.image}
-                                        alt={
-                                            item.imageAlt
-                                        }
-                                        imageOptions={{
-                                            width: 900,
-                                            height: 650,
-                                        }}
-                                        className="absolute inset-0"
-                                    />
+                    {items.map((item, index) => (
+                        <article
+                            key={item.id}
+                            className={`flex h-full flex-col overflow-hidden rounded-[32px] bg-[#fffaf1] shadow-[0_18px_65px_rgba(32,54,51,0.08)] ${
+                                index === 1
+                                    ? "lg:-translate-y-5"
+                                    : ""
+                            }`}
+                        >
+                            <div className="relative h-64 overflow-hidden">
+                                <CloudinaryVisual
+                                    source={item.image}
+                                    alt={item.imageAlt}
+                                    imageOptions={{
+                                        width: 900,
+                                        height: 650,
+                                    }}
+                                    className="absolute inset-0 transition-transform duration-700 hover:scale-105"
+                                />
 
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/34 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/34 to-transparent" />
 
-                                    <span
-                                        className={`absolute left-5 top-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold ${
-                                            toneClasses[
-                                                item.tone
-                                            ]
-                                        }`}
-                                    >
-                                        <Clock3
-                                            size={15}
-                                        />
+                                <span
+                                    className={`absolute left-5 top-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold ${
+                                        toneClasses[
+                                            item.tone
+                                        ]
+                                    }`}
+                                >
+                                    <Clock3 size={15} />
 
-                                        {item.duration}
-                                    </span>
-                                </div>
+                                    {item.duration}
+                                </span>
+                            </div>
 
-                                <div className="p-7">
-                                    <h3 className="font-display text-3xl font-semibold text-[#173a3b]">
-                                        {item.title}
-                                    </h3>
+                            <div className="flex flex-1 flex-col p-7">
+                                <h3 className="font-display text-3xl font-semibold text-[#173a3b]">
+                                    {item.title}
+                                </h3>
 
-                                    <p className="mt-3 leading-7 text-[#687572]">
-                                        {
-                                            item.description
-                                        }
-                                    </p>
+                                <p className="mt-3 line-clamp-3 leading-7 text-[#687572]">
+                                    {item.description}
+                                </p>
 
-                                    <div className="mt-6 space-y-3 border-l border-[#d7ccbc] pl-5">
-                                        {item.stops.map(
-                                            (
-                                                stop,
-                                                stopIndex,
-                                            ) => (
-                                                <div
-                                                    key={
-                                                        stop
-                                                    }
-                                                    className="relative flex items-center justify-between text-sm font-semibold text-[#315f5f]"
-                                                >
-                                                    <span className="absolute -left-[25px] grid h-5 w-5 place-items-center rounded-full bg-[#fffaf1] text-[10px] ring-1 ring-[#cdbfad]">
-                                                        {stopIndex +
-                                                            1}
-                                                    </span>
+                                <div className="mt-6 space-y-3">
+                                    <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
+                                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#e25d49]">
+                                            <MapPin
+                                                size={18}
+                                            />
+                                        </span>
 
-                                                    {stop}
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-[#78837f]">
+                                                Khởi hành
+                                            </p>
 
-                                                    <span className="h-px w-8 bg-[#d5c9b8]" />
-                                                </div>
-                                            ),
-                                        )}
+                                            <p className="truncate text-sm font-bold text-[#315f5f]">
+                                                {
+                                                    item.startLocation
+                                                }
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <Link
-                                        href="/planner"
-                                        className="mt-7 inline-flex items-center gap-2 font-bold text-[#e25d49]"
-                                    >
-                                        Xem hành trình
+                                    <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
+                                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#2f8f8b]">
+                                            <Clock3
+                                                size={18}
+                                            />
+                                        </span>
 
-                                        <ArrowRight
-                                            size={18}
-                                        />
-                                    </Link>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-[#78837f]">
+                                                Thời lượng
+                                            </p>
+
+                                            <p className="truncate text-sm font-bold text-[#315f5f]">
+                                                {
+                                                    item.duration
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
+                                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#d79d2d]">
+                                            <WalletCards
+                                                size={18}
+                                            />
+                                        </span>
+
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-[#78837f]">
+                                                Giá dự kiến
+                                            </p>
+
+                                            <p className="truncate text-sm font-bold text-[#315f5f]">
+                                                {item.price}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </article>
-                        ),
-                    )}
+
+                                <Link
+                                    href={item.href}
+                                    className="mt-auto inline-flex items-center gap-2 pt-7 font-bold text-[#e25d49]"
+                                >
+                                    Xem hành trình
+
+                                    <ArrowRight size={18} />
+                                </Link>
+                            </div>
+                        </article>
+                    ))}
                 </div>
             </div>
         </section>

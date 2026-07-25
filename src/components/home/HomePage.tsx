@@ -1,11 +1,21 @@
 "use client";
-import {useState} from "react";
-import type {CityId} from "@/src/constants/home-data";
+
+import { useState } from "react";
+
+import type { CityId } from "@/src/constants/home-data";
 import { useHomeData } from "@/src/hooks/useHomeData";
-import {HomeHeader} from "./HomeHeader";
-import {HeroSection} from "./HeroSection";
-import {CityEditorialSection,CuisineSection,ExperienceSection,FeaturedDestinationsSection,JourneySection,PlannerSection,} from "./HomeSections";
-import {HomeFooter} from "./HomeFooter";
+
+import { HeroSection } from "./HeroSection";
+import { HomeFooter } from "./HomeFooter";
+import { HomeHeader } from "./HomeHeader";
+import {
+    CityEditorialSection,
+    CuisineSection,
+    ExperienceSection,
+    FeaturedDestinationsSection,
+    JourneySection,
+    PlannerSection,
+} from "./HomeSections";
 
 export function HomePage() {
     const [
@@ -18,6 +28,7 @@ export function HomePage() {
         cityEditorial,
         featuredDestinations,
         cuisines,
+        journeys,
         error,
         reload,
     } = useHomeData();
@@ -40,11 +51,9 @@ export function HomePage() {
                 items={featuredDestinations}
             />
 
-            <CuisineSection
-                items={cuisines}
-            />
+            <CuisineSection items={cuisines} />
 
-            <JourneySection />
+            <JourneySection items={journeys} />
 
             <ExperienceSection />
 

@@ -1,111 +1,245 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+
+import { useEffect, useRef, useState } from "react";
 import { Search as SearchIcon } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+import {
+    DestinationCard,
+    locationNameFor,
+} from "@/src/components/destinations/DestinationCard";
 import { HomeFooter } from "@/src/components/home/HomeFooter";
 import { HomeHeader } from "@/src/components/home/HomeHeader";
-import { DestinationCard, locationNameFor } from "@/src/components/destinations/DestinationCard";
-import {destinationsApi,type Destination,} from "@/src/lib/api-client/destinations";
+import {
+    destinationsApi,
+    type Destination,
+} from "@/src/lib/api-client/destinations";
 import { ApiRequestError } from "@/src/lib/api-client/http";
-import { locationsApi, type Location } from "@/src/lib/api-client/locations";
+import {
+    locationsApi,
+    type Location,
+} from "@/src/lib/api-client/locations";
 
 const PAGE_SIZE = 24;
 
-export function DestinationsListPage(){
+interface DestinationQueryUpdate {
+    location?: string;
+    q?: string;
+}
+
+export function DestinationsListPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+
     const activeLocationId = searchParams.get("location") ?? "";
     const searchInUrl = searchParams.get("q") ?? "";
-    
+
+    const requestKey = JSON.stringify([
+        activeLocationId,
+        searchInUrl,
+    ]);
+
+    const currentRequestKeyRef = useRef(requestKey);
+
     const [locations, setLocations] = useState<Location[]>([]);
     const [destinations, setDestinations] = useState<Destination[]>([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(1);
-    const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [errorMessage, setErrorMessagge] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(
+        null,
+    );
+    const [resolvedRequestKey, setResolvedRequestKey] = useState<
+        string | null
+    >(null);
+
+    const loading = resolvedRequestKey !== requestKey;
+
+    useEffect(() => {
+        currentRequestKeyRef.current = requestKey;
+    }, [requestKey]);
 
     useEffect(() => {
         let active = true;
 
-        locationsApi.list().then((data) => {
-            if (active) setLocations(data);
-        }).catch((error) => {
-            console.error("Không tải được danh sách khu vực: ", error);
-        });
+        locationsApi
+            .list()
+            .then((data) => {
+                if (!active) {
+                    return;
+                }
+
+                setLocations(data);
+            })
+            .catch((error: unknown) => {
+                console.error(
+                    "Không tải được danh sách khu vực:",
+                    error,
+                );
+            });
 
         return () => {
             active = false;
         };
     }, []);
 
-    const loadDestinations = useCallback(async () => {
-        setLoading(true);
-        setErrorMessagge(null);
-        setPage(1);
+    useEffect(() => {
+        let active = true;
 
-        try{
-            const {data, meta} = await destinationsApi.list({
+        destinationsApi
+            .list({
                 page: 1,
                 limit: PAGE_SIZE,
                 locationId: activeLocationId || undefined,
                 search: searchInUrl || undefined,
+            })
+            .then(({ data, meta }) => {
+                if (!active) {
+                    return;
+                }
+
+                setDestinations(data);
+                setTotal(meta.total);
+                setPage(1);
+                setLoadingMore(false);
+                setErrorMessage(null);
+                setResolvedRequestKey(requestKey);
+            })
+            .catch((error: unknown) => {
+                if (!active) {
+                    return;
+                }
+
+                setDestinations([]);
+                setTotal(0);
+                setPage(1);
+                setLoadingMore(false);
+                setErrorMessage(
+                    error instanceof ApiRequestError
+                        ? error.message
+                        : "Không tải được danh sách địa danh.",
+                );
+                setResolvedRequestKey(requestKey);
             });
-            setDestinations(data);
-            setTotal(meta.total);
 
-        } catch (error) {
-            setErrorMessagge(error instanceof ApiRequestError ? error.message : "Khong tải được danh sách địa danh");
+        return () => {
+            active = false;
+        };
+    }, [activeLocationId, requestKey, searchInUrl]);
 
-        } finally {
-            setLoading(false);
+    async function loadMore() {
+        if (loadingMore || destinations.length >= total) {
+            return;
         }
-    }, [activeLocationId, searchInUrl]);
 
-    async function loadMore(){
+        const requestKeyAtStart = requestKey;
         const nextPage = page + 1;
-        setLoadingMore(true);
 
-        try{
-            const { data} = await destinationsApi.list({
+        setLoadingMore(true);
+        setErrorMessage(null);
+
+        try {
+            const { data } = await destinationsApi.list({
                 page: nextPage,
                 limit: PAGE_SIZE,
                 locationId: activeLocationId || undefined,
                 search: searchInUrl || undefined,
             });
 
-            setDestinations((current) => [...current, ...data]);
+            if (
+                currentRequestKeyRef.current !==
+                requestKeyAtStart
+            ) {
+                return;
+            }
+
+            setDestinations((current) => {
+                const existingIds = new Set(
+                    current.map(
+                        (destination) => destination.id,
+                    ),
+                );
+
+                const newItems = data.filter(
+                    (destination) =>
+                        !existingIds.has(destination.id),
+                );
+
+                return [...current, ...newItems];
+            });
+
             setPage(nextPage);
-        } catch (error){   
-            setErrorMessagge(error instanceof ApiRequestError ? error.message : "Không tải thêm được địa danh.");
-        } finally{
-            setLoadingMore(false);
+        } catch (error) {
+            if (
+                currentRequestKeyRef.current !==
+                requestKeyAtStart
+            ) {
+                return;
+            }
+
+            setErrorMessage(
+                error instanceof ApiRequestError
+                    ? error.message
+                    : "Không tải thêm được địa danh.",
+            );
+        } finally {
+            if (
+                currentRequestKeyRef.current ===
+                requestKeyAtStart
+            ) {
+                setLoadingMore(false);
+            }
         }
     }
 
-    useEffect(() => {
-        void loadDestinations();
-    }, [loadDestinations]);
+    function updateQuery(next: DestinationQueryUpdate) {
+        const params = new URLSearchParams(
+            searchParams.toString(),
+        );
 
-    function updateQuery(next: {location?: string; q?: string}){
-        const params = new URLSearchParams(searchParams.toString());
-        const nextLocation = next.location !== undefined ? next.location : activeLocationId;
-        const nextSearch = next.q !== undefined ? next.q : searchInUrl;
+        const nextLocation =
+            next.location !== undefined
+                ? next.location
+                : activeLocationId;
 
-        if(nextLocation){
+        const nextSearch =
+            next.q !== undefined ? next.q : searchInUrl;
+
+        if (nextLocation) {
             params.set("location", nextLocation);
         } else {
             params.delete("location");
         }
 
-        if(nextSearch){
+        if (nextSearch) {
             params.set("q", nextSearch);
         } else {
             params.delete("q");
         }
 
         const query = params.toString();
-        router.push(`/destinations${query ? `?${query}` : ""}`, {scroll: false});
+
+        const nextUrl = `/destinations${
+            query ? `?${query}` : ""
+        }`;
+
+        const currentQuery = searchParams.toString();
+
+        const currentUrl = `/destinations${
+            currentQuery ? `?${currentQuery}` : ""
+        }`;
+
+        if (nextUrl === currentUrl) {
+            return;
+        }
+
+        setErrorMessage(null);
+        setPage(1);
+        setLoadingMore(false);
+
+        router.push(nextUrl, {
+            scroll: false,
+        });
     }
 
     return (
@@ -123,8 +257,8 @@ export function DestinationsListPage(){
                     </h1>
 
                     <p className="mt-5 max-w-2xl text-base leading-8 text-[#60706d] sm:text-lg">
-                        Toàn bộ địa danh trong hệ thống, lọc theo khu vực để
-                        tìm đúng nơi bạn muốn đến.
+                        Toàn bộ địa danh trong hệ thống, lọc theo
+                        khu vực để tìm đúng nơi bạn muốn đến.
                     </p>
 
                     <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -136,8 +270,14 @@ export function DestinationsListPage(){
                             <button
                                 type="button"
                                 role="tab"
-                                aria-selected={activeLocationId === ""}
-                                onClick={() => updateQuery({ location: "" })}
+                                aria-selected={
+                                    activeLocationId === ""
+                                }
+                                onClick={() =>
+                                    updateQuery({
+                                        location: "",
+                                    })
+                                }
                                 className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
                                     activeLocationId === ""
                                         ? "bg-[#173a3b] text-white shadow-lg"
@@ -153,13 +293,18 @@ export function DestinationsListPage(){
                                     type="button"
                                     role="tab"
                                     aria-selected={
-                                        activeLocationId === location.id
+                                        activeLocationId ===
+                                        location.id
                                     }
                                     onClick={() =>
-                                        updateQuery({ location: location.id })
+                                        updateQuery({
+                                            location:
+                                                location.id,
+                                        })
                                     }
                                     className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                                        activeLocationId === location.id
+                                        activeLocationId ===
+                                        location.id
                                             ? "bg-[#173a3b] text-white shadow-lg"
                                             : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
                                     }`}
@@ -172,23 +317,35 @@ export function DestinationsListPage(){
                         <SearchBox
                             key={searchInUrl}
                             defaultValue={searchInUrl}
-                            onSubmit={(value) => updateQuery({ q: value })}
+                            onSubmit={(value) =>
+                                updateQuery({
+                                    q: value,
+                                })
+                            }
                         />
                     </div>
                 </div>
             </section>
 
-            <section className="bg-[#fffaf1] px-5 py-16 sm:px-8 lg:px-12 lg:py-20">
+            <section
+                className="bg-[#fffaf1] px-5 py-16 sm:px-8 lg:px-12 lg:py-20"
+                aria-busy={loading}
+            >
                 <div className="mx-auto max-w-[1440px]">
                     {errorMessage ? (
-                        <div className="mb-8 rounded-2xl border border-[#e9c3bb] bg-[#fff8f4] px-5 py-4 text-sm text-[#8f3f34]">
+                        <div
+                            role="alert"
+                            className="mb-8 rounded-2xl border border-[#e9c3bb] bg-[#fff8f4] px-5 py-4 text-sm text-[#8f3f34]"
+                        >
                             {errorMessage}
                         </div>
                     ) : null}
 
                     {loading ? (
                         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, index) => (
+                            {Array.from({
+                                length: 6,
+                            }).map((_, index) => (
                                 <div
                                     key={`destination-skeleton-${index}`}
                                     className="h-[420px] animate-pulse rounded-[30px] bg-[#ede6d7]"
@@ -200,9 +357,10 @@ export function DestinationsListPage(){
                             <p className="font-display text-2xl font-semibold text-[#173a3b]">
                                 Không tìm thấy địa danh phù hợp
                             </p>
+
                             <p className="mt-3 text-[#667370]">
-                                Thử chọn khu vực khác hoặc xóa từ khóa tìm
-                                kiếm.
+                                Thử chọn khu vực khác hoặc xóa từ
+                                khóa tìm kiếm.
                             </p>
                         </div>
                     ) : (
@@ -212,23 +370,31 @@ export function DestinationsListPage(){
                             </p>
 
                             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                                {destinations.map((destination) => (
-                                    <DestinationCard
-                                        key={destination.id}
-                                        destination={destination}
-                                        locationName={locationNameFor(
-                                            destination,
-                                            locations,
-                                        )}
-                                    />
-                                ))}
+                                {destinations.map(
+                                    (destination) => (
+                                        <DestinationCard
+                                            key={
+                                                destination.id
+                                            }
+                                            destination={
+                                                destination
+                                            }
+                                            locationName={locationNameFor(
+                                                destination,
+                                                locations,
+                                            )}
+                                        />
+                                    ),
+                                )}
                             </div>
 
                             {destinations.length < total ? (
                                 <div className="mt-10 flex justify-center">
                                     <button
                                         type="button"
-                                        onClick={() => void loadMore()}
+                                        onClick={() =>
+                                            void loadMore()
+                                        }
                                         disabled={loadingMore}
                                         className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                     >
@@ -249,11 +415,14 @@ export function DestinationsListPage(){
 }
 
 interface SearchBoxProps {
-    defaultValue: string,
+    defaultValue: string;
     onSubmit: (value: string) => void;
 }
 
-function SearchBox({defaultValue, onSubmit}: SearchBoxProps){
+function SearchBox({
+    defaultValue,
+    onSubmit,
+}: SearchBoxProps) {
     const [value, setValue] = useState(defaultValue);
 
     return (
@@ -264,13 +433,19 @@ function SearchBox({defaultValue, onSubmit}: SearchBoxProps){
             }}
             className="flex w-full max-w-sm items-center gap-2 rounded-full border border-[#d3c8b7] bg-white/70 px-4 py-2.5"
         >
-            <SearchIcon size={18} className="shrink-0 text-[#8a8575]" />
+            <SearchIcon
+                size={18}
+                className="shrink-0 text-[#8a8575]"
+            />
 
             <input
-                type="text"
+                type="search"
                 value={value}
-                onChange={(event) => setValue(event.target.value)}
+                onChange={(event) =>
+                    setValue(event.target.value)
+                }
                 placeholder="Tìm địa danh…"
+                aria-label="Tìm địa danh"
                 className="w-full bg-transparent text-sm text-[#173a3b] outline-none placeholder:text-[#8a8575]"
             />
         </form>

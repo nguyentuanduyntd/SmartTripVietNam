@@ -1,27 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-    ArrowLeft,
-    ArrowRight,
-    Eye,
-    EyeOff,
-    Landmark,
-    LockKeyhole,
-    Mail,
-    MapPin,
-    Route,
-    ShieldCheck,
-    Sparkles,
-    UserPlus,
-} from "lucide-react";
-import {
-    type FormEvent,
-    useMemo,
-    useState,
-} from "react";
-
+import {ArrowLeft,ArrowRight,Eye,EyeOff,Landmark,LockKeyhole,Mail,MapPin,Route,ShieldCheck,Sparkles,UserPlus,} from "lucide-react";
+import {type FormEvent,useMemo, useState,} from "react";
 import { HOME_CITIES } from "@/src/constants/home-data";
 import { createClient } from "@/src/lib/supabase/client";
 import { CloudinaryVisual } from "@/src/components/home/CloudinaryVisual";
@@ -56,7 +37,6 @@ function getLoginErrorMessage(message: string): string {
 }
 
 export default function LoginPage() {
-    const router = useRouter();
     const supabase = useMemo(() => createClient(),[],);
     const loginVisual =HOME_CITIES.find((city) => city.id === "hoi-an",) ?? HOME_CITIES[0];
     const [email, setEmail] = useState("");

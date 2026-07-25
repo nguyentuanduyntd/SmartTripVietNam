@@ -39,13 +39,16 @@ export interface CuisineCardData {
 }
 
 export interface JourneyCardData {
+    id: string;
     duration: string;
     title: string;
     description: string;
-    stops: string[];
+    startLocation: string;
+    price: string;
     image: string;
     imageAlt: string;
     tone: "coral" | "teal" | "gold";
+    href: string;
 }
 
 export interface StoryCardData {
@@ -310,47 +313,44 @@ export const CUISINES: CuisineCardData[] = [
 
 export const JOURNEYS: JourneyCardData[] = [
     {
-        duration: "01 ngày",
+        id: "journey-hue-fallback",
+        duration: "1 ngày",
         title: "Một ngày chạm Huế",
         description:
             "Đi qua di sản, thưởng trà bên sông và kết thúc bằng bữa tối đậm vị cố đô.",
-        stops: [
-            "Đại Nội",
-            "Chùa Thiên Mụ",
-            "Chợ Đông Ba",
-        ],
+        startLocation: "Huế",
+        price: "Liên hệ",
         image: HOME_MEDIA.journeyHeritage,
         imageAlt: "Hành trình khám phá di sản Huế",
         tone: "coral",
+        href: "/planner",
     },
     {
-        duration: "02 ngày",
+        id: "journey-da-nang-fallback",
+        duration: "2 ngày",
         title: "Biển xanh và nhịp phố",
         description:
             "Kết hợp biển Mỹ Khê, bán đảo Sơn Trà và một đêm ngắm sông Hàn lên đèn.",
-        stops: [
-            "Mỹ Khê",
-            "Sơn Trà",
-            "Cầu Rồng",
-        ],
+        startLocation: "Đà Nẵng",
+        price: "Liên hệ",
         image: HOME_MEDIA.journeyCoast,
         imageAlt: "Hành trình khám phá biển Đà Nẵng",
         tone: "teal",
+        href: "/planner",
     },
     {
-        duration: "05 ngày",
+        id: "journey-three-cities-fallback",
+        duration: "5 ngày",
         title: "Ba thành phố, một miền thương nhớ",
         description:
             "Hành trình trọn vẹn nối Huế, Đà Nẵng và Hội An theo nhịp đi vừa đủ chậm.",
-        stops: [
-            "Huế",
-            "Đà Nẵng",
-            "Hội An",
-        ],
+        startLocation: "Huế",
+        price: "Liên hệ",
         image: HOME_MEDIA.journeyThreeCities,
         imageAlt:
             "Hành trình xuyên Huế Đà Nẵng Hội An",
         tone: "gold",
+        href: "/planner",
     },
 ];
 

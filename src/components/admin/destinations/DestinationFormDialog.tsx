@@ -40,6 +40,26 @@ const emptyForm: DestinationInput = {
   description: "",
 };
 
+function createInitialForm(
+    initialValue: Destination | null,
+): DestinationInput {
+    if (!initialValue) {
+        return {
+            ...emptyForm,
+        };
+    }
+
+    return {
+        locationId:
+            initialValue.locationId,
+        name: initialValue.name,
+        address:
+            initialValue.address ?? "",
+        description:
+            initialValue.description ?? "",
+    };
+}
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const ALLOWED_IMAGE_TYPES = [
@@ -58,9 +78,9 @@ export function DestinationFormDialog({
   onSubmit,
   onClose,
 }: DestinationFormDialogProps) {
-  const [form, setForm] = useState<DestinationInput>(emptyForm);
+  const [form, setForm] = useState<DestinationInput>(() => createInitialForm(initialValue));
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() => initialValue?.coverImageUrl ?? null);
   const [removeCover, setRemoveCover] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -73,31 +93,6 @@ export function DestinationFormDialog({
     objectUrlRef.current = null;
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      revokeObjectUrl();
-      return;
-    }
-
-    revokeObjectUrl();
-
-    if (initialValue) {
-      setForm({
-        locationId: initialValue.locationId,
-        name: initialValue.name,
-        address: initialValue.address ?? "",
-        description: initialValue.description ?? "",
-      });
-      setPreviewUrl(initialValue.coverImageUrl);
-    } else {
-      setForm(emptyForm);
-      setPreviewUrl(null);
-    }
-
-    setCoverFile(null);
-    setRemoveCover(false);
-    setImageError(null);
-  }, [initialValue, open, revokeObjectUrl]);
 
   useEffect(() => {
     if (!open) return;

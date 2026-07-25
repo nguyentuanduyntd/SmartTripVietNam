@@ -64,33 +64,70 @@ export function DestinationsPage() {
 
   const locationFilter = filterValues.locationId;
 
-  const loadDestinations = useCallback(async () => {
-    setLoading(true);
-    setErrorMessage(null);
+  const loadDestinations =
+    useCallback(async () => {
+        try {
+            const { data, meta } =
+                await destinationsApi.list({
+                    page: 1,
+                    limit: 50,
+                    locationId:
+                        locationFilter ||
+                        undefined,
+                });
 
-    try {
-      const { data, meta } = await destinationsApi.list({
+            setRows(data);
+            setTotal(meta.total);
+            setErrorMessage(null);
+        } catch (error) {
+            setErrorMessage(
+                error instanceof
+                    ApiRequestError
+                    ? error.message
+                    : "Không tải được danh sách địa danh",
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, [locationFilter]);
+
+  useEffect(() => {
+    let active = true;
+
+    destinationsApi
+      .list({
         page: 1,
         limit: 50,
         locationId: locationFilter || undefined,
+      })
+      .then(({ data, meta }) => {
+        if (!active) {
+          return;
+        }
+
+        setRows(data);
+        setTotal(meta.total);
+        setErrorMessage(null);
+        setLoading(false);
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof ApiRequestError
+            ? error.message
+            : "Không tải được danh sách địa danh",
+        );
+
+        setLoading(false);
       });
 
-      setRows(data);
-      setTotal(meta.total);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.message
-          : "Không tải được danh sách địa danh",
-      );
-    } finally {
-      setLoading(false);
-    }
+    return () => {
+      active = false;
+    };
   }, [locationFilter]);
-
-  useEffect(() => {
-    void loadDestinations();
-  }, [loadDestinations]);
 
   useEffect(() => {
     let active = true;
@@ -183,6 +220,10 @@ export function DestinationsPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
+    if(key === "locationId"){
+      setLoading(true);
+      setErrorMessage(null);
+    }
     setFilterValues((current) => ({
       ...current,
       [key]: value,
@@ -251,6 +292,7 @@ export function DestinationsPage() {
 
       destinationSaved = true;
       closeForm();
+      setLoading(true);
       await loadDestinations();
     } catch (error) {
       // Upload thành công nhưng lưu database thất bại:
@@ -444,15 +486,19 @@ export function DestinationsPage() {
         )}
       </div>
 
-      <DestinationFormDialog
-        open={formOpen}
-        locations={locations}
-        initialValue={editingDestination}
-        submitting={submitting}
-        fieldErrors={fieldErrors}
-        onSubmit={handleSubmitForm}
-        onClose={closeForm}
-      />
+      {formOpen ? (
+          <DestinationFormDialog
+              open
+              locations={locations}
+              initialValue={
+                  editingDestination
+              }
+              submitting={submitting}
+              fieldErrors={fieldErrors}
+              onSubmit={handleSubmitForm}
+              onClose={closeForm}
+          />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

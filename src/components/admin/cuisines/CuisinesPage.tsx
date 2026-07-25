@@ -41,33 +41,70 @@ export function CuisinesPage() {
 
   const destinationFilter = filterValues.destinationId;
 
-  const loadCuisines = useCallback(async () => {
-    setLoading(true);
-    setErrorMessage(null);
+  const loadCuisines =
+    useCallback(async () => {
+        try {
+            const { data, meta } =
+                await cuisinesApi.list({
+                    page: 1,
+                    limit: 50,
+                    destinationId:
+                        destinationFilter ||
+                        undefined,
+                });
 
-    try {
-      const { data, meta } = await cuisinesApi.list({
+            setRows(data);
+            setTotal(meta.total);
+            setErrorMessage(null);
+        } catch (error) {
+            setErrorMessage(
+                error instanceof
+                    ApiRequestError
+                    ? error.message
+                    : "Không tải được danh sách món ăn",
+            );
+        } finally {
+            setLoading(false);
+        }
+    }, [destinationFilter]);
+
+  useEffect(() => {
+    let active = true;
+
+    cuisinesApi
+      .list({
         page: 1,
         limit: 50,
         destinationId: destinationFilter || undefined,
+      })
+      .then(({ data, meta }) => {
+        if (!active) {
+          return;
+        }
+
+        setRows(data);
+        setTotal(meta.total);
+        setErrorMessage(null);
+        setLoading(false);
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof ApiRequestError
+            ? error.message
+            : "Không tải được danh sách món ăn",
+        );
+
+        setLoading(false);
       });
 
-      setRows(data);
-      setTotal(meta.total);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.message
-          : "Không tải được danh sách món ăn",
-      );
-    } finally {
-      setLoading(false);
-    }
+    return () => {
+      active = false;
+    };
   }, [destinationFilter]);
-
-  useEffect(() => {
-    void loadCuisines();
-  }, [loadCuisines]);
 
   useEffect(() => {
     let active = true;
@@ -134,6 +171,10 @@ export function CuisinesPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
+    if(key === "destinationId"){
+      setLoading(true);
+      setErrorMessage(null);
+    }
     setFilterValues((current) => ({
       ...current,
       [key]: value,
@@ -196,6 +237,7 @@ export function CuisinesPage() {
 
       cuisineSaved = true;
       closeForm();
+      setLoading(true);
       await loadCuisines();
     } catch (error) {
       // Upload thành công nhưng lưu database thất bại:
@@ -386,15 +428,17 @@ export function CuisinesPage() {
         )}
       </div>
 
-      <CuisineFormDialog
-        open={formOpen}
-        destinations={destinations}
-        initialValue={editingCuisine}
-        submitting={submitting}
-        fieldErrors={fieldErrors}
-        onSubmit={handleSubmitForm}
-        onClose={closeForm}
-      />
+      {formOpen ? (
+          <CuisineFormDialog
+              open
+              destinations={destinations}
+              initialValue={editingCuisine}
+              submitting={submitting}
+              fieldErrors={fieldErrors}
+              onSubmit={handleSubmitForm}
+              onClose={closeForm}
+          />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
