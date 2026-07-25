@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Cormorant_Garamond } from "next/font/google";
+import { ScrollToTopButton } from "../components/common/ScrollToTopButton";
 import "./globals.css";
 
 const bodyFont = Be_Vietnam_Pro({
@@ -37,7 +38,10 @@ export default function RootLayout({
             data-scroll-behavior="smooth"
             className={`${bodyFont.variable} ${displayFont.variable}`}
         >
-            <body>{children}</body>
+            <body>
+                {children}
+                <ScrollToTopButton/>
+            </body>
         </html>
     );
 }

@@ -166,7 +166,7 @@ function createCuisineCards(
 
         return {
             name: cuisine.name,
-            city: uniqueLocationNames.length> 0 ? uniqueLocationNames.join(".",) : "Miền Trung",
+            city: uniqueLocationNames.length> 0 ? uniqueLocationNames.join(",",) : "Miền Trung",
             price: formatPrice(cuisine.avgPrice),
             description: cuisine.description ??  `Khám phá hương vị ${cuisine.name}.`,
             image: cuisine.coverImageUrl ?? getCityFallBackImage(firstCityId ?? "hue"),

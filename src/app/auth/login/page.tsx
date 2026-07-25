@@ -98,7 +98,17 @@ export default function LoginPage() {
                 return;
             }
 
-            window.location.assign("/");
+            const adminCheckResponse = await fetch("/api/admin/check", {
+                method: "GET",
+                headers: {Accept: "application/json"},
+            }).catch(() => null);
+
+            const adminCheckResult = adminCheckResponse ? await adminCheckResponse.json().catch(() => null) : null;
+
+            const isAdmin = adminCheckResponse?.ok === true && adminCheckResult?.success === true;
+
+            window.location.assign(isAdmin ? "/admin/destinations" : "/");
+
             // router.replace("/");
             // router.refresh();
         } catch (caughtError) {

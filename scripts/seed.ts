@@ -17,17 +17,15 @@
  * khảo, cần cập nhật định kỳ như README đã nêu rõ.
  */
 import "./env";
-
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "../src/db";
 import { locations } from "../src/db/schema/locations";
 import { destinationCategories } from "../src/db/schema/destination_categories";
-import {
-  destinations,
-  destinationsToCategoies,
-} from "../src/db/schema/destinations";
+import {destinations,destinationsToCategoies,} from "../src/db/schema/destinations";
 import { cuisines, cuisinesToDestinations } from "../src/db/schema/cuisines";
-
+import { profiles } from "@/src/db/schema/profiles";
+import { tourItems, tourMealCuisines, tourMeals, tours, tourDays  } from "@/src/db/schema/tours";
+import type { MealType, TourStatus, TransportMethod } from "@/src/constants/tour_community";
 // ---------------------------------------------------------------------------
 // 1. DATA — chỉnh/thêm bớt trực tiếp ở đây khi cần mở rộng
 // ---------------------------------------------------------------------------
@@ -440,6 +438,537 @@ const CUISINES_DATA: CuisineSeed[] = [
   },
 ];
 
+type TourItemSeed = {
+  sortOrder: number;
+  title: string;
+  titleEn?: string;
+  description?: string;
+  destinationSlug?: (typeof DESTINATIONS_DATA)[number]["slug"];
+  startTime?: string;
+  endTime?: string;
+  transportMethod?: TransportMethod;
+  transportNote?: string;
+  estimatedTravelMinutes?: number;
+};
+
+type TourMealSeed = {
+  sortOrder: number;
+  mealType: MealType;
+  startTime?: string;
+  venueName?: string;
+  note?: string;
+  cuisineSlugs?: (typeof CUISINES_DATA)[number]["slug"][];
+};
+
+type TourDaySeed = {
+  dayNumber: number;
+  title: string;
+  titleEn?: string;
+  description?: string;
+  items: TourItemSeed[];
+  meals: TourMealSeed[];
+};
+
+type TourSeed = {
+  slug: string;
+  name: string;
+  nameEn: string;
+  description: string;
+  durationDays: number;
+  durationNights: number;
+  estimatedPrice: string;
+  startLocationSlug: (typeof LOCATIONS_DATA)[number]["slug"];
+  meetingPoint: string;
+  status: TourStatus;
+  days: TourDaySeed[];
+};
+
+const TOURS_DATA: TourSeed[] = [
+  // ---------------- HUẾ: 2 NGÀY 1 ĐÊM ----------------
+  {
+    slug: "tinh-hoa-co-do-hue-2n1d",
+    name: "Tinh hoa Cố đô Huế 2N1Đ",
+    nameEn: "Hue Imperial Heritage 2D1N",
+    description:
+      "Hành trình khám phá Đại Nội, hệ thống lăng tẩm triều Nguyễn và đời sống ven sông Hương, dành cho du khách yêu lịch sử và kiến trúc cung đình.",
+    durationDays: 2,
+    durationNights: 1,
+    estimatedPrice: "1890000",
+    startLocationSlug: "hue",
+    meetingPoint: "Đại Nội Huế (cổng Ngọ Môn)",
+    status: "published",
+    days: [
+      {
+        dayNumber: 1,
+        title: "Hoàng thành và lăng tẩm",
+        titleEn: "Imperial City & Royal Tombs",
+        description:
+          "Tham quan Đại Nội, sau đó di chuyển đến hai lăng tẩm tiêu biểu của triều Nguyễn.",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Tham quan Đại Nội Huế",
+            destinationSlug: "hoang-thanh-hue",
+            startTime: "08:00",
+            endTime: "11:00",
+            transportMethod: "walking",
+          },
+          {
+            sortOrder: 2,
+            title: "Di chuyển đến Lăng Khải Định",
+            destinationSlug: "lang-khai-dinh",
+            startTime: "13:30",
+            endTime: "15:00",
+            transportMethod: "car",
+            transportNote: "Xe đưa đón từ trung tâm TP. Huế, khoảng 8km.",
+            estimatedTravelMinutes: 20,
+          },
+          {
+            sortOrder: 3,
+            title: "Tham quan Lăng Minh Mạng",
+            destinationSlug: "lang-minh-mang",
+            startTime: "15:30",
+            endTime: "17:00",
+            transportMethod: "car",
+            estimatedTravelMinutes: 15,
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "lunch",
+            startTime: "11:30",
+            venueName: "Quán bún gần Đại Nội",
+            cuisineSlugs: ["bun-bo-hue"],
+          },
+          {
+            sortOrder: 2,
+            mealType: "dinner",
+            startTime: "18:30",
+            venueName: "Khu ẩm thực Chợ Đông Ba",
+            cuisineSlugs: ["com-hen"],
+          },
+        ],
+      },
+      {
+        dayNumber: 2,
+        title: "Sông Hương và đời sống Cố đô",
+        titleEn: "Perfume River & Local Life",
+        description:
+          "Xuôi thuyền trên sông Hương ghé chùa Thiên Mụ, dạo cầu Trường Tiền và trải nghiệm chợ Đông Ba trước khi kết thúc hành trình.",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Du thuyền sông Hương - chùa Thiên Mụ",
+            destinationSlug: "chua-thien-mu",
+            startTime: "07:30",
+            endTime: "09:00",
+            transportMethod: "boat",
+            transportNote: "Thuyền rồng xuất phát từ bến Toà Khâm.",
+          },
+          {
+            sortOrder: 2,
+            title: "Dạo bộ cầu Trường Tiền",
+            destinationSlug: "cau-trang-tien",
+            startTime: "09:30",
+            endTime: "10:15",
+            transportMethod: "walking",
+          },
+          {
+            sortOrder: 3,
+            title: "Mua sắm đặc sản tại chợ Đông Ba",
+            destinationSlug: "cho-dong-ba",
+            startTime: "10:30",
+            endTime: "12:00",
+            transportMethod: "walking",
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "breakfast",
+            startTime: "06:30",
+            venueName: "Nhà hàng khách sạn",
+            cuisineSlugs: ["banh-khoai"],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ---------------- ĐÀ NẴNG: 2 NGÀY 1 ĐÊM ----------------
+  {
+    slug: "bien-xanh-da-nang-ba-na-2n1d",
+    name: "Biển xanh Đà Nẵng - Bà Nà Hills 2N1Đ",
+    nameEn: "Da Nang Beach & Ba Na Hills 2D1N",
+    description:
+      "Kết hợp trải nghiệm biển Mỹ Khê, các cây cầu biểu tượng và một ngày khám phá Cầu Vàng trên đỉnh Bà Nà Hills.",
+    durationDays: 2,
+    durationNights: 1,
+    estimatedPrice: "2390000",
+    startLocationSlug: "da-nang",
+    meetingPoint: "Chân cầu Rồng, quận Sơn Trà",
+    status: "published",
+    days: [
+      {
+        dayNumber: 1,
+        title: "Cầu Rồng và bãi biển Mỹ Khê",
+        titleEn: "Dragon Bridge & My Khe Beach",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Check-in Cầu Rồng",
+            destinationSlug: "cau-rong",
+            startTime: "08:00",
+            endTime: "08:45",
+            transportMethod: "walking",
+          },
+          {
+            sortOrder: 2,
+            title: "Tham quan Bảo tàng Điêu khắc Chăm",
+            destinationSlug: "bao-tang-dieu-khac-cham",
+            startTime: "09:15",
+            endTime: "10:30",
+            transportMethod: "car",
+            estimatedTravelMinutes: 10,
+          },
+          {
+            sortOrder: 3,
+            title: "Tắm biển và nghỉ ngơi tại Mỹ Khê",
+            destinationSlug: "bai-bien-my-khe",
+            startTime: "15:30",
+            endTime: "18:00",
+            transportMethod: "car",
+            estimatedTravelMinutes: 15,
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "lunch",
+            startTime: "12:00",
+            venueName: "Quán mì gần trung tâm",
+            cuisineSlugs: ["mi-quang"],
+          },
+          {
+            sortOrder: 2,
+            mealType: "dinner",
+            startTime: "19:00",
+            venueName: "Phố ẩm thực ven biển",
+            cuisineSlugs: ["banh-trang-cuon-thit-heo"],
+          },
+        ],
+      },
+      {
+        dayNumber: 2,
+        title: "Bà Nà Hills - Cầu Vàng",
+        titleEn: "Ba Na Hills & Golden Bridge",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Cáp treo lên Bà Nà Hills, tham quan Cầu Vàng và làng Pháp",
+            destinationSlug: "ba-na-hills",
+            startTime: "08:00",
+            endTime: "16:00",
+            transportMethod: "other",
+            transportNote: "Di chuyển bằng hệ thống cáp treo Bà Nà Hills.",
+          },
+          {
+            sortOrder: 2,
+            title: "Viếng chùa Linh Ứng Sơn Trà trên đường về",
+            destinationSlug: "chua-linh-ung-son-tra",
+            startTime: "17:00",
+            endTime: "18:00",
+            transportMethod: "car",
+            estimatedTravelMinutes: 30,
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "breakfast",
+            startTime: "07:00",
+            venueName: "Nhà hàng khách sạn",
+          },
+          {
+            sortOrder: 2,
+            mealType: "lunch",
+            startTime: "12:00",
+            venueName: "Buffet khu ẩm thực Bà Nà Hills",
+            note: "Đã bao gồm trong vé tham quan Bà Nà Hills.",
+          },
+        ],
+      },
+    ],
+  },
+
+  // ---------------- HỘI AN: 2 NGÀY 1 ĐÊM ----------------
+  {
+    slug: "pho-co-hoi-an-lang-nghe-2n1d",
+    name: "Phố cổ Hội An - Làng nghề ven sông 2N1Đ",
+    nameEn: "Hoi An Old Town & Riverside Villages 2D1N",
+    description:
+      "Dạo phố cổ lung linh đèn lồng về đêm, sau đó khám phá các làng nghề truyền thống và hệ sinh thái sông nước quanh Hội An.",
+    durationDays: 2,
+    durationNights: 1,
+    estimatedPrice: "1690000",
+    startLocationSlug: "hoi-an",
+    meetingPoint: "Chùa Cầu Hội An",
+    status: "published",
+    days: [
+      {
+        dayNumber: 1,
+        title: "Phố cổ về đêm",
+        titleEn: "Old Town by Night",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Tham quan Chùa Cầu",
+            destinationSlug: "chua-cau-hoi-an",
+            startTime: "15:00",
+            endTime: "15:45",
+            transportMethod: "walking",
+          },
+          {
+            sortOrder: 2,
+            title: "Dạo phố cổ, thả đèn hoa đăng trên sông Hoài",
+            destinationSlug: "pho-co-hoi-an",
+            startTime: "16:00",
+            endTime: "18:30",
+            transportMethod: "walking",
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "lunch",
+            startTime: "12:00",
+            venueName: "Quán cao lầu phố cổ",
+            cuisineSlugs: ["cao-lau"],
+          },
+          {
+            sortOrder: 2,
+            mealType: "dinner",
+            startTime: "19:00",
+            venueName: "Quán cơm gà phố cổ",
+            cuisineSlugs: ["com-ga-hoi-an"],
+          },
+        ],
+      },
+      {
+        dayNumber: 2,
+        title: "Làng nghề và sinh thái sông nước",
+        titleEn: "Craft Villages & River Ecosystem",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Trải nghiệm làm gốm tại làng gốm Thanh Hà",
+            destinationSlug: "lang-gom-thanh-ha",
+            startTime: "08:00",
+            endTime: "09:30",
+            transportMethod: "bicycle",
+          },
+          {
+            sortOrder: 2,
+            title: "Tham quan làng rau Trà Quế",
+            destinationSlug: "lang-rau-tra-que",
+            startTime: "10:00",
+            endTime: "11:30",
+            transportMethod: "bicycle",
+            estimatedTravelMinutes: 20,
+          },
+          {
+            sortOrder: 3,
+            title: "Chèo thuyền thúng rừng dừa Bảy Mẫu",
+            destinationSlug: "rung-dua-bay-mau",
+            startTime: "14:00",
+            endTime: "16:00",
+            transportMethod: "boat",
+            estimatedTravelMinutes: 25,
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "breakfast",
+            startTime: "07:00",
+            venueName: "Tiệm bánh mì phố cổ",
+            cuisineSlugs: ["banh-mi-hoi-an"],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ---------------- HUẾ - ĐÀ NẴNG - HỘI AN: 4 NGÀY 3 ĐÊM ----------------
+  {
+    slug: "hanh-trinh-tron-ven-mien-trung-4n3d",
+    name: "Hành trình trọn vẹn Huế - Đà Nẵng - Hội An 4N3Đ",
+    nameEn: "Complete Hue - Da Nang - Hoi An Journey 4D3N",
+    description:
+      "Hành trình xuyên suốt ba điểm đến đặc trưng miền Trung: di sản Cố đô Huế, biển và núi Đà Nẵng, phố cổ Hội An - phù hợp cho chuyến đi tìm hiểu văn hoá trọn vẹn.",
+    durationDays: 4,
+    durationNights: 3,
+    estimatedPrice: "4590000",
+    startLocationSlug: "hue",
+    meetingPoint: "Đại Nội Huế (cổng Ngọ Môn)",
+    status: "published",
+    days: [
+      {
+        dayNumber: 1,
+        title: "Di sản Cố đô Huế",
+        titleEn: "Hue Imperial Heritage",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Tham quan Đại Nội Huế",
+            destinationSlug: "hoang-thanh-hue",
+            startTime: "08:00",
+            endTime: "11:00",
+            transportMethod: "walking",
+          },
+          {
+            sortOrder: 2,
+            title: "Du thuyền sông Hương - chùa Thiên Mụ",
+            destinationSlug: "chua-thien-mu",
+            startTime: "14:30",
+            endTime: "16:30",
+            transportMethod: "boat",
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "lunch",
+            startTime: "11:30",
+            venueName: "Quán bún gần Đại Nội",
+            cuisineSlugs: ["bun-bo-hue"],
+          },
+          {
+            sortOrder: 2,
+            mealType: "dinner",
+            startTime: "18:30",
+            venueName: "Khu ẩm thực Chợ Đông Ba",
+            cuisineSlugs: ["com-hen"],
+          },
+        ],
+      },
+      {
+        dayNumber: 2,
+        title: "Lăng tẩm Huế - Di chuyển đến Đà Nẵng",
+        titleEn: "Royal Tombs & Transfer to Da Nang",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Tham quan Lăng Khải Định",
+            destinationSlug: "lang-khai-dinh",
+            startTime: "08:00",
+            endTime: "09:30",
+            transportMethod: "car",
+          },
+          {
+            sortOrder: 2,
+            title: "Di chuyển Huế - Đà Nẵng qua đèo Hải Vân",
+            startTime: "10:00",
+            endTime: "12:30",
+            transportMethod: "car",
+            transportNote: "Xe riêng qua đèo Hải Vân, dừng ngắm cảnh vịnh Lăng Cô.",
+            estimatedTravelMinutes: 150,
+          },
+          {
+            sortOrder: 3,
+            title: "Check-in Cầu Rồng và bãi biển Mỹ Khê",
+            destinationSlug: "cau-rong",
+            startTime: "16:00",
+            endTime: "18:00",
+            transportMethod: "walking",
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "lunch",
+            startTime: "13:00",
+            venueName: "Quán mì gần trung tâm Đà Nẵng",
+            cuisineSlugs: ["mi-quang"],
+          },
+          {
+            sortOrder: 2,
+            mealType: "dinner",
+            startTime: "19:00",
+            venueName: "Phố ẩm thực ven biển Mỹ Khê",
+            cuisineSlugs: ["banh-trang-cuon-thit-heo"],
+          },
+        ],
+      },
+      {
+        dayNumber: 3,
+        title: "Bà Nà Hills - Cầu Vàng",
+        titleEn: "Ba Na Hills & Golden Bridge",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Cáp treo lên Bà Nà Hills, tham quan Cầu Vàng và làng Pháp",
+            destinationSlug: "ba-na-hills",
+            startTime: "08:00",
+            endTime: "16:00",
+            transportMethod: "other",
+            transportNote: "Di chuyển bằng hệ thống cáp treo Bà Nà Hills.",
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "breakfast",
+            startTime: "07:00",
+            venueName: "Nhà hàng khách sạn",
+          },
+          {
+            sortOrder: 2,
+            mealType: "lunch",
+            startTime: "12:00",
+            venueName: "Buffet khu ẩm thực Bà Nà Hills",
+            note: "Đã bao gồm trong vé tham quan Bà Nà Hills.",
+          },
+        ],
+      },
+      {
+        dayNumber: 4,
+        title: "Ngũ Hành Sơn - Phố cổ Hội An",
+        titleEn: "Marble Mountains & Hoi An Old Town",
+        items: [
+          {
+            sortOrder: 1,
+            title: "Tham quan Ngũ Hành Sơn",
+            destinationSlug: "ngu-hanh-son",
+            startTime: "08:00",
+            endTime: "09:30",
+            transportMethod: "car",
+          },
+          {
+            sortOrder: 2,
+            title: "Di chuyển đến Hội An, dạo phố cổ và Chùa Cầu",
+            destinationSlug: "pho-co-hoi-an",
+            startTime: "10:30",
+            endTime: "13:00",
+            transportMethod: "car",
+            estimatedTravelMinutes: 30,
+          },
+        ],
+        meals: [
+          {
+            sortOrder: 1,
+            mealType: "lunch",
+            startTime: "13:00",
+            venueName: "Quán cao lầu phố cổ",
+            cuisineSlugs: ["cao-lau"],
+          },
+        ],
+      },
+    ],
+  },
+];
+
 // ---------------------------------------------------------------------------
 // 2. SEED LOGIC
 // ---------------------------------------------------------------------------
@@ -581,6 +1110,202 @@ async function seedCuisines(destinationMap: Map<string, string>) {
       });
   }
   console.log(`✔ cuisines_to_destinations: ${links.length} liên kết`);
+
+  return cuisineMap;
+}
+
+async function findAdminProfileId(): Promise<string> {
+  const [admin] = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.role, "admin"))
+    .limit(1);
+
+  if (!admin) {
+    throw new Error(
+      "Không tìm thấy tài khoản admin nào trong bảng profiles. " +
+        "Hãy đăng ký 1 tài khoản rồi cập nhật role='admin' cho tài khoản đó " +
+        "trước khi chạy seed tour (bảng tour.created_by bắt buộc trỏ tới 1 admin).",
+    );
+  }
+
+  return admin.id;
+}
+
+async function seedTours(
+  locationMap: Map<string, string>,
+  destinationMap: Map<string, string>,
+  cuisineMap: Map<string, string>,
+) {
+  const createdBy = await findAdminProfileId();
+
+  // 1. Tours -------------------------------------------------------------
+  await db
+    .insert(tours)
+    .values(
+      TOURS_DATA.map((t) => {
+        const startLocationId = locationMap.get(t.startLocationSlug);
+        if (!startLocationId) {
+          throw new Error(`Không tìm thấy locationId cho slug "${t.startLocationSlug}"`);
+        }
+        return {
+          slug: t.slug,
+          name: t.name,
+          nameEn: t.nameEn,
+          description: t.description,
+          durationDays: t.durationDays,
+          durationNights: t.durationNights,
+          estimatedPrice: t.estimatedPrice,
+          startLocationId,
+          meetingPoint: t.meetingPoint,
+          status: t.status,
+          createdBy,
+        };
+      }),
+    )
+    .onConflictDoNothing({ target: tours.slug });
+
+  const tourRows = await db
+    .select({ id: tours.id, slug: tours.slug })
+    .from(tours)
+    .where(inArray(tours.slug, TOURS_DATA.map((t) => t.slug)));
+
+  console.log(`✔ tours: ${tourRows.length}/${TOURS_DATA.length}`);
+  const tourMap = new Map(tourRows.map((r) => [r.slug, r.id]));
+
+  // 2. Tour days -----------------------------------------------------------
+  const dayValues = TOURS_DATA.flatMap((t) => {
+    const tourId = tourMap.get(t.slug);
+    if (!tourId) return [];
+    return t.days.map((d) => ({
+      tourId,
+      dayNumber: d.dayNumber,
+      title: d.title,
+      titleEn: d.titleEn,
+      description: d.description,
+    }));
+  });
+
+  await db
+    .insert(tourDays)
+    .values(dayValues)
+    .onConflictDoNothing({ target: [tourDays.tourId, tourDays.dayNumber] });
+
+  const tourIds = [...tourMap.values()];
+  const dayRows = await db
+    .select({ id: tourDays.id, tourId: tourDays.tourId, dayNumber: tourDays.dayNumber })
+    .from(tourDays)
+    .where(inArray(tourDays.tourId, tourIds));
+
+  console.log(`✔ tour_days: ${dayRows.length}/${dayValues.length}`);
+  const dayMap = new Map(dayRows.map((r) => [`${r.tourId}:${r.dayNumber}`, r.id]));
+
+  function getDayId(tourSlug: string, dayNumber: number): string {
+    const tourId = tourMap.get(tourSlug);
+    const dayId = tourId ? dayMap.get(`${tourId}:${dayNumber}`) : undefined;
+    if (!dayId) {
+      throw new Error(`Không tìm thấy tourDayId cho tour "${tourSlug}" ngày ${dayNumber}`);
+    }
+    return dayId;
+  }
+
+  // 3. Tour items ------------------------------------------------------------
+  const itemValues = TOURS_DATA.flatMap((t) =>
+    t.days.flatMap((d) =>
+      d.items.map((item) => ({
+        tourDayId: getDayId(t.slug, d.dayNumber),
+        destinationId: item.destinationSlug
+          ? (() => {
+              const id = destinationMap.get(item.destinationSlug!);
+              if (!id) {
+                throw new Error(`Không tìm thấy destinationId cho slug "${item.destinationSlug}"`);
+              }
+              return id;
+            })()
+          : null,
+        title: item.title,
+        titleEn: item.titleEn,
+        description: item.description,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        sortOrder: item.sortOrder,
+        transportMethod: item.transportMethod,
+        transportNote: item.transportNote,
+        estimatedTravelMinutes: item.estimatedTravelMinutes,
+      })),
+    ),
+  );
+
+  if (itemValues.length > 0) {
+    await db
+      .insert(tourItems)
+      .values(itemValues)
+      .onConflictDoNothing({ target: [tourItems.tourDayId, tourItems.sortOrder] });
+  }
+  console.log(`✔ tour_items: ${itemValues.length} mục lịch trình`);
+
+  // 4. Tour meals --------------------------------------------------------
+  const mealValues = TOURS_DATA.flatMap((t) =>
+    t.days.flatMap((d) =>
+      d.meals.map((meal) => ({
+        tourDayId: getDayId(t.slug, d.dayNumber),
+        mealType: meal.mealType,
+        startTime: meal.startTime,
+        venueName: meal.venueName,
+        note: meal.note,
+        sortOrder: meal.sortOrder,
+      })),
+    ),
+  );
+
+  if (mealValues.length > 0) {
+    await db
+      .insert(tourMeals)
+      .values(mealValues)
+      .onConflictDoNothing({ target: [tourMeals.tourDayId, tourMeals.sortOrder] });
+  }
+
+  const dayIds = [...dayMap.values()];
+  const mealRows = await db
+    .select({ id: tourMeals.id, tourDayId: tourMeals.tourDayId, sortOrder: tourMeals.sortOrder })
+    .from(tourMeals)
+    .where(inArray(tourMeals.tourDayId, dayIds));
+
+  console.log(`✔ tour_meals: ${mealRows.length}/${mealValues.length}`);
+  const mealMap = new Map(mealRows.map((r) => [`${r.tourDayId}:${r.sortOrder}`, r.id]));
+
+  // 5. Tour meal <-> cuisine links -----------------------------------------
+  const mealCuisineLinks = TOURS_DATA.flatMap((t) =>
+    t.days.flatMap((d) =>
+      d.meals.flatMap((meal) => {
+        if (!meal.cuisineSlugs || meal.cuisineSlugs.length === 0) return [];
+        const dayId = getDayId(t.slug, d.dayNumber);
+        const mealId = mealMap.get(`${dayId}:${meal.sortOrder}`);
+        if (!mealId) {
+          throw new Error(
+            `Không tìm thấy tourMealId cho tour "${t.slug}" ngày ${d.dayNumber} sortOrder ${meal.sortOrder}`,
+          );
+        }
+        return meal.cuisineSlugs.map((cuisineSlug, index) => {
+          const cuisineId = cuisineMap.get(cuisineSlug);
+          if (!cuisineId) {
+            throw new Error(`Không tìm thấy cuisineId cho slug "${cuisineSlug}"`);
+          }
+          return { tourMealId: mealId, cuisineId, sortOrder: index };
+        });
+      }),
+    ),
+  );
+
+  if (mealCuisineLinks.length > 0) {
+    await db
+      .insert(tourMealCuisines)
+      .values(mealCuisineLinks)
+      .onConflictDoNothing({
+        target: [tourMealCuisines.tourMealId, tourMealCuisines.cuisineId],
+      });
+  }
+  console.log(`✔ tour_meal_cuisines: ${mealCuisineLinks.length} liên kết`);
 }
 
 // ---------------------------------------------------------------------------
@@ -593,7 +1318,8 @@ async function main() {
   const locationMap = await seedLocations();
   const categoryMap = await seedCategories();
   const destinationMap = await seedDestinations(locationMap, categoryMap);
-  await seedCuisines(destinationMap);
+  const cuisineMap = await seedCuisines(destinationMap);
+  await seedTours(locationMap, destinationMap, cuisineMap);
 
   console.log("\n Seed hoàn tất.");
   process.exit(0);
