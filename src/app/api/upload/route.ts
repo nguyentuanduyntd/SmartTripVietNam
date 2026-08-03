@@ -11,6 +11,7 @@ const uploadTypeSchema = z.enum([
     "destination-cover",
     "destination-gallery",
     "cuisine-cover",
+    "tour-cover",
 ]);
 
 const folderByUploadType = {
@@ -18,6 +19,7 @@ const folderByUploadType = {
     "destination-cover": CLOUDINARY_FOLDERS.destinationCovers,
     "destination-gallery": CLOUDINARY_FOLDERS.destinationGallery,
     "cuisine-cover": CLOUDINARY_FOLDERS.cuisineCovers,
+    "tour-cover": CLOUDINARY_FOLDERS.tourCovers,
 } as const;
 
 export async function POST(request: Request){

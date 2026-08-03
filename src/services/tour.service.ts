@@ -500,6 +500,25 @@ export async function createTourDayService(
   });
 }
 
+export async function getTourDayByIdService(
+  id: string,
+  viewer: TourViewer,
+) {
+  const day = await findTourDayById(id);
+
+  if (!day) {
+    notFound("Không tìm thấy ngày trong tour");
+  }
+
+  const tour = await findTourById(day.tourId);
+
+  if (!tour || !canViewTour(tour.status, viewer)) {
+    notFound("Không tìm thấy ngày trong tour");
+  }
+
+  return day;
+}
+
 export async function updateTourDayService(
   id: string,
   input: UpdateTourDayRequest,

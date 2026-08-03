@@ -1,11 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import {ArrowLeft,ArrowRight,Eye,EyeOff,Landmark,LockKeyhole,Mail,MapPin,Route,ShieldCheck,Sparkles,UserPlus,} from "lucide-react";
-import {type FormEvent,useMemo, useState,} from "react";
-import { HOME_CITIES } from "@/src/constants/home-data";
-import { createClient } from "@/src/lib/supabase/client";
+import {
+    ArrowLeft,
+    ArrowRight,
+    Eye,
+    EyeOff,
+    Landmark,
+    LockKeyhole,
+    Mail,
+    MapPin,
+    Route,
+    ShieldCheck,
+    Sparkles,
+    UserPlus,
+} from "lucide-react";
+import {
+    type FormEvent,
+    useMemo,
+    useState,
+} from "react";
+
 import { CloudinaryVisual } from "@/src/components/home/CloudinaryVisual";
+import { HOME_CITIES } from "@/src/constants/home-data";
+import { normalizeReturnPath } from "@/src/lib/auth/return-path";
+import { createClient } from "@/src/lib/supabase/client";
 
 function getLoginErrorMessage(message: string): string {
     const normalizedMessage = message.toLowerCase();
@@ -36,20 +55,75 @@ function getLoginErrorMessage(message: string): string {
     return message;
 }
 
-export default function LoginPage() {
-    const supabase = useMemo(() => createClient(),[],);
-    const loginVisual =HOME_CITIES.find((city) => city.id === "hoi-an",) ?? HOME_CITIES[0];
-    const [email, setEmail] = useState("");
-    const [password, setPassword] =useState("");
-    const [showPassword,setShowPassword,] = useState(false);
-    const [error, setError] =useState<string | null>(null);
-    const [isSubmitting,setIsSubmitting,] = useState(false);
-    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+function isRecord(
+    value: unknown,
+): value is Record<string, unknown> {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+    );
+}
 
-    async function handleLogin(event: FormEvent<HTMLFormElement>) {
+/**
+ * Lấy đường dẫn nội bộ mà người dùng muốn quay lại sau
+ * khi đăng nhập.
+ *
+ * Ví dụ:
+ * /auth/login?next=/tours/hue-da-nang-hoi-an
+ */
+function getRequestedReturnPath(): string {
+    if (typeof window === "undefined") {
+        return "";
+    }
+
+    const searchParams = new URLSearchParams(
+        window.location.search,
+    );
+
+    return normalizeReturnPath(
+        searchParams.get("next"),
+        "",
+    );
+}
+
+export default function LoginPage() {
+    const supabase = useMemo(
+        () => createClient(),
+        [],
+    );
+
+    const loginVisual =
+        HOME_CITIES.find(
+            (city) => city.id === "hoi-an",
+        ) ?? HOME_CITIES[0];
+
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] =
+        useState(false);
+
+    const [error, setError] = useState<
+        string | null
+    >(null);
+
+    const [isSubmitting, setIsSubmitting] =
+        useState(false);
+
+    const [
+        isGoogleSubmitting,
+        setIsGoogleSubmitting,
+    ] = useState(false);
+
+    const isBusy =
+        isSubmitting || isGoogleSubmitting;
+
+    async function handleLogin(
+        event: FormEvent<HTMLFormElement>,
+    ) {
         event.preventDefault();
 
-        if (isSubmitting) {
+        if (isBusy) {
             return;
         }
 
@@ -57,7 +131,10 @@ export default function LoginPage() {
         setIsSubmitting(true);
 
         try {
-            const { data, error: loginError } =
+            const {
+                data,
+                error: loginError,
+            } =
                 await supabase.auth.signInWithPassword({
                     email: email.trim(),
                     password,
@@ -73,24 +150,54 @@ export default function LoginPage() {
                 return;
             }
 
-            if(!data.session){
-                setError("Đăng nhập thành công nhưng chưa tạo được phiên làm việc.");
+            if (!data.session) {
+                setError(
+                    "Đăng nhập thành công nhưng chưa tạo được phiên làm việc.",
+                );
+
                 return;
             }
 
-            const adminCheckResponse = await fetch("/api/admin/check", {
-                method: "GET",
-                headers: {Accept: "application/json"},
-            }).catch(() => null);
+            /*
+             * Kiểm tra quyền admin để giữ hành vi cũ:
+             *
+             * - Có next: quay lại trang người dùng đang thao tác.
+             * - Không có next và là admin: vào trang quản trị.
+             * - Không có next và là user: về trang chủ.
+             */
+            const adminCheckResponse = await fetch(
+                "/api/admin/check",
+                {
+                    method: "GET",
+                    headers: {
+                        Accept: "application/json",
+                    },
+                },
+            ).catch(() => null);
 
-            const adminCheckResult = adminCheckResponse ? await adminCheckResponse.json().catch(() => null) : null;
+            const adminCheckResult: unknown =
+                adminCheckResponse
+                    ? await adminCheckResponse
+                          .json()
+                          .catch(() => null)
+                    : null;
 
-            const isAdmin = adminCheckResponse?.ok === true && adminCheckResult?.success === true;
+            const isAdmin =
+                adminCheckResponse?.ok === true &&
+                isRecord(adminCheckResult) &&
+                adminCheckResult.success === true;
 
-            window.location.assign(isAdmin ? "/admin/destinations" : "/");
+            const requestedReturnPath =
+                getRequestedReturnPath();
 
-            // router.replace("/");
-            // router.refresh();
+            const fallbackPath = isAdmin
+                ? "/admin/destinations"
+                : "/";
+
+            window.location.assign(
+                requestedReturnPath ||
+                    fallbackPath,
+            );
         } catch (caughtError) {
             console.error(
                 "Lỗi đăng nhập:",
@@ -105,31 +212,68 @@ export default function LoginPage() {
         }
     }
 
-    async function handleGoogleLogin(){
-        if(isSubmitting || isGoogleSubmitting){
+    async function handleGoogleLogin() {
+        if (isBusy) {
             return;
         }
+
         setError(null);
         setIsGoogleSubmitting(true);
 
-        try{
-            const {error: gooleError} = await supabase.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
-                    queryParams: {
-                        prompt: "select_account",
+        try {
+            const requestedReturnPath =
+                getRequestedReturnPath();
+
+            const callbackUrl = new URL(
+                "/auth/callback",
+                window.location.origin,
+            );
+
+            /*
+             * Chỉ truyền next khi người dùng thực sự đi tới
+             * trang đăng nhập từ một luồng khác.
+             */
+            if (requestedReturnPath) {
+                callbackUrl.searchParams.set(
+                    "next",
+                    requestedReturnPath,
+                );
+            }
+
+            const { error: googleError } =
+                await supabase.auth.signInWithOAuth({
+                    provider: "google",
+                    options: {
+                        redirectTo:
+                            callbackUrl.toString(),
+                        queryParams: {
+                            prompt: "select_account",
+                        },
                     },
-                },
-            });
-            if(gooleError){
-                console.error("Lỗi đăng nhập Google: ", gooleError);
-                setError("Không thể đăng nhập bằng Google. Vui lòng thử lại.");
+                });
+
+            if (googleError) {
+                console.error(
+                    "Lỗi đăng nhập Google:",
+                    googleError,
+                );
+
+                setError(
+                    "Không thể đăng nhập bằng Google. Vui lòng thử lại.",
+                );
+
                 setIsGoogleSubmitting(false);
             }
-        } catch (caughtError){
-            console.error("Lỗi đăng nhập Google: ", caughtError);
-            setError("Đã xảy ra lỗi khi kết nối với Google. Vui lòng thử lại.");
+        } catch (caughtError) {
+            console.error(
+                "Lỗi đăng nhập Google:",
+                caughtError,
+            );
+
+            setError(
+                "Đã xảy ra lỗi khi kết nối với Google. Vui lòng thử lại.",
+            );
+
             setIsGoogleSubmitting(false);
         }
     }
@@ -183,7 +327,6 @@ export default function LoginPage() {
                             <div className="max-w-2xl pb-8">
                                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#f7d38f] backdrop-blur">
                                     <Sparkles size={15} />
-
                                     Chào mừng trở lại
                                 </div>
 
@@ -274,7 +417,6 @@ export default function LoginPage() {
                             className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-[#58706d] transition-colors hover:text-[#f25f4b]"
                         >
                             <ArrowLeft size={17} />
-
                             Về trang chủ
                         </Link>
 
@@ -290,17 +432,15 @@ export default function LoginPage() {
 
                                 <p className="mt-4 leading-7 text-[#687572]">
                                     Nhập thông tin tài khoản
-                                    để tiếp tục khám phá
-                                    hành trình miền Trung.
+                                    để tiếp tục khám phá hành
+                                    trình miền Trung.
                                 </p>
                             </div>
 
                             <form
                                 className="mt-8 space-y-5"
                                 onSubmit={handleLogin}
-                                aria-busy={
-                                    isSubmitting
-                                }
+                                aria-busy={isBusy}
                             >
                                 <div>
                                     <label
@@ -333,9 +473,7 @@ export default function LoginPage() {
                                             placeholder="ban@example.com"
                                             autoComplete="email"
                                             required
-                                            disabled={
-                                                isSubmitting
-                                            }
+                                            disabled={isBusy}
                                             className="h-14 w-full rounded-2xl border border-[#d8cdbc] bg-white/75 pl-12 pr-4 text-[#173a3b] outline-none transition-all placeholder:text-[#a2aaa7] focus:border-[#2f8f8b] focus:bg-white focus:ring-4 focus:ring-[#2f8f8b]/10 disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                     </div>
@@ -363,9 +501,7 @@ export default function LoginPage() {
                                                     ? "text"
                                                     : "password"
                                             }
-                                            value={
-                                                password
-                                            }
+                                            value={password}
                                             onChange={(
                                                 event,
                                             ) =>
@@ -378,9 +514,7 @@ export default function LoginPage() {
                                             placeholder="Nhập mật khẩu"
                                             autoComplete="current-password"
                                             required
-                                            disabled={
-                                                isSubmitting
-                                            }
+                                            disabled={isBusy}
                                             className="h-14 w-full rounded-2xl border border-[#d8cdbc] bg-white/75 pl-12 pr-12 text-[#173a3b] outline-none transition-all placeholder:text-[#a2aaa7] focus:border-[#2f8f8b] focus:bg-white focus:ring-4 focus:ring-[#2f8f8b]/10 disabled:cursor-not-allowed disabled:opacity-60"
                                         />
 
@@ -400,9 +534,7 @@ export default function LoginPage() {
                                                     ? "Ẩn mật khẩu"
                                                     : "Hiện mật khẩu"
                                             }
-                                            disabled={
-                                                isSubmitting
-                                            }
+                                            disabled={isBusy}
                                         >
                                             {showPassword ? (
                                                 <EyeOff
@@ -432,9 +564,7 @@ export default function LoginPage() {
 
                                 <button
                                     type="submit"
-                                    disabled={
-                                        isSubmitting
-                                    }
+                                    disabled={isBusy}
                                     className="group flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#173a3b] px-6 font-bold text-white shadow-[0_16px_38px_rgba(23,58,59,0.2)] transition-all hover:-translate-y-0.5 hover:bg-[#21494a] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
                                 >
                                     {isSubmitting
@@ -462,26 +592,41 @@ export default function LoginPage() {
 
                             <button
                                 type="button"
-                                onClick ={handleGoogleLogin}
-                                disabled={isSubmitting || isGoogleSubmitting}
+                                onClick={handleGoogleLogin}
+                                disabled={isBusy}
                                 className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#d8cdbc] bg-white px-6 font-bold text-[#294748] transition-all hover:-translate-y-0.5 hover:border-[#b9aa96] hover:bg-[#fffdf8] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
                             >
                                 <svg
                                     width="21"
                                     height="21"
-                                    viewBox ="0 0 24 24"
-                                    aria-hidden = "true"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
                                 >
-                                    <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"/>
-                                    <path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.62-2.36l-3.24-2.54c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"/>
-                                    <path fill="#FBBC05" d="M6.39 13.93A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.55l3.35-2.62Z"/>
-                                    <path fill="#EA4335" d="M12 5.94c1.47 0 2.79.51 3.83 1.5l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"/>
+                                    <path
+                                        fill="#4285F4"
+                                        d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"
+                                    />
+
+                                    <path
+                                        fill="#34A853"
+                                        d="M12 22c2.7 0 4.97-.9 6.62-2.36l-3.24-2.54c-.9.6-2.05.96-3.38.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"
+                                    />
+
+                                    <path
+                                        fill="#FBBC05"
+                                        d="M6.39 13.93A6.02 6.02 0 0 1 6.08 12c0-.67.11-1.32.31-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.55l3.35-2.62Z"
+                                    />
+
+                                    <path
+                                        fill="#EA4335"
+                                        d="M12 5.94c1.47 0 2.79.51 3.83 1.5l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"
+                                    />
                                 </svg>
 
-                                {isGoogleSubmitting ? "Đang kết nối Google..." : "Tiếp tục với Google"}
-
+                                {isGoogleSubmitting
+                                    ? "Đang kết nối Google..."
+                                    : "Tiếp tục với Google"}
                             </button>
-
 
                             <div className="my-7 flex items-center gap-4">
                                 <span className="h-px flex-1 bg-[#ddd2c1]" />
@@ -498,7 +643,6 @@ export default function LoginPage() {
                                 className="group flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-[#cfc3b2] bg-[#f5eddf] px-6 font-bold text-[#294748] transition-all hover:border-[#f25f4b] hover:bg-[#fff4ef] hover:text-[#df513f]"
                             >
                                 <UserPlus size={19} />
-
                                 Tạo tài khoản mới
                             </Link>
 

@@ -8,6 +8,7 @@ export const CLOUDINARY_FOLDERS = {
     destinationCovers: "smart-trip-vietnam/destinations/covers",
     destinationGallery: "smart-trip-vietnam/destinations/gallery",
     cuisineCovers: "smart-trip-vietnam/cuisines/covers",
+    tourCovers: "smart-trip-vietnam/tours/covers",
     community: "smart-trip-vietnam/community",
 } as const;
 
