@@ -57,6 +57,13 @@
       "when": 1785730576766,
       "tag": "0007_new_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785851782114,
+      "tag": "0008_tidy_thena",
+      "breakpoints": true
     }
   ]
 }

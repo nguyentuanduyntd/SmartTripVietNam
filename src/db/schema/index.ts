@@ -11,3 +11,4 @@ export * from "./tour_community_relations";
 export * from "./itinerary_enums";
 export * from "./itineraries";
 export * from "./itinerary_relations";
+export * from "./itinerary_stays";

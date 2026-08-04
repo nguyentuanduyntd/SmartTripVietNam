@@ -162,6 +162,75 @@ async function ensureCuisineIdsExist(cuisineIds: string[]) {
   }
 }
 
+type PublishableTour = {
+  description?: string | null;
+  coverImageUrl?: string | null;
+  durationDays: number;
+  days: Array<{
+    dayNumber: number;
+    items: Array<unknown>;
+  }>;
+};
+
+function ensureTourReadyToPublish(tour: PublishableTour) {
+  const errors: Record<string, string[]> = {};
+
+  if (!tour.description?.trim()) {
+    errors.description = [
+      "Tour phải có mô tả trước khi xuất bản",
+    ];
+  }
+
+  if (!tour.coverImageUrl?.trim()) {
+    errors.coverImageUrl = [
+      "Tour phải có ảnh bìa trước khi xuất bản",
+    ];
+  }
+
+  const daysByNumber = new Map(
+    tour.days.map((day) => [day.dayNumber, day]),
+  );
+
+  const missingDayNumbers: number[] = [];
+  const emptyDayNumbers: number[] = [];
+
+  for (
+    let dayNumber = 1;
+    dayNumber <= tour.durationDays;
+    dayNumber += 1
+  ) {
+    const day = daysByNumber.get(dayNumber);
+
+    if (!day) {
+      missingDayNumbers.push(dayNumber);
+      continue;
+    }
+
+    if (day.items.length === 0) {
+      emptyDayNumbers.push(dayNumber);
+    }
+  }
+
+  if (missingDayNumbers.length > 0) {
+    errors.days = [
+      `Thiếu lịch trình ngày: ${missingDayNumbers.join(", ")}`,
+    ];
+  }
+
+  if (emptyDayNumbers.length > 0) {
+    errors.items = [
+      `Các ngày chưa có hoạt động: ${emptyDayNumbers.join(", ")}`,
+    ];
+  }
+
+  if (Object.keys(errors).length > 0) {
+    badRequest(
+      "Tour chưa đủ điều kiện để xuất bản",
+      errors,
+    );
+  }
+}
+
 function canViewTour(
   status: TourStatus,
   viewer: TourViewer,
@@ -224,6 +293,10 @@ export async function createTourService(
 ) {
   const slug = input.slug?.trim() || slugify(input.name);
 
+  if (input.status === "published") {
+    ensureTourReadyToPublish(input);
+  }
+
   await Promise.all([
     ensureTourSlugIsUnique(slug),
     ensureStartLocationExists(input.startLocationId),
@@ -256,15 +329,21 @@ export async function createTourService(
       description: input.description ?? null,
       descriptionEn: input.descriptionEn ?? null,
       coverImageUrl: input.coverImageUrl ?? null,
-      coverImagePublicId: input.coverImagePublicId ?? null,
+      coverImagePublicId:
+        input.coverImagePublicId ?? null,
       durationDays: input.durationDays,
       durationNights: input.durationNights,
       estimatedPrice: input.estimatedPrice ?? null,
       startLocationId: input.startLocationId,
       meetingPoint: input.meetingPoint ?? null,
       status: input.status,
+      publishedAt:
+        input.status === "published"
+          ? new Date()
+          : null,
       createdBy,
     },
+
     days: input.days.map((day) => ({
       day: {
         dayNumber: day.dayNumber,
@@ -273,6 +352,7 @@ export async function createTourService(
         description: day.description ?? null,
         descriptionEn: day.descriptionEn ?? null,
       },
+
       items: day.items.map((item) => ({
         destinationId: item.destinationId ?? null,
         title: item.title,
@@ -282,12 +362,16 @@ export async function createTourService(
         startTime: item.startTime ?? null,
         endTime: item.endTime ?? null,
         sortOrder: item.sortOrder,
-        transportMethod: item.transportMethod ?? null,
-        transportNote: item.transportNote ?? null,
-        transportNoteEn: item.transportNoteEn ?? null,
+        transportMethod:
+          item.transportMethod ?? null,
+        transportNote:
+          item.transportNote ?? null,
+        transportNoteEn:
+          item.transportNoteEn ?? null,
         estimatedTravelMinutes:
           item.estimatedTravelMinutes ?? null,
       })),
+
       meals: day.meals.map((meal) => ({
         meal: {
           mealType: meal.mealType,
@@ -299,6 +383,7 @@ export async function createTourService(
           isIncluded: meal.isIncluded,
           sortOrder: meal.sortOrder,
         },
+
         cuisines: meal.cuisines.map((item) => ({
           cuisineId: item.cuisineId,
           sortOrder: item.sortOrder,
@@ -311,7 +396,9 @@ export async function createTourService(
   const createdTour = await findTourDetailBySlug(slug);
 
   if (!createdTour) {
-    throw new Error("Tour đã tạo nhưng không thể đọc lại dữ liệu");
+    throw new Error(
+      "Tour đã tạo nhưng không thể đọc lại dữ liệu",
+    );
   }
 
   return createdTour;
@@ -332,7 +419,9 @@ export async function updateTourService(
   }
 
   if (input.startLocationId) {
-    await ensureStartLocationExists(input.startLocationId);
+    await ensureStartLocationExists(
+      input.startLocationId,
+    );
   }
 
   const nextDurationDays =
@@ -342,15 +431,19 @@ export async function updateTourService(
     input.durationNights ?? existing.durationNights;
 
   if (nextDurationNights > nextDurationDays) {
-    badRequest("Số đêm không được lớn hơn số ngày", {
-      durationNights: [
-        "Số đêm không được lớn hơn số ngày",
-      ],
-    });
+    badRequest(
+      "Số đêm không được lớn hơn số ngày",
+      {
+        durationNights: [
+          "Số đêm không được lớn hơn số ngày",
+        ],
+      },
+    );
   }
 
   if (input.durationDays !== undefined) {
-    const maxDayNumber = await findMaxTourDayNumber(id);
+    const maxDayNumber =
+      await findMaxTourDayNumber(id);
 
     if (
       maxDayNumber !== null &&
@@ -365,6 +458,33 @@ export async function updateTourService(
         },
       );
     }
+  }
+
+  const nextStatus =
+    input.status ?? existing.status;
+
+  if (nextStatus === "published") {
+    const currentDetail =
+      await findTourDetailById(id);
+
+    if (!currentDetail) {
+      notFound("Không tìm thấy tour");
+    }
+
+    ensureTourReadyToPublish({
+      description:
+        input.description !== undefined
+          ? input.description
+          : currentDetail.description,
+
+      coverImageUrl:
+        input.coverImageUrl !== undefined
+          ? input.coverImageUrl
+          : currentDetail.coverImageUrl,
+
+      durationDays: nextDurationDays,
+      days: currentDetail.days,
+    });
   }
 
   const updateData: UpdateTourRecord = {};
@@ -386,43 +506,64 @@ export async function updateTourService(
   }
 
   if (input.descriptionEn !== undefined) {
-    updateData.descriptionEn = input.descriptionEn;
+    updateData.descriptionEn =
+      input.descriptionEn;
   }
 
   if (input.coverImageUrl !== undefined) {
-    updateData.coverImageUrl = input.coverImageUrl;
+    updateData.coverImageUrl =
+      input.coverImageUrl;
   }
 
-  if (input.coverImagePublicId !== undefined) {
+  if (
+    input.coverImagePublicId !== undefined
+  ) {
     updateData.coverImagePublicId =
       input.coverImagePublicId;
   }
 
   if (input.durationDays !== undefined) {
-    updateData.durationDays = input.durationDays;
+    updateData.durationDays =
+      input.durationDays;
   }
 
   if (input.durationNights !== undefined) {
-    updateData.durationNights = input.durationNights;
+    updateData.durationNights =
+      input.durationNights;
   }
 
   if (input.estimatedPrice !== undefined) {
-    updateData.estimatedPrice = input.estimatedPrice;
+    updateData.estimatedPrice =
+      input.estimatedPrice;
   }
 
-  if (input.startLocationId !== undefined) {
-    updateData.startLocationId = input.startLocationId;
+  if (
+    input.startLocationId !== undefined
+  ) {
+    updateData.startLocationId =
+      input.startLocationId;
   }
 
   if (input.meetingPoint !== undefined) {
-    updateData.meetingPoint = input.meetingPoint;
+    updateData.meetingPoint =
+      input.meetingPoint;
   }
 
   if (input.status !== undefined) {
     updateData.status = input.status;
   }
 
-  const updated = await updateTour(id, updateData);
+  if (nextStatus === "published") {
+    updateData.publishedAt =
+      existing.publishedAt ?? new Date();
+  } else if (existing.publishedAt !== null) {
+    updateData.publishedAt = null;
+  }
+
+  const updated = await updateTour(
+    id,
+    updateData,
+  );
 
   if (!updated) {
     notFound("Không tìm thấy tour");
@@ -431,7 +572,9 @@ export async function updateTourService(
   const detail = await findTourDetailById(id);
 
   if (!detail) {
-    throw new Error("Tour đã cập nhật nhưng không thể đọc lại dữ liệu");
+    throw new Error(
+      "Tour đã cập nhật nhưng không thể đọc lại dữ liệu",
+    );
   }
 
   return detail;

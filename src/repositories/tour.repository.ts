@@ -83,6 +83,7 @@ export type UpdateTourRecord = Partial<
     | "startLocationId"
     | "meetingPoint"
     | "status"
+    | "publishedAt"
   >
 >;
 
@@ -887,38 +888,49 @@ export async function createTourMeal(
 }
 
 export async function updateTourMeal(
-    id: string,
-    data: UpdateTourMealRecord,
-    cuisineLinks?: Array<Omit<NewTourMealCuisine, "tourMealId">>,
-    ) {
-    return db.transaction(async (transaction) => {
-        const [meal] = await transaction
-        .update(tourMeals)
-        .set(data)
-        .where(eq(tourMeals.id, id))
-        .returning();
+  id: string,
+  data: UpdateTourMealRecord,
+  cuisineLinks?: Array<
+    Omit<NewTourMealCuisine, "tourMealId">
+  >,
+) {
+  return db.transaction(async (transaction) => {
+    const [meal] =
+      Object.keys(data).length > 0
+        ? await transaction
+            .update(tourMeals)
+            .set(data)
+            .where(eq(tourMeals.id, id))
+            .returning()
+        : await transaction
+            .select()
+            .from(tourMeals)
+            .where(eq(tourMeals.id, id))
+            .limit(1);
 
-        if (!meal) {
-        return null;
-        }
+    if (!meal) {
+      return null;
+    }
 
-        if (cuisineLinks !== undefined) {
+    if (cuisineLinks !== undefined) {
+      await transaction
+        .delete(tourMealCuisines)
+        .where(eq(tourMealCuisines.tourMealId, id));
+
+      if (cuisineLinks.length > 0) {
         await transaction
-            .delete(tourMealCuisines)
-            .where(eq(tourMealCuisines.tourMealId, id));
-
-        if (cuisineLinks.length > 0) {
-            await transaction.insert(tourMealCuisines).values(
+          .insert(tourMealCuisines)
+          .values(
             cuisineLinks.map((link) => ({
-                ...link,
-                tourMealId: id,
+              ...link,
+              tourMealId: id,
             })),
-            );
-        }
-        }
+          );
+      }
+    }
 
-        return meal;
-    });
+    return meal;
+  });
 }
 
 export async function deleteTourMeal(id: string) {
