@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import {
+    CalendarDays,
     ChevronDown,
     LayoutDashboard,
     Landmark,
@@ -13,6 +12,8 @@ import {
     UserRound,
     X,
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     useEffect,
     useMemo,
@@ -27,6 +28,11 @@ interface UserProfile {
     full_name: string | null;
     avatar_url: string | null;
     role: "user" | "admin" | null;
+}
+
+interface LoadedUserProfile {
+    userId: string;
+    profile: UserProfile | null;
 }
 
 interface UserAvatarProps {
@@ -64,7 +70,9 @@ function UserAvatar({
     );
 }
 
-function getMetadataString(value: unknown): string | null {
+function getMetadataString(
+    value: unknown,
+): string | null {
     if (
         typeof value !== "string" ||
         !value.trim()
@@ -73,6 +81,14 @@ function getMetadataString(value: unknown): string | null {
     }
 
     return value.trim();
+}
+
+function getHomeSectionHref(href: string) {
+    if (href.startsWith("#")) {
+        return `/${href}`;
+    }
+
+    return href;
 }
 
 function getInitials(name: string): string {
@@ -118,8 +134,16 @@ export function HomeHeader() {
     const [user, setUser] =
         useState<User | null>(null);
 
-    const [profile, setProfile] =
-        useState<UserProfile | null>(null);
+    /*
+     * Lưu kèm userId để không hiển thị nhầm profile
+     * cũ trong lúc người dùng đăng nhập tài khoản khác.
+     */
+    const [
+        loadedProfile,
+        setLoadedProfile,
+    ] = useState<LoadedUserProfile | null>(
+        null,
+    );
 
     const [
         isAuthLoading,
@@ -132,8 +156,8 @@ export function HomeHeader() {
     ] = useState(false);
 
     /*
-     * Kiểm tra người dùng hiện tại khi Header được mount
-     * và theo dõi các thay đổi đăng nhập/đăng xuất.
+     * Lấy phiên đăng nhập ban đầu và lắng nghe
+     * thay đổi từ Supabase Auth.
      */
     useEffect(() => {
         let isMounted = true;
@@ -143,7 +167,8 @@ export function HomeHeader() {
                 const {
                     data: { session },
                     error,
-                } = await supabase.auth.getSession();
+                } =
+                    await supabase.auth.getSession();
 
                 if (!isMounted) {
                     return;
@@ -159,7 +184,9 @@ export function HomeHeader() {
                     return;
                 }
 
-                setUser(session?.user ?? null);
+                setUser(
+                    session?.user ?? null,
+                );
             } catch (error) {
                 console.error(
                     "Lỗi kiểm tra phiên đăng nhập:",
@@ -180,24 +207,33 @@ export function HomeHeader() {
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                if (!isMounted) {
-                    return;
-                }
+        } =
+            supabase.auth.onAuthStateChange(
+                (_event, session) => {
+                    if (!isMounted) {
+                        return;
+                    }
 
-                const nextUser =
-                    session?.user ?? null;
+                    const nextUser =
+                        session?.user ?? null;
 
-                setUser(nextUser);
-                setIsAuthLoading(false);
+                    setUser(nextUser);
+                    setIsAuthLoading(false);
 
-                if (!nextUser) {
-                    setProfile(null);
-                    setIsUserMenuOpen(false);
-                }
-            },
-        );
+                    /*
+                     * Đây là callback từ Supabase,
+                     * không phải cập nhật đồng bộ trực tiếp
+                     * trong thân useEffect.
+                     */
+                    if (!nextUser) {
+                        setLoadedProfile(null);
+
+                        setIsUserMenuOpen(
+                            false,
+                        );
+                    }
+                },
+            );
 
         return () => {
             isMounted = false;
@@ -206,17 +242,21 @@ export function HomeHeader() {
     }, [supabase]);
 
     /*
-     * Sau khi có auth user, lấy thông tin mở rộng
-     * từ bảng profiles.
+     * Tải profile sau khi đã có Auth user.
+     *
+     * Không gọi setState trực tiếp trước thao tác await,
+     * tránh lỗi react-hooks/set-state-in-effect.
      */
     useEffect(() => {
         let isMounted = true;
 
-        if (!user) {
+        const userId = user?.id;
+
+        if (typeof userId !== "string" || userId.length === 0) {
             return;
         }
 
-        async function loadProfile() {
+        async function loadProfile(authenticatedUserId: string) {
             const {
                 data,
                 error,
@@ -225,7 +265,10 @@ export function HomeHeader() {
                 .select(
                     "full_name, avatar_url, role",
                 )
-                .eq("id", user!.id)
+                .eq(
+                    "id",
+                    authenticatedUserId,
+                )
                 .maybeSingle();
 
             if (!isMounted) {
@@ -233,30 +276,41 @@ export function HomeHeader() {
             }
 
             if (error) {
-                /*
-                 * Header vẫn hiển thị email từ Supabase Auth
-                 * nếu chưa đọc được bảng profiles.
-                 */
                 console.error(
                     "Không thể tải profile người dùng:",
                     error,
                 );
 
-                setProfile(null);
+                setLoadedProfile({
+                    userId: authenticatedUserId,
+                    profile: null,
+                });
+
                 return;
             }
 
-            setProfile(
-                data as UserProfile | null,
-            );
+            setLoadedProfile({
+                userId: authenticatedUserId,
+                profile: data as UserProfile | null,
+            });
         }
 
-        void loadProfile();
+        void loadProfile(userId);
 
         return () => {
             isMounted = false;
         };
-    }, [supabase, user]);
+    }, [supabase, user?.id]);
+
+    /*
+     * Chỉ sử dụng profile nếu profile đó thuộc
+     * đúng user đang đăng nhập.
+     */
+    const profile =
+        user &&
+        loadedProfile?.userId === user.id
+            ? loadedProfile.profile
+            : null;
 
     /*
      * Đóng dropdown khi bấm ra ngoài hoặc nhấn Escape.
@@ -315,7 +369,8 @@ export function HomeHeader() {
 
     const metadataFullName =
         getMetadataString(
-            user?.user_metadata?.full_name,
+            user?.user_metadata
+                ?.full_name,
         ) ??
         getMetadataString(
             user?.user_metadata?.name,
@@ -323,7 +378,8 @@ export function HomeHeader() {
 
     const metadataAvatarUrl =
         getMetadataString(
-            user?.user_metadata?.avatar_url,
+            user?.user_metadata
+                ?.avatar_url,
         ) ??
         getMetadataString(
             user?.user_metadata?.picture,
@@ -351,10 +407,10 @@ export function HomeHeader() {
             ? "Quản trị viên"
             : "Thành viên";
 
-    const closeMenu = () => {
+    function closeMenu() {
         setIsOpen(false);
         setIsUserMenuOpen(false);
-    };
+    }
 
     async function handleSignOut() {
         if (isSigningOut) {
@@ -365,9 +421,11 @@ export function HomeHeader() {
 
         try {
             const { error } =
-                await supabase.auth.signOut({
-                    scope: "local",
-                });
+                await supabase.auth.signOut(
+                    {
+                        scope: "local",
+                    },
+                );
 
             if (error) {
                 console.error(
@@ -379,7 +437,7 @@ export function HomeHeader() {
             }
 
             setUser(null);
-            setProfile(null);
+            setLoadedProfile(null);
             setIsOpen(false);
             setIsUserMenuOpen(false);
 
@@ -398,7 +456,6 @@ export function HomeHeader() {
     return (
         <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-6">
             <div className="mx-auto flex max-w-[1440px] items-center justify-between rounded-[24px] border border-white/60 bg-[#fffaf0]/88 px-4 py-3 shadow-[0_20px_70px_rgba(35,45,43,0.10)] backdrop-blur-xl sm:px-6 lg:px-8">
-                {/* Logo */}
                 <Link
                     href="/"
                     className="group flex items-center gap-3 text-[#173a3b]"
@@ -417,29 +474,37 @@ export function HomeHeader() {
                     </span>
                 </Link>
 
-                {/* Desktop navigation */}
                 <nav
                     className="hidden items-center gap-7 lg:flex"
                     aria-label="Điều hướng chính"
                 >
-                    {NAV_ITEMS.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className="relative py-2 text-[15px] font-medium text-[#294748] transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-[#f25f4b] after:transition-transform hover:text-[#f25f4b] hover:after:scale-x-100"
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
+                    {NAV_ITEMS.map(
+                        (item) => (
+                            <Link
+                                key={
+                                    item.href
+                                }
+                                href={getHomeSectionHref(
+                                    item.href,
+                                )}
+                                className="relative py-2 text-[15px] font-medium text-[#294748] transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-[#f25f4b] after:transition-transform hover:text-[#f25f4b] hover:after:scale-x-100"
+                            >
+                                {
+                                    item.label
+                                }
+                            </Link>
+                        ),
+                    )}
                 </nav>
 
-                {/* Desktop actions */}
                 <div className="hidden items-center gap-3 lg:flex">
                     {isAuthLoading ? (
                         <div className="h-11 w-36 animate-pulse rounded-full bg-[#e8dfd1]" />
                     ) : user ? (
                         <div
-                            ref={userMenuRef}
+                            ref={
+                                userMenuRef
+                            }
                             className="relative"
                         >
                             <button
@@ -477,7 +542,9 @@ export function HomeHeader() {
                                     </span>
 
                                     <span className="block truncate text-sm font-bold text-[#294748]">
-                                        {displayName}
+                                        {
+                                            displayName
+                                        }
                                     </span>
                                 </span>
 
@@ -518,7 +585,9 @@ export function HomeHeader() {
                                             </p>
 
                                             <p className="mt-0.5 truncate text-xs text-[#6d7a77]">
-                                                {email}
+                                                {
+                                                    email
+                                                }
                                             </p>
 
                                             <span className="mt-2 inline-flex rounded-full bg-[#dcebe7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#2f7773]">
@@ -530,6 +599,23 @@ export function HomeHeader() {
                                     </div>
 
                                     <div className="mt-2 grid gap-1">
+                                        <Link
+                                            href="/planner"
+                                            onClick={
+                                                closeMenu
+                                            }
+                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
+                                        >
+                                            <CalendarDays
+                                                size={
+                                                    18
+                                                }
+                                            />
+
+                                            Lịch trình
+                                            của tôi
+                                        </Link>
+
                                         {profile?.role ===
                                         "admin" ? (
                                             <Link
@@ -545,7 +631,8 @@ export function HomeHeader() {
                                                     }
                                                 />
 
-                                                Trang quản trị
+                                                Trang quản
+                                                trị
                                             </Link>
                                         ) : (
                                             <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748]">
@@ -555,7 +642,8 @@ export function HomeHeader() {
                                                     }
                                                 />
 
-                                                Tài khoản của tôi
+                                                Tài khoản
+                                                của tôi
                                             </div>
                                         )}
 
@@ -593,7 +681,7 @@ export function HomeHeader() {
                     )}
 
                     <Link
-                        href="/planner"
+                        href="/#hanh-trinh"
                         className="inline-flex items-center gap-2 rounded-full bg-[#173a3b] px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#20494a]"
                     >
                         <Route size={17} />
@@ -601,13 +689,14 @@ export function HomeHeader() {
                     </Link>
                 </div>
 
-                {/* Mobile menu button */}
                 <button
                     type="button"
                     className="grid h-11 w-11 place-items-center rounded-full border border-[#d9d0c1] text-[#173a3b] transition-colors hover:bg-[#efe7d8] lg:hidden"
                     onClick={() => {
                         setIsOpen(
-                            (currentValue) =>
+                            (
+                                currentValue,
+                            ) =>
                                 !currentValue,
                         );
                     }}
@@ -627,7 +716,6 @@ export function HomeHeader() {
                 </button>
             </div>
 
-            {/* Mobile navigation */}
             {isOpen ? (
                 <div
                     id="home-mobile-menu"
@@ -637,16 +725,26 @@ export function HomeHeader() {
                         className="grid gap-1"
                         aria-label="Điều hướng trên điện thoại"
                     >
-                        {NAV_ITEMS.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={closeMenu}
-                                className="rounded-2xl px-4 py-3 font-medium text-[#294748] transition-colors hover:bg-[#efe7d8]"
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
+                        {NAV_ITEMS.map(
+                            (item) => (
+                                <Link
+                                    key={
+                                        item.href
+                                    }
+                                    href={getHomeSectionHref(
+                                        item.href,
+                                    )}
+                                    onClick={
+                                        closeMenu
+                                    }
+                                    className="rounded-2xl px-4 py-3 font-medium text-[#294748] transition-colors hover:bg-[#efe7d8]"
+                                >
+                                    {
+                                        item.label
+                                    }
+                                </Link>
+                            ),
+                        )}
                     </nav>
 
                     <div className="mt-3 border-t border-[#ded5c6] pt-4">
@@ -676,7 +774,9 @@ export function HomeHeader() {
                                         </p>
 
                                         <p className="truncate text-xs text-[#6d7a77]">
-                                            {email}
+                                            {
+                                                email
+                                            }
                                         </p>
 
                                         <span className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.08em] text-[#2f7773]">
@@ -688,6 +788,23 @@ export function HomeHeader() {
                                 </div>
 
                                 <div className="mt-2 grid gap-2">
+                                    <Link
+                                        href="/planner"
+                                        onClick={
+                                            closeMenu
+                                        }
+                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                                    >
+                                        <CalendarDays
+                                            size={
+                                                17
+                                            }
+                                        />
+
+                                        Lịch trình
+                                        của tôi
+                                    </Link>
+
                                     {profile?.role ===
                                     "admin" ? (
                                         <Link
@@ -703,9 +820,21 @@ export function HomeHeader() {
                                                 }
                                             />
 
-                                            Trang quản trị
+                                            Trang quản
+                                            trị
                                         </Link>
-                                    ) : null}
+                                    ) : (
+                                        <div className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]">
+                                            <UserRound
+                                                size={
+                                                    17
+                                                }
+                                            />
+
+                                            Tài khoản
+                                            của tôi
+                                        </div>
+                                    )}
 
                                     <button
                                         type="button"
@@ -718,7 +847,9 @@ export function HomeHeader() {
                                         className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#fff0eb] px-4 text-sm font-semibold text-[#c94f3e] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         <LogOut
-                                            size={17}
+                                            size={
+                                                17
+                                            }
                                         />
 
                                         {isSigningOut
@@ -730,7 +861,9 @@ export function HomeHeader() {
                         ) : (
                             <Link
                                 href="/auth/login"
-                                onClick={closeMenu}
+                                onClick={
+                                    closeMenu
+                                }
                                 className="flex min-h-12 items-center justify-center rounded-full border border-[#cfc5b5] px-4 py-3 text-center text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
                             >
                                 Đăng nhập
@@ -738,7 +871,7 @@ export function HomeHeader() {
                         )}
 
                         <Link
-                            href="/planner"
+                            href="/#hanh-trinh"
                             onClick={closeMenu}
                             className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#20494a]"
                         >

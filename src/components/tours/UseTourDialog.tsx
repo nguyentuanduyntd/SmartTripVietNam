@@ -295,8 +295,11 @@ export function UseTourDialog({
 
             setIsOpen(false);
 
-            router.push(redirectTo);
-            router.refresh();
+            /*
+             * API đã trả về /planner/{id}.
+             * Chỉ thực hiện một lần điều hướng và không refresh ngay sau đó.
+             */
+            router.replace(redirectTo);
         } catch (error) {
             console.error(
                 "Không thể tạo hành trình:",
@@ -620,12 +623,12 @@ export function UseTourDialog({
                                   ) : null}
 
                                   <div className="mt-7 rounded-2xl border border-[#d9e5df] bg-[#edf5f1] px-4 py-3 text-sm leading-6 text-[#54706c]">
-                                      Chi phí tour hiện
-                                      tại sẽ được sao chép
-                                      thành khoản tham khảo
-                                      theo đầu người. Bạn có
-                                      thể chia nhỏ thành vé,
-                                      ăn uống, di chuyển và
+                                      Chi phí tour hiện tại
+                                      sẽ được sao chép thành
+                                      khoản tham khảo theo
+                                      đầu người. Bạn có thể
+                                      chia nhỏ thành vé, ăn
+                                      uống, di chuyển và
                                       khách sạn trong trang
                                       chỉnh sửa.
                                   </div>
@@ -663,8 +666,7 @@ export function UseTourDialog({
                                               <Route
                                                   size={18}
                                               />
-                                              Tạo hành
-                                              trình
+                                              Tạo hành trình
                                           </>
                                       )}
                                   </button>
