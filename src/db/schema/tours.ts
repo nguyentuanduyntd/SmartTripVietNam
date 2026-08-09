@@ -7,6 +7,7 @@ import { destinations } from "./destinations";
 import { socialContentStatusEnum, mealTypeEnum, tourStatusEnum, transportMethodEnum } from "./tour_community_enums";
 import { locations } from "./locations";
 import { profiles } from "./profiles";
+import { costCalculationUnitEnum, costCategoryEnum, travelerScopeEnum  } from "./itinerary_enums";
 
 export const tours = pgTable("tour",{
     id: uuid("id").primaryKey().defaultRandom(),
@@ -164,6 +165,95 @@ export const tourMealCuisines = pgTable(
   ],
 );
 
+export const tourCosts = pgTable(
+  "tour_costs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tourId: uuid("tour_id")
+      .notNull()
+      .references(() => tours.id, { onDelete: "cascade" }),
+
+    tourDayId: uuid("tour_day_id").references(() => tourDays.id, { onDelete: "cascade" }),
+    tourItemId: uuid("tour_item_id").references(() => tourItems.id, { onDelete: "cascade" }),
+    tourMealId: uuid("tour_meal_id").references(() => tourMeals.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    category: costCategoryEnum("category").notNull(),
+    calculationUnit: costCalculationUnitEnum("calculation_unit").notNull(),
+    travelerScope: travelerScopeEnum("traveler_scope").notNull(),
+    unitPrice: numeric("unit_price", { precision: 12, scale: 0 }).notNull(),
+    quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(),
+    nightCount: integer("night_count").notNull().default(0),
+    note: text("note"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("tour_costs_tour_id_idx").on(
+            table.tourId,
+        ),
+
+        index("tour_costs_day_id_idx").on(
+            table.tourDayId,
+        ),
+
+        index("tour_costs_item_id_idx").on(
+            table.tourItemId,
+        ),
+
+        index("tour_costs_meal_id_idx").on(
+            table.tourMealId,
+        ),
+
+        index("tour_costs_category_idx").on(
+            table.category,
+        ),
+
+        check(
+            "tour_costs_title_check",
+            sql`length(btrim(${table.title})) > 0`,
+        ),
+
+        check(
+            "tour_costs_unit_price_check",
+            sql`${table.unitPrice} >= 0`,
+        ),
+
+        check(
+            "tour_costs_quantity_check",
+            sql`${table.quantity} > 0`,
+        ),
+
+        check(
+            "tour_costs_night_count_check",
+            sql`
+                ${table.nightCount} is null
+                or ${table.nightCount} > 0
+            `,
+        ),
+
+        check(
+            "tour_costs_sort_order_check",
+            sql`${table.sortOrder} >= 0`,
+        ),
+
+        /*
+         * Không cho một cost vừa gắn ngày,
+         * vừa gắn activity, vừa gắn meal.
+         */
+        check(
+            "tour_costs_single_target_check",
+            sql`
+                num_nonnulls(
+                    ${table.tourDayId},
+                    ${table.tourItemId},
+                    ${table.tourMealId}
+                ) <= 1
+            `,
+        ),
+  ],
+)
+
 
 export const tourLikes = pgTable(
   "tour_likes",
@@ -233,3 +323,5 @@ export type TourMeal = typeof tourMeals.$inferSelect;
 export type NewTourMeal = typeof tourMeals.$inferInsert;
 export type TourComment = typeof tourComments.$inferSelect;
 export type NewTourComment = typeof tourComments.$inferInsert;
+export type TourCost = typeof tourCosts.$inferSelect;
+export type NewTourCost = typeof tourCosts.$inferInsert;

@@ -1,4 +1,5 @@
 import {z} from "zod";
+import { COST_CALCULATION_UNITS, COST_CATEGORIES, TRAVELER_SCOPES } from "../constants/itinerary";
 import { MEAL_TYPES, TOUR_STATUSES, TRANSPORT_METHODS } from "../constants/tour_community";
 import { locationSlugSchema } from "./location.schema";
 
@@ -19,9 +20,257 @@ const optionalImagePublicIdSchema = z.string().trim().max(300).nullable().option
 const optionalTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/, "Thời gian phải có định dạng HH:mm hoặc HH:mm:ss").nullable().optional();
 
 const estimatedPriceSchema = z.union([
-    z.string().trim().regex(/^\d{1,12}$/, "Giá tour phải là chuỗi số từ 1 đến 12 chữ số"),
-    z.number().int("Giá tour phải là số nguyên").min(0, "Giá tour không được âm").max(MAX_PRICE, "Giá tour vượt quá giới hạn").transform(String),
+  z.string().trim().regex(/^\d{1,12}$/, "Giá tour phải là chuỗi số từ 1 đến 12 chữ số"),
+  z.number().int("Giá tour phải là số nguyên").min(0, "Giá tour không được âm").max(MAX_PRICE, "Giá tour vượt quá giới hạn").transform(String),
 ]).nullable().optional();
+
+const costUnitPriceSchema = z.union([
+  z.string().trim().regex(/^\d{1,12}$/,"Đơn giá phải là chuỗi số từ 1 đến 12 chữ số",),
+  z.number().int("Đơn giá phải là số nguyên").min(0,"Đơn giá không được âm",).max(MAX_PRICE,"Đơn giá vượt quá giới hạn",).transform(String),]);
+
+const costQuantitySchema = z.union([
+  z.string().trim().regex(/^\d{1,8}(?:\.\d{1,2})?$/,"Số lượng phải là số dương và tối đa 2 chữ số thập phân",)
+    .refine((value) =>Number(value) > 0,"Số lượng phải lớn hơn 0",),
+  z.number().positive("Số lượng phải lớn hơn 0",).max(99_999_999.99,"Số lượng vượt quá giới hạn",)
+    .refine((value) =>Number.isInteger(value * 100,),"Số lượng chỉ được có tối đa 2 chữ số thập phân",).transform(String),
+    ]);
+
+const optionalCostTargetIdSchema = z
+    .string()
+    .uuid(
+        "ID liên kết không đúng định dạng UUID",
+    )
+    .nullable()
+    .optional();
+
+const tourCostFields = {
+  tourDayId:
+      optionalCostTargetIdSchema,
+
+  tourItemId:
+      optionalCostTargetIdSchema,
+
+  tourMealId:
+      optionalCostTargetIdSchema,
+  title: z
+        .string()
+        .trim()
+        .min(
+            1,
+            "Tên khoản chi phí không được để trống",
+        )
+        .max(
+            200,
+            "Tên khoản chi phí không được vượt quá 200 ký tự",
+        ),
+
+    category: z.enum(
+        COST_CATEGORIES,
+    ),
+
+    calculationUnit: z.enum(
+        COST_CALCULATION_UNITS,
+    ),
+
+    travelerScope: z
+        .enum(TRAVELER_SCOPES)
+        .default("all"),
+
+    unitPrice: costUnitPriceSchema,
+
+    quantity:
+        costQuantitySchema.default("1"),
+
+    nightCount: z
+        .number()
+        .int(
+            "Số đêm phải là số nguyên",
+        )
+        .min(
+            1,
+            "Số đêm phải lớn hơn 0",
+        )
+        .nullable()
+        .optional(),
+
+    note: optionalTextSchema,
+
+    sortOrder: z
+        .number()
+        .int(
+            "Thứ tự phải là số nguyên",
+        )
+        .min(
+            0,
+            "Thứ tự không được âm",
+        )
+        .default(0),
+}
+
+type TourCostValidationData = {
+    tourDayId?: string | null;
+    tourItemId?: string | null;
+    tourMealId?: string | null;
+
+    calculationUnit?: string;
+
+    nightCount?: number | null;
+};
+
+function validateTourCostRules(
+    data: TourCostValidationData,
+    context: z.RefinementCtx,
+) {
+    const targetIds = [
+        data.tourDayId,
+        data.tourItemId,
+        data.tourMealId,
+    ].filter(
+        (value) =>
+            value !== null &&
+            value !== undefined,
+    );
+
+    /*
+     * Không cho phép một khoản cost vừa thuộc
+     * activity vừa thuộc meal/ngày.
+     */
+    if (targetIds.length > 1) {
+        context.addIssue({
+            code: "custom",
+            path: ["tourDayId"],
+            message:
+                "Một khoản chi phí chỉ được liên kết với tối đa một ngày, hoạt động hoặc bữa ăn",
+        });
+    }
+
+    /*
+     * nightCount chỉ có nghĩa với per_room.
+     *
+     * Ví dụ:
+     * Khách sạn
+     * 900.000 × 1 phòng × 3 đêm
+     */
+    if (
+        data.calculationUnit &&
+        data.calculationUnit !==
+            "per_room" &&
+        data.nightCount !== null &&
+        data.nightCount !== undefined
+    ) {
+        context.addIssue({
+            code: "custom",
+            path: ["nightCount"],
+            message:
+                "Số đêm chỉ được sử dụng với cách tính theo phòng",
+        });
+    }
+}
+
+export const createTourCostRequestSchema =
+    z
+        .object(
+            tourCostFields,
+        )
+        .strict()
+        .superRefine(
+            (
+                data,
+                context,
+            ) => {
+                validateTourCostRules(
+                    data,
+                    context,
+                );
+            },
+        );
+
+export const updateTourCostRequestSchema =
+    z
+        .object({
+            tourDayId:
+                tourCostFields.tourDayId,
+
+            tourItemId:
+                tourCostFields.tourItemId,
+
+            tourMealId:
+                tourCostFields.tourMealId,
+
+            title:
+                tourCostFields.title
+                    .optional(),
+
+            category:
+                tourCostFields.category
+                    .optional(),
+
+            calculationUnit:
+                tourCostFields
+                    .calculationUnit
+                    .optional(),
+
+            travelerScope:
+                z
+                    .enum(
+                        TRAVELER_SCOPES,
+                    )
+                    .optional(),
+
+            unitPrice:
+                tourCostFields
+                    .unitPrice
+                    .optional(),
+
+            quantity:
+                costQuantitySchema
+                    .optional(),
+
+            nightCount:
+                tourCostFields
+                    .nightCount,
+
+            note:
+                tourCostFields.note,
+
+            sortOrder:
+                z
+                    .number()
+                    .int(
+                        "Thứ tự phải là số nguyên",
+                    )
+                    .min(
+                        0,
+                        "Thứ tự không được âm",
+                    )
+                    .optional(),
+        })
+        .strict()
+        .refine(
+            (data) =>
+                Object.values(
+                    data,
+                ).some(
+                    (value) =>
+                        value !==
+                        undefined,
+                ),
+            {
+                message:
+                    "Cần cung cấp ít nhất một trường để cập nhật",
+            },
+        )
+        .superRefine(
+            (
+                data,
+                context,
+            ) => {
+                validateTourCostRules(
+                    data,
+                    context,
+                );
+            },
+        );
 
 function normalizeTime(value: string){
     return value.length === 5 ? `${value}:00` : value;
@@ -330,14 +579,16 @@ export const tourMealIdParamsSchema = z.object({
   id: uuidSchema("Tour meal ID"),
 });
 
+export const tourCostIdParamsSchema = z.object({ id: uuidSchema("Tour cost ID") });
+
 export type CreateTourRequest = z.infer<typeof createTourRequestSchema>;
 export type UpdateTourRequest = z.infer<typeof updateTourRequestSchema>;
 export type TourListQuery = z.infer<typeof tourListQuerySchema>;
-
 export type CreateTourDayRequest = z.infer<typeof createStandaloneTourDayRequestSchema>;
 export type UpdateTourDayRequest = z.infer<typeof updateTourDayRequestSchema>;
 export type CreateTourItemRequest = z.infer<typeof createTourItemRequestSchema>;
 export type UpdateTourItemRequest = z.infer<typeof updateTourItemRequestSchema>;
 export type CreateTourMealRequest = z.infer<typeof createTourMealRequestSchema>;
 export type UpdateTourMealRequest = z.infer<typeof updateTourMealRequestSchema>;
-
+export type CreateTourCostRequest = z.infer<typeof createTourCostRequestSchema>;
+export type UpdateTourCostRequest = z.infer<typeof updateTourCostRequestSchema>;

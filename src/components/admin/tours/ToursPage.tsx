@@ -1,26 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
-
-import {
-  TourFormDialog,
-  type TourFormSubmitData,
-} from "@/src/components/admin/tours/TourFormDialog";
+import { Pencil, Plus,ReceiptText, Search, Trash2 } from "lucide-react";
+import {TourFormDialog,type TourFormSubmitData,} from "@/src/components/admin/tours/TourFormDialog";
+import { TourCostsDialog } from "./TourCostsDialog";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import {
-  DataTable,
-  type DataTableColumn,
-  type SortDirection,
-} from "@/src/components/ui/DataTable";
-import {
-  toursApi,
-  type Tour,
-  type TourInput,
-  type TourListParams,
-  type TourStatus,
-} from "@/src/lib/api-client/tours";
+import {DataTable,type DataTableColumn,type SortDirection,} from "@/src/components/ui/DataTable";
+import {toursApi,type Tour,type TourInput,type TourListParams,type TourStatus,} from "@/src/lib/api-client/tours";
 import { ApiRequestError } from "@/src/lib/api-client/http";
 import { locationsApi, type Location } from "@/src/lib/api-client/locations";
 import { uploadsApi, type UploadedImage } from "@/src/lib/api-client/uploads";
@@ -82,6 +69,8 @@ export function ToursPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Tour | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [costsTarget, setCostsTarget] = useState<Tour | null>(null);
 
   const nameFilter = filterValues.name;
   const locationFilter = filterValues.startLocationId;
@@ -227,6 +216,21 @@ export function ToursPage() {
     setErrorMessage(null);
   }
 
+  function openCostsDialog(tour: Tour) {
+    setCostsTarget(tour);
+    setErrorMessage(null);
+
+  }
+
+  function closeCostsDialog() {
+    setCostsTarget(null);
+    setErrorMessage(null);
+  }
+
+  async function handleCostsChanged(){
+    await loadTours();
+  }
+
   async function handleSubmitForm({
     input,
     coverFile,
@@ -351,10 +355,20 @@ export function ToursPage() {
       key: "estimatedPrice",
       header: "Giá tham khảo",
       sortable: true,
+
       render: (row) => (
-        <span className="font-mono text-[12px]">
-          {formatPrice(row.estimatedPrice)}
-        </span>
+        <button
+          type="button"
+          onClick={() =>
+            openCostsDialog(row)
+          }
+          className="font-mono text-[12px] underline decoration-admin-line underline-offset-4 transition hover:text-admin-gold hover:decoration-admin-gold"
+          title="Xem chi tiết dự toán"
+        >
+          {formatPrice(
+            row.estimatedPrice,
+          )}
+        </button>
       ),
     },
     {
@@ -381,27 +395,67 @@ export function ToursPage() {
     {
       key: "actions",
       header: "",
-      widthClassName: "w-20",
+      widthClassName: "w-28",
       render: (row) => (
         <div className="flex justify-end gap-3 text-admin-muted">
+          {/* Chi phí */}
           <button
             type="button"
-            onClick={() => openEditForm(row)}
-            disabled={submitting || deleting}
-            aria-label={`Sửa ${row.name}`}
-            className="transition hover:text-admin-ink disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() =>
+              openCostsDialog(row)
+            }
+            disabled={
+              submitting ||
+              deleting
+            }
+            aria-label={`Quản lý chi phí ${row.name}`}
+            title="Quản lý chi phí"
+            className="transition hover:text-admin-gold disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Pencil size={16} strokeWidth={1.75} />
+            <ReceiptText
+              size={16}
+              strokeWidth={1.75}
+            />
           </button>
 
+          {/* Sửa */}
           <button
             type="button"
-            onClick={() => setDeleteTarget(row)}
-            disabled={submitting || deleting}
+            onClick={() =>
+              openEditForm(row)
+            }
+            disabled={
+              submitting ||
+              deleting
+            }
+            aria-label={`Sửa ${row.name}`}
+            title="Sửa tour"
+            className="transition hover:text-admin-ink disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Pencil
+              size={16}
+              strokeWidth={1.75}
+            />
+          </button>
+
+          {/* Xóa */}
+          <button
+            type="button"
+            onClick={() =>
+              setDeleteTarget(row)
+            }
+            disabled={
+              submitting ||
+              deleting
+            }
             aria-label={`Xóa ${row.name}`}
+            title="Xóa tour"
             className="transition hover:text-admin-seal disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Trash2 size={16} strokeWidth={1.75} />
+            <Trash2
+              size={16}
+              strokeWidth={1.75}
+            />
           </button>
         </div>
       ),
@@ -462,6 +516,17 @@ export function ToursPage() {
           fieldErrors={fieldErrors}
           onSubmit={handleSubmitForm}
           onClose={closeForm}
+        />
+      ) : null}
+
+      {costsTarget ? (
+        <TourCostsDialog
+          open
+          tour={costsTarget}
+          onClose={closeCostsDialog}
+          onChanged={
+            handleCostsChanged
+          }
         />
       ) : null}
 

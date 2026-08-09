@@ -28,6 +28,7 @@ import type {
     RelatedPublishedTour,
 } from "@/src/lib/tours/public-tour";
 import { TourActions } from "./TourActions";
+import { TourCostBreakdownDialog } from "./TourCostsBreakdownDialog";
 
 const FALLBACK_IMAGE = "smart-trip-vietnam/home/hero/hue";
 
@@ -475,12 +476,14 @@ export function TourDetailPage({
                             }
                         />
 
-                        <OverviewCard
-                            icon={<WalletCards size={21} />}
-                            label="Chi phí dự kiến"
-                            value={formatPrice(
-                                tour.estimatedPrice,
-                            )}
+                        <TourCostBreakdownDialog
+                            costs={tour.costs}
+                            durationNights={
+                                tour.durationNights
+                            }
+                            estimatedPrice={
+                                tour.estimatedPrice
+                            }
                         />
                     </div>
 

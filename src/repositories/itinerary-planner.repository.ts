@@ -1,69 +1,17 @@
 import "server-only";
 
-import {
-    and,
-    asc,
-    eq,
-    inArray,
-} from "drizzle-orm";
-
-import {
-    COST_CATEGORIES,
-    type CostCategory,
-} from "@/src/constants/itinerary";
+import {and,asc,eq,inArray,} from "drizzle-orm";
+import {COST_CATEGORIES,type CostCategory,} from "@/src/constants/itinerary";
 import { db } from "@/src/db";
-import {
-    itineraryCosts,
-    itineraryDays,
-    itineraryItems,
-    itineraryMealCuisines,
-    itineraryMeals,
-    userItineraries,
-    type ItineraryCost,
-    type NewUserItinerary,
-} from "@/src/db/schema/itineraries";
+import { calculateCostAmount, roundCostMoney, toSafeCostNumber, type CostCalculationContext } from "../lib/costs/cost-calculator";
+import {itineraryCosts,itineraryDays,itineraryItems,itineraryMealCuisines,itineraryMeals,userItineraries,
+    type ItineraryCost,type NewUserItinerary,} from "@/src/db/schema/itineraries";
 import { itineraryStays } from "@/src/db/schema/itinerary_stays";
 
-type CostCalculationContext = {
-    adultCount: number;
-    childCount: number;
-    roomCount: number;
-    defaultNightCount: number;
-};
 
 type CalculatedItineraryCost = ItineraryCost & {
     calculatedAmount: number;
 };
-
-function toSafeNumber(
-    value: string | number | null | undefined,
-) {
-    if (
-        value === null ||
-        value === undefined
-    ) {
-        return 0;
-    }
-
-    const parsedValue = Number(value);
-
-    if (
-        !Number.isFinite(parsedValue) ||
-        parsedValue < 0
-    ) {
-        return 0;
-    }
-
-    return parsedValue;
-}
-
-function roundMoney(value: number) {
-    if (!Number.isFinite(value)) {
-        return 0;
-    }
-
-    return Math.round(value);
-}
 
 function parseDateToUtcTimestamp(
     value: string,
@@ -131,68 +79,14 @@ function addDaysToDateString(
     return `${year}-${month}-${day}`;
 }
 
-function getTravelerMultiplier(
-    cost: ItineraryCost,
-    context: CostCalculationContext,
-) {
-    switch (cost.travelerScope) {
-        case "adult":
-            return context.adultCount;
-
-        case "child":
-            return context.childCount;
-
-        case "all":
-        default:
-            return (
-                context.adultCount +
-                context.childCount
-            );
-    }
-}
-
 export function calculateItineraryCostAmount(
     cost: ItineraryCost,
     context: CostCalculationContext,
 ) {
-    const unitPrice = toSafeNumber(
-        cost.unitPrice,
+    return calculateCostAmount(
+        cost,
+        context,
     );
-
-    const quantity = toSafeNumber(
-        cost.quantity,
-    );
-
-    switch (cost.calculationUnit) {
-        case "per_person":
-            return roundMoney(
-                unitPrice *
-                    quantity *
-                    getTravelerMultiplier(
-                        cost,
-                        context,
-                    ),
-            );
-
-        case "per_room": {
-            const nightCount =
-                cost.nightCount ??
-                context.defaultNightCount;
-
-            return roundMoney(
-                unitPrice *
-                    context.roomCount *
-                    Math.max(nightCount, 1),
-            );
-        }
-
-        case "per_group":
-        case "fixed":
-        default:
-            return roundMoney(
-                unitPrice * quantity,
-            );
-    }
 }
 
 export function calculateItineraryStayAmount(
@@ -204,17 +98,20 @@ export function calculateItineraryStayAmount(
             stay.checkOutDate,
         );
 
-    const unitPrice = toSafeNumber(
-        stay.pricePerRoomNight,
-    );
+    const unitPrice =
+        toSafeCostNumber(
+            stay.pricePerRoomNight,
+        );
 
     return {
         nightCount,
-        calculatedAmount: roundMoney(
-            unitPrice *
-                stay.roomCount *
-                nightCount,
-        ),
+
+        calculatedAmount:
+            roundCostMoney(
+                unitPrice *
+                    stay.roomCount *
+                    nightCount,
+            ),
     };
 }
 
@@ -560,18 +457,13 @@ export async function findUserItineraryPlannerDetailById(
             defaultNightCount,
 
             detailedCostsTotal:
-                roundMoney(
-                    detailedCostsTotal,
-                ),
+                roundCostMoney(detailedCostsTotal),
 
             staysTotal:
-                roundMoney(staysTotal),
+                roundCostMoney(staysTotal),
 
             total:
-                roundMoney(
-                    detailedCostsTotal +
-                        staysTotal,
-                ),
+                roundCostMoney(detailedCostsTotal +staysTotal),
 
             byCategory:
                 COST_CATEGORIES.reduce(
@@ -580,12 +472,7 @@ export async function findUserItineraryPlannerDetailById(
                         category,
                     ) => {
                         result[category] =
-                            roundMoney(
-                                costTotalsByCategory[
-                                    category
-                                ],
-                            );
-
+                            roundCostMoney(costTotalsByCategory[category],);
                         return result;
                     },
                     createEmptyCategoryTotals(),
@@ -645,11 +532,4 @@ export async function updateUserItineraryPlannerById(
     return updatedItinerary ?? null;
 }
 
-export type UserItineraryPlannerDetail =
-    NonNullable<
-        Awaited<
-            ReturnType<
-                typeof findUserItineraryPlannerDetailById
-            >
-        >
-    >;
+export type UserItineraryPlannerDetail = NonNullable<Awaited<ReturnType<typeof findUserItineraryPlannerDetailById>>>;

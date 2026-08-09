@@ -181,20 +181,61 @@ export function TourFormDialog({
   }
 
   function handleFormSubmit() {
-    const durationDays = Number.parseInt(form.durationDays, 10);
-    const durationNights = Number.parseInt(form.durationNights, 10);
-    const trimmedPrice = form.estimatedPrice.trim();
+    const durationDays = Number.parseInt(
+      form.durationDays,
+      10,
+    );
+
+    const durationNights = Number.parseInt(
+      form.durationNights,
+      10,
+    );
 
     const input: TourInput = {
       name: form.name,
-      nameEn: form.nameEn.trim() ? form.nameEn.trim() : null,
-      slug: form.slug.trim() ? form.slug.trim() : undefined,
-      description: form.description.trim() ? form.description : null,
-      durationDays: Number.isNaN(durationDays) ? 0 : durationDays,
-      durationNights: Number.isNaN(durationNights) ? 0 : durationNights,
-      estimatedPrice: trimmedPrice ? trimmedPrice : null,
-      startLocationId: form.startLocationId,
-      meetingPoint: form.meetingPoint.trim() ? form.meetingPoint : null,
+
+      nameEn:
+        form.nameEn.trim()
+          ? form.nameEn.trim()
+          : null,
+
+      slug:
+        form.slug.trim()
+          ? form.slug.trim()
+          : undefined,
+
+      description:
+        form.description.trim()
+          ? form.description
+          : null,
+
+      durationDays:
+        Number.isNaN(durationDays)
+          ? 0
+          : durationDays,
+
+      durationNights:
+        Number.isNaN(durationNights)
+          ? 0
+          : durationNights,
+
+      /**
+       * Không gửi estimatedPrice từ form này.
+       *
+       * Giá tour được quản lý tại mục "Chi phí"
+       * và được backend tự tính từ tour_costs.
+       *
+       * Tour legacy vẫn giữ giá cũ nếu chưa
+       * có breakdown.
+       */
+      startLocationId:
+        form.startLocationId,
+
+      meetingPoint:
+        form.meetingPoint.trim()
+          ? form.meetingPoint
+          : null,
+
       status: form.status,
     };
 
@@ -440,34 +481,42 @@ export function TourFormDialog({
             </div>
 
             <div>
-              <label
-                htmlFor="tour-price"
-                className="mb-1.5 block text-sm font-medium text-admin-muted"
-              >
-                Giá tham khảo (VNĐ)
-              </label>
+              <span className="mb-1.5 block text-sm font-medium text-admin-muted">
+                Giá tham khảo
+              </span>
 
-              <input
-                id="tour-price"
-                type="number"
-                min={0}
-                value={form.estimatedPrice}
-                disabled={submitting}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    estimatedPrice: event.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-admin-line bg-admin-paper px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
-                placeholder="1500000"
-              />
+              <div className="rounded-md border border-admin-line bg-admin-paper px-3 py-2">
+                {form.estimatedPrice ? (
+                  <p className="font-mono text-sm font-semibold text-admin-ink">
+                    {new Intl.NumberFormat(
+                      "vi-VN",
+                      {
+                        style: "currency",
+                        currency: "VND",
+                        maximumFractionDigits: 0,
+                      },
+                    ).format(
+                      Number(
+                        form.estimatedPrice,
+                      ),
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-admin-muted">
+                    Chưa có dự toán
+                  </p>
+                )}
 
-              {fieldErrors?.estimatedPrice?.[0] && (
-                <p className="mt-1 text-xs text-admin-seal">
-                  {fieldErrors.estimatedPrice[0]}
+                <p className="mt-1 text-xs leading-5 text-admin-muted">
+                  Giá được tính tự động từ các
+                  khoản trong mục{" "}
+                  <strong className="font-semibold text-admin-ink">
+                    Chi phí
+                  </strong>
+                  . Không nhập tổng giá trực tiếp
+                  tại đây.
                 </p>
-              )}
+              </div>
             </div>
 
             <div>

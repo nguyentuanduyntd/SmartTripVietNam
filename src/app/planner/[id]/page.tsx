@@ -1,28 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-    ArrowLeft,
-    BedDouble,
-    CalendarDays,
-    CheckCircle2,
-    Clock3,
-    MapPin,
-    Route,
-    UsersRound,
-    Utensils,
-    WalletCards,
-} from "lucide-react";
-import {
-    notFound,
-    redirect,
-} from "next/navigation";
-
+import {ArrowLeft,BedDouble,CalendarDays,CheckCircle2,Clock3,MapPin,Route,UsersRound,Utensils,WalletCards,} from "lucide-react";
+import {notFound,redirect,} from "next/navigation";
 import { itineraryIdParamsSchema } from "@/src/db/schema/itinerary.schema";
 import { getCurrentUser } from "@/src/lib/auth/get-current-user";
-import {
-    getUserItineraryPlannerDetailService,
-    ItineraryServiceError,
-} from "@/src/services/itinerary.service";
+import { CostBreakdownDialog } from "@/src/components/planner/CostBreakdownDialog";
+import {getUserItineraryPlannerDetailService,ItineraryServiceError,} from "@/src/services/itinerary.service";
 
 type PlannerPageProps = {
     params: Promise<{
@@ -46,6 +29,37 @@ const STATUS_STYLES = {
     archived:
         "border-[#d5d5d5] bg-[#f3f3f3] text-[#686868]",
 } as const;
+
+const COST_OVERVIEW_ITEMS = [
+    {
+        key: "accommodation",
+        label: "Lưu trú",
+    },
+    {
+        key: "transport",
+        label: "Di chuyển",
+    },
+    {
+        key: "ticket",
+        label: "Vé & tham quan",
+    },
+    {
+        key: "food",
+        label: "Ăn uống",
+    },
+    {
+        key: "activity",
+        label: "Hoạt động",
+    },
+    {
+        key: "shopping",
+        label: "Mua sắm",
+    },
+    {
+        key: "other",
+        label: "Chi phí khác",
+    },
+] as const;
 
 function formatCurrency(value: number) {
     return new Intl.NumberFormat("vi-VN", {
@@ -262,18 +276,11 @@ export default async function PlannerPage({
                                 </p>
                             </div>
 
-                            <div className="rounded-2xl border border-[#ded5c7] bg-white px-4 py-3">
-                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#7d8986]">
-                                    Dự toán
-                                </p>
-                                <p className="mt-1 text-lg font-bold text-[#d85b48]">
-                                    {formatCurrency(
-                                        itinerary
-                                            .costSummary
-                                            .total,
-                                    )}
-                                </p>
-                            </div>
+                            <CostBreakdownDialog
+                                costs={itinerary.costs}
+                                stays={itinerary.stays}
+                                summary={itinerary.costSummary}
+                            />
                         </div>
                     </div>
                 </header>
@@ -545,14 +552,20 @@ export default async function PlannerPage({
 
                     <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
                         <section className="rounded-[26px] border border-white/80 bg-[#fffaf1] p-5 shadow-[0_16px_46px_rgba(23,58,59,0.08)]">
-                            <div className="flex items-center gap-2">
-                                <WalletCards
-                                    size={19}
-                                />
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                    <WalletCards
+                                        size={19}
+                                    />
 
-                                <h2 className="font-bold">
-                                    Tổng quan chi phí
-                                </h2>
+                                    <h2 className="font-bold">
+                                        Tổng quan chi phí
+                                    </h2>
+                                </div>
+
+                                <span className="rounded-full bg-[#edf7f4] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#55716e]">
+                                    Dự kiến
+                                </span>
                             </div>
 
                             <p className="mt-4 font-display text-4xl font-semibold text-[#d85b48]">
@@ -563,34 +576,95 @@ export default async function PlannerPage({
                                 )}
                             </p>
 
-                            <div className="mt-5 space-y-3 border-t border-[#e1d7c8] pt-4 text-sm">
-                                <div className="flex justify-between gap-4">
-                                    <span className="text-[#71807d]">
-                                        Chi phí chi
-                                        tiết
-                                    </span>
-                                    <strong>
-                                        {formatCurrency(
-                                            itinerary
-                                                .costSummary
-                                                .detailedCostsTotal,
-                                        )}
-                                    </strong>
-                                </div>
+                            <p className="mt-1 text-xs leading-5 text-[#7a8784]">
+                                Tổng chi phí tham khảo cho{" "}
+                                {
+                                    itinerary
+                                        .costSummary
+                                        .travelerCount
+                                }{" "}
+                                hành khách và{" "}
+                                {
+                                    itinerary
+                                        .costSummary
+                                        .roomCount
+                                }{" "}
+                                phòng.
+                            </p>
 
-                                <div className="flex justify-between gap-4">
-                                    <span className="text-[#71807d]">
-                                        Lưu trú
+                            <div className="mt-5 border-t border-[#e1d7c8] pt-4">
+                                {COST_OVERVIEW_ITEMS.some(
+                                    (item) =>
+                                        itinerary
+                                            .costSummary
+                                            .byCategory[
+                                            item.key
+                                        ] > 0,
+                                ) ? (
+                                    <div className="space-y-3">
+                                        {COST_OVERVIEW_ITEMS.map(
+                                            (item) => {
+                                                const amount =
+                                                    itinerary
+                                                        .costSummary
+                                                        .byCategory[
+                                                        item.key
+                                                    ];
+
+                                                if (
+                                                    amount <= 0
+                                                ) {
+                                                    return null;
+                                                }
+
+                                                return (
+                                                    <div
+                                                        key={
+                                                            item.key
+                                                        }
+                                                        className="flex items-center justify-between gap-4 text-sm"
+                                                    >
+                                                        <span className="text-[#71807d]">
+                                                            {
+                                                                item.label
+                                                            }
+                                                        </span>
+
+                                                        <strong className="font-mono text-[#173a3b]">
+                                                            {formatCurrency(
+                                                                amount,
+                                                            )}
+                                                        </strong>
+                                                    </div>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm leading-6 text-[#75817e]">
+                                        Chưa có chi phí chi
+                                        tiết cho hành trình
+                                        này.
+                                    </p>
+                                )}
+                            </div>
+
+                            {itinerary.costSummary.total >
+                            0 ? (
+                                <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#e1d7c8] pt-4">
+                                    <span className="text-sm font-bold text-[#173a3b]">
+                                        Tổng cộng
                                     </span>
-                                    <strong>
+
+                                    <strong className="font-mono text-base text-[#d85b48]">
                                         {formatCurrency(
                                             itinerary
                                                 .costSummary
-                                                .staysTotal,
+                                                .total,
                                         )}
                                     </strong>
                                 </div>
-                            </div>
+                            ) : null}
                         </section>
 
                         <section className="rounded-[26px] border border-white/80 bg-[#fffaf1] p-5 shadow-[0_16px_46px_rgba(23,58,59,0.08)]">

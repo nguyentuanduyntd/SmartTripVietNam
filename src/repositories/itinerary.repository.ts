@@ -1,31 +1,12 @@
 import "server-only";
 
-import {
-    and,
-    asc,
-    eq,
-    inArray,
-} from "drizzle-orm";
-
+import {and,asc,eq,inArray,} from "drizzle-orm";
 import { db } from "@/src/db";
 import { cuisines } from "@/src/db/schema/cuisines";
 import { destinations } from "@/src/db/schema/destinations";
-import {
-    itineraryCosts,
-    itineraryDays,
-    itineraryItems,
-    itineraryMealCuisines,
-    itineraryMeals,
-    userItineraries,
-} from "@/src/db/schema/itineraries";
+import {itineraryCosts,itineraryDays,itineraryItems,itineraryMealCuisines,itineraryMeals,userItineraries,} from "@/src/db/schema/itineraries";
 import { locations } from "@/src/db/schema/locations";
-import {
-    tourDays,
-    tourItems,
-    tourMealCuisines,
-    tourMeals,
-    tours,
-} from "@/src/db/schema/tours";
+import {tourCosts,tourDays,tourItems,tourMealCuisines,tourMeals,tours,} from "@/src/db/schema/tours";
 
 export type CloneTourToItineraryData = {
     userId: string;
@@ -56,12 +37,15 @@ function createDayKey(dayNumber: number) {
     return String(dayNumber);
 }
 
-function createMealKey(
-    itineraryDayId: string,
-    sortOrder: number,
-) {
+function createItemKey(itineraryDayId: string, sortOrder: number) {
     return `${itineraryDayId}:${sortOrder}`;
 }
+
+function createMealKey(itineraryDayId: string,sortOrder: number) {
+    return `${itineraryDayId}:${sortOrder}`;
+}
+
+
 
 /**
  * Sao chép một tour đã publish thành hành trình cá nhân.
@@ -235,7 +219,10 @@ export async function clonePublishedTourToItinerary(
                               tourMealCuisines.sortOrder,
                           ),
                       );
-
+        
+        const sourceCosts = await transaction.select().from(tourCosts).where(eq(tourCosts.tourId, sourceTour.id))
+            .orderBy(asc(tourCosts.sortOrder), asc(tourCosts.id), asc(tourCosts.createdAt));
+        
         const [createdItinerary] = await transaction
             .insert(userItineraries)
             .values({
@@ -333,8 +320,10 @@ export async function clonePublishedTourToItinerary(
             return createdDayId;
         }
 
-        if (sourceItems.length > 0) {
-            await transaction
+        const createdItems =
+        sourceItems.length === 0
+            ? []
+            : await transaction
                 .insert(itineraryItems)
                 .values(
                     sourceItems.map((item) => ({
@@ -342,24 +331,98 @@ export async function clonePublishedTourToItinerary(
                             getCreatedDayId(
                                 item.tourDayId,
                             ),
+
                         destinationId:
                             item.destinationId,
+
                         destinationName:
                             item.destinationName,
+
                         title: item.title,
+
                         description:
                             item.description,
-                        startTime: item.startTime,
-                        endTime: item.endTime,
-                        sortOrder: item.sortOrder,
+
+                        startTime:
+                            item.startTime,
+
+                        endTime:
+                            item.endTime,
+
+                        sortOrder:
+                            item.sortOrder,
+
                         transportMethod:
                             item.transportMethod,
+
                         transportNote:
                             item.transportNote,
+
                         estimatedTravelMinutes:
                             item.estimatedTravelMinutes,
                     })),
+                )
+                .returning({
+                    id: itineraryItems.id,
+
+                    itineraryDayId:
+                        itineraryItems.itineraryDayId,
+
+                    sortOrder:
+                        itineraryItems.sortOrder,
+                });
+
+        const createdItemIdByKey = new Map(
+            createdItems.map((item) => [
+                createItemKey(
+                    item.itineraryDayId,
+                    item.sortOrder,
+                ),
+                item.id,
+            ]),
+        );
+
+        const sourceItemById = new Map(
+            sourceItems.map((item) => [
+                item.id,
+                item,
+            ]),
+        );
+
+        function getCreatedItemId(
+            sourceTourItemId: string,
+        ) {
+            const sourceItem =
+                sourceItemById.get(
+                    sourceTourItemId,
                 );
+
+            if (!sourceItem) {
+                throw new Error(
+                    `Không tìm thấy hoạt động nguồn ${sourceTourItemId}`,
+                );
+            }
+
+            const itineraryDayId =
+                getCreatedDayId(
+                    sourceItem.tourDayId,
+                );
+
+            const createdItemId =
+                createdItemIdByKey.get(
+                    createItemKey(
+                        itineraryDayId,
+                        sourceItem.sortOrder,
+                    ),
+                );
+
+            if (!createdItemId) {
+                throw new Error(
+                    `Không thể ánh xạ hoạt động ${sourceTourItemId}`,
+                );
+            }
+
+            return createdItemId;
         }
 
         const createdMeals =
@@ -475,35 +538,50 @@ export async function clonePublishedTourToItinerary(
 
         let copiedCostCount = 0;
 
-        /*
-         * estimatedPrice của tour đang được hiển thị như mức
-         * tham khảo cho một người.
-         *
-         * Ta sao chép thành một khoản per_person ban đầu.
-         * Sau này người dùng có thể xóa khoản này và nhập các
-         * khoản vé, ăn uống, xe, khách sạn... chi tiết hơn.
-         */
-        if (sourceTour.estimatedPrice !== null) {
-            await transaction
-                .insert(itineraryCosts)
-                .values({
-                    itineraryId:
-                        createdItinerary.id,
-                    title: "Chi phí tour tham khảo",
+        if (sourceCosts.length > 0) {
+            await transaction.insert(itineraryCosts).values(
+                sourceCosts.map((cost) => ({
+                    itineraryId: createdItinerary.id,
+                    itineraryDayId: cost.tourDayId
+                        ? getCreatedDayId(cost.tourDayId)
+                        : null,
+                    itineraryItemId: cost.tourItemId
+                        ? getCreatedItemId(cost.tourItemId)
+                        : null,
+                    itineraryMealId: cost.tourMealId
+                        ? getCreatedMealId(cost.tourMealId)
+                        : null,
+                    title: cost.title,
+                    category: cost.category,
+                    calculationUnit: cost.calculationUnit,
+                    travelerScope: cost.travelerScope,
+                    unitPrice: cost.unitPrice,
+                    quantity: cost.quantity,
+                    nightCount: cost.nightCount,
+                    note: cost.note,
+                    sortOrder: cost.sortOrder,
+                })),
+            );
+        } else if (sourceTour.estimatedPrice !== null) {
+            const legacyCost:
+                typeof itineraryCosts.$inferInsert =
+                {
+                    itineraryId:createdItinerary.id,
+                    title:"Chi phí tour tham khảo",
                     category: "other",
-                    calculationUnit:
-                        "per_person",
+                    calculationUnit:"per_person",
                     travelerScope: "all",
-                    unitPrice:
-                        sourceTour.estimatedPrice,
+                    unitPrice: String(sourceTour.estimatedPrice,),
                     quantity: "1",
-                    nightCount: null,
                     note: [
-                        "Được sao chép từ chi phí dự kiến của tour mẫu.",
-                        "Bạn có thể chỉnh sửa, xóa hoặc thay thế bằng các khoản chi phí chi tiết.",
+                        "Tour mẫu này chưa có breakdown chi phí chi tiết.",
+                        "Khoản tiền được sao chép từ mức giá tham khảo cũ của tour.",
                     ].join(" "),
                     sortOrder: 0,
-                });
+                };
+            await transaction
+                .insert(itineraryCosts)
+                .values(legacyCost);
 
             copiedCostCount = 1;
         }

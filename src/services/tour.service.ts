@@ -1,47 +1,19 @@
 import "server-only";
 
 import type { TourStatus } from "@/src/constants/tour_community";
-import {
-  createTourDay,
-  createTourGraph,
-  createTourItem,
-  createTourMeal,
-  deleteTour,
-  deleteTourDay,
-  deleteTourItem,
-  deleteTourMeal,
-  findExistingCuisineIds,
-  findExistingDestinationIds,
-  findMaxTourDayNumber,
-  findTourById,
-  findTourBySlug,
-  findTourDayById,
-  findTourDayByNumber,
-  findTourDetailById,
-  findTourDetailBySlug,
-  findTourItemById,
-  findTourItemBySortOrder,
-  findTourItemDetailById,
-  findTourMealById,
-  findTourMealBySortOrder,
-  findTourMealDetailById,
-  findTours,
-  startLocationExists,
-  updateTour,
-  updateTourDay,
-  updateTourItem,
-  updateTourMeal,
-  type TourFilters,
-  type UpdateTourRecord,
+import {createTourCost,createTourDay,createTourGraph,createTourItem,createTourMeal,
+  deleteTour,deleteTourCost,deleteTourDay,deleteTourItem,deleteTourMeal,
+  findExistingCuisineIds,findExistingDestinationIds,findMaxTourDayNumber,findTourById,
+  findTourBySlug,findTourCostById,findTourCosts,findTourDayById,findTourDayByNumber,
+  findTourDetailById,findTourDetailBySlug,findTourItemById,findTourItemBySortOrder,findTourItemDetailById,
+  findTourMealById,findTourMealBySortOrder,findTourMealDetailById,findTours,
+  recalculateTourEstimatedPrice,startLocationExists,tourDayBelongsToTour,tourItemBelongsToTour,
+  tourMealBelongsToTour,updateTour,updateTourCost,updateTourDay,updateTourItem,updateTourMeal,
+  type TourFilters,type UpdateTourCostRecord,type UpdateTourRecord,
 } from "@/src/repositories/tour.repository";
 import type {
-  CreateTourDayRequest,
-  CreateTourItemRequest,
-  CreateTourMealRequest,
-  CreateTourRequest,
-  UpdateTourDayRequest,
-  UpdateTourItemRequest,
-  UpdateTourMealRequest,
+  CreateTourCostRequest,CreateTourDayRequest,CreateTourItemRequest,CreateTourMealRequest,
+  CreateTourRequest,UpdateTourCostRequest,UpdateTourDayRequest,UpdateTourItemRequest,UpdateTourMealRequest,
   UpdateTourRequest,
 } from "@/src/schemas/tour.schema";
 import { slugify } from "@/src/utils/slugify";
@@ -161,6 +133,137 @@ async function ensureCuisineIdsExist(cuisineIds: string[]) {
     });
   }
 }
+
+type TourCostTarget = {
+  tourDayId?: string | null;
+  tourItemId?: string | null;
+  tourMealId?: string | null;
+};
+
+async function ensureTourCostTargetIsValid(
+  tourId: string,
+  target: TourCostTarget,
+) {
+  const targetIds = [
+    target.tourDayId,
+    target.tourItemId,
+    target.tourMealId,
+  ].filter(
+    (value): value is string =>
+      value !== null &&
+      value !== undefined,
+  );
+  if (targetIds.length > 1) {
+    badRequest(
+      "Một khoản chi phí chỉ được liên kết với tối đa một ngày, hoạt động hoặc bữa ăn",
+      {
+        target: [
+          "Chỉ được chọn một trong ngày, hoạt động hoặc bữa ăn",
+        ],
+      },
+    );
+  }
+  const validations: Promise<boolean>[] = [];
+  const validationFields: string[] = [];
+
+  if (target.tourDayId) {
+    validations.push(
+      tourDayBelongsToTour(
+        target.tourDayId,
+        tourId,
+      ),
+    );
+
+    validationFields.push("tourDayId");
+  }
+
+  if (target.tourItemId) {
+    validations.push(
+      tourItemBelongsToTour(
+        target.tourItemId,
+        tourId,
+      ),
+    );
+
+    validationFields.push("tourItemId");
+  }
+
+  if (target.tourMealId) {
+    validations.push(
+      tourMealBelongsToTour(
+        target.tourMealId,
+        tourId,
+      ),
+    );
+
+    validationFields.push("tourMealId");
+  }
+
+  if (validations.length === 0) {
+    return;
+  }
+
+  const results = await Promise.all(
+    validations,
+  );
+
+  const invalidIndex =
+    results.findIndex(
+      (result) => !result,
+    );
+
+  if (invalidIndex === -1) {
+    return;
+  }
+
+  const invalidField =
+    validationFields[invalidIndex];
+
+  badRequest(
+    "Dữ liệu liên kết của khoản chi phí không thuộc tour này",
+    {
+      [invalidField]: [
+        "Dữ liệu được chọn không tồn tại hoặc không thuộc tour hiện tại",
+      ],
+    },
+  );
+}
+
+type TourCostCalculationRule = {
+  calculationUnit:
+    | "per_person"
+    | "per_group"
+    | "per_room"
+    | "fixed";
+
+  nightCount?: number | null;
+};
+
+function ensureTourCostCalculationRule(
+  cost: TourCostCalculationRule,
+) {
+  /**
+   * nightCount chỉ có ý nghĩa đối với:
+   *
+   * price / room / night
+   */
+  if (
+    cost.calculationUnit !==
+      "per_room" &&
+    cost.nightCount !== null &&
+    cost.nightCount !== undefined
+  ) {
+    badRequest(
+      "Số đêm chỉ được sử dụng với chi phí tính theo phòng",
+      {
+        nightCount: [
+          "Hãy xóa số đêm hoặc chuyển cách tính thành theo phòng",
+        ],
+      },
+    );
+  }
+}
+
 
 type PublishableTour = {
   description?: string | null;
@@ -414,6 +517,21 @@ export async function updateTourService(
     notFound("Không tìm thấy tour");
   }
 
+  const existingCosts = await findTourCosts(id);
+
+  const hasDetailedCosts = existingCosts.length > 0;
+
+  if(hasDetailedCosts && input.estimatedPrice !== undefined) {
+    badRequest(
+      "Giá dự kiến của tour được tính tự động từ chi tiết chi phí",
+      {
+        estimatedPrice: [
+          "Tour đã có breakdown chi phí. Hãy chỉnh giá trong mục Chi phí thay vì nhập tổng giá trực tiếp.",
+        ],
+      },
+    );
+  }
+
   if (input.slug && input.slug !== existing.slug) {
     await ensureTourSlugIsUnique(input.slug, id);
   }
@@ -532,9 +650,8 @@ export async function updateTourService(
       input.durationNights;
   }
 
-  if (input.estimatedPrice !== undefined) {
-    updateData.estimatedPrice =
-      input.estimatedPrice;
+  if (!hasDetailedCosts && input.estimatedPrice !== undefined) {
+    updateData.estimatedPrice = input.estimatedPrice;
   }
 
   if (
@@ -560,13 +677,21 @@ export async function updateTourService(
     updateData.publishedAt = null;
   }
 
-  const updated = await updateTour(
-    id,
-    updateData,
-  );
+  const updated = await updateTour(id,updateData);
 
   if (!updated) {
     notFound("Không tìm thấy tour");
+  }
+
+  if (
+    hasDetailedCosts &&
+    input.durationNights !== undefined &&
+    input.durationNights !==
+      existing.durationNights
+  ) {
+    await recalculateTourEstimatedPrice(
+      id,
+    );
   }
 
   const detail = await findTourDetailById(id);
@@ -592,6 +717,357 @@ export async function deleteTourService(id: string) {
   if (!deleted) {
     notFound("Không tìm thấy tour");
   }
+
+  return deleted;
+}
+
+export async function listTourCostsService(
+  tourId: string,
+  viewer: TourViewer,
+) {
+  const tour = await findTourById(
+    tourId,
+  );
+
+  if (
+    !tour ||
+    !canViewTour(
+      tour.status,
+      viewer,
+    )
+  ) {
+    notFound("Không tìm thấy tour");
+  }
+
+  return findTourCosts(tourId);
+}
+
+export async function getTourCostByIdService(
+  id: string,
+  viewer: TourViewer,
+) {
+  const cost =
+    await findTourCostById(id);
+
+  if (!cost) {
+    notFound(
+      "Không tìm thấy khoản chi phí",
+    );
+  }
+
+  const tour = await findTourById(
+    cost.tourId,
+  );
+
+  if (
+    !tour ||
+    !canViewTour(
+      tour.status,
+      viewer,
+    )
+  ) {
+    notFound(
+      "Không tìm thấy khoản chi phí",
+    );
+  }
+
+  return cost;
+}
+
+export async function createTourCostService(
+  tourId: string,
+  input: CreateTourCostRequest,
+) {
+  const tour = await findTourById(
+    tourId,
+  );
+
+  if (!tour) {
+    notFound("Không tìm thấy tour");
+  }
+
+  ensureTourCostCalculationRule({
+    calculationUnit:
+      input.calculationUnit,
+
+    nightCount:
+      input.nightCount ?? null,
+  });
+
+  await ensureTourCostTargetIsValid(
+    tourId,
+    {
+      tourDayId:
+        input.tourDayId ?? null,
+
+      tourItemId:
+        input.tourItemId ?? null,
+
+      tourMealId:
+        input.tourMealId ?? null,
+    },
+  );
+
+  const created =
+    await createTourCost(
+      tourId,
+      {
+        tourDayId:
+          input.tourDayId ?? null,
+
+        tourItemId:
+          input.tourItemId ?? null,
+
+        tourMealId:
+          input.tourMealId ?? null,
+
+        title: input.title,
+
+        category:
+          input.category,
+
+        calculationUnit:
+          input.calculationUnit,
+
+        travelerScope:
+          input.travelerScope,
+
+        unitPrice:
+          input.unitPrice,
+
+        quantity:
+          input.quantity,
+
+        nightCount:
+          input.nightCount ?? undefined,
+
+        note:
+          input.note ?? null,
+
+        sortOrder:
+          input.sortOrder,
+      },
+    );
+
+  if (!created) {
+    throw new Error(
+      "Không thể tạo khoản chi phí",
+    );
+  }
+
+  /**
+   * Sau khi breakdown thay đổi,
+   * giá tổng của tour phải được đồng bộ lại.
+   */
+  await recalculateTourEstimatedPrice(
+    tourId,
+  );
+
+  return created;
+}
+
+export async function updateTourCostService(
+  id: string,
+  input: UpdateTourCostRequest,
+) {
+  const existing =
+    await findTourCostById(id);
+
+  if (!existing) {
+    notFound(
+      "Không tìm thấy khoản chi phí",
+    );
+  }
+
+  /**
+   * PATCH phải merge với dữ liệu hiện tại
+   * trước khi validate.
+   *
+   * Ví dụ:
+   *
+   * existing:
+   * tourDayId = A
+   *
+   * payload:
+   * tourItemId = B
+   *
+   * Nếu không merge thì payload tưởng hợp lệ,
+   * nhưng dữ liệu cuối cùng sẽ có 2 target.
+   */
+  const nextTourDayId =
+    input.tourDayId !== undefined
+      ? input.tourDayId
+      : existing.tourDayId;
+
+  const nextTourItemId =
+    input.tourItemId !== undefined
+      ? input.tourItemId
+      : existing.tourItemId;
+
+  const nextTourMealId =
+    input.tourMealId !== undefined
+      ? input.tourMealId
+      : existing.tourMealId;
+
+  const nextCalculationUnit =
+    input.calculationUnit ??
+    existing.calculationUnit;
+
+  const nextNightCount =
+    input.nightCount !== undefined
+      ? input.nightCount
+      : existing.nightCount;
+
+  ensureTourCostCalculationRule({
+    calculationUnit:
+      nextCalculationUnit,
+
+    nightCount:
+      nextNightCount,
+  });
+
+  await ensureTourCostTargetIsValid(
+    existing.tourId,
+    {
+      tourDayId:
+        nextTourDayId,
+
+      tourItemId:
+        nextTourItemId,
+
+      tourMealId:
+        nextTourMealId,
+    },
+  );
+
+  const updateData:
+    UpdateTourCostRecord = {};
+
+  if (
+    input.tourDayId !== undefined
+  ) {
+    updateData.tourDayId =
+      input.tourDayId;
+  }
+
+  if (
+    input.tourItemId !== undefined
+  ) {
+    updateData.tourItemId =
+      input.tourItemId;
+  }
+
+  if (
+    input.tourMealId !== undefined
+  ) {
+    updateData.tourMealId =
+      input.tourMealId;
+  }
+
+  if (input.title !== undefined) {
+    updateData.title =
+      input.title;
+  }
+
+  if (
+    input.category !== undefined
+  ) {
+    updateData.category =
+      input.category;
+  }
+
+  if (
+    input.calculationUnit !==
+    undefined
+  ) {
+    updateData.calculationUnit =
+      input.calculationUnit;
+  }
+
+  if (
+    input.travelerScope !==
+    undefined
+  ) {
+    updateData.travelerScope =
+      input.travelerScope;
+  }
+
+  if (
+    input.unitPrice !== undefined
+  ) {
+    updateData.unitPrice =
+      input.unitPrice;
+  }
+
+  if (
+    input.quantity !== undefined
+  ) {
+    updateData.quantity =
+      input.quantity;
+  }
+
+  if (
+    input.nightCount !== undefined
+  ) {
+    updateData.nightCount =
+      input.nightCount;
+  }
+
+  if (input.note !== undefined) {
+    updateData.note =
+      input.note;
+  }
+
+  if (
+    input.sortOrder !== undefined
+  ) {
+    updateData.sortOrder =
+      input.sortOrder;
+  }
+
+  const updated =
+    await updateTourCost(
+      id,
+      updateData,
+    );
+
+  if (!updated) {
+    notFound(
+      "Không tìm thấy khoản chi phí",
+    );
+  }
+
+  await recalculateTourEstimatedPrice(
+    existing.tourId,
+  );
+
+  return updated;
+}
+
+export async function deleteTourCostService(
+  id: string,
+) {
+  const existing =
+    await findTourCostById(id);
+
+  if (!existing) {
+    notFound(
+      "Không tìm thấy khoản chi phí",
+    );
+  }
+
+  const deleted =
+    await deleteTourCost(id);
+
+  if (!deleted) {
+    notFound(
+      "Không tìm thấy khoản chi phí",
+    );
+  }
+
+  await recalculateTourEstimatedPrice(
+    existing.tourId,
+  );
 
   return deleted;
 }

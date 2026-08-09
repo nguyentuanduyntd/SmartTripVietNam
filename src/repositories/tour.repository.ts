@@ -1,36 +1,15 @@
 import "server-only";
 
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  gte,
-  ilike,
-  inArray,
-  lte,
-  max,
-  or,
-  type SQL,
-} from "drizzle-orm";
-
+import {and,sql,asc,count,desc,eq,gte,ilike,inArray,lte,max,or,type SQL,} from "drizzle-orm";
 import { db } from "@/src/db";
+import { calculateCostsTotal } from "../lib/costs/cost-calculator";
 import type { TourStatus } from "@/src/constants/tour_community";
 import { cuisines } from "@/src/db/schema/cuisines";
 import { destinations } from "@/src/db/schema/destinations";
 import { locations } from "@/src/db/schema/locations";
-import {
-  tourDays,
-  tourItems,
-  tourMealCuisines,
-  tourMeals,
-  tours,
-  type NewTour,
-  type NewTourDay,
-  type NewTourItem,
-  type NewTourMeal,
-} from "@/src/db/schema/tours";
+import { tourCosts, tourDays, tourItems, tourMealCuisines, tourMeals, tours,
+  type NewTour, type NewTourCost, type NewTourDay, type NewTourItem, type NewTourMeal
+ } from "../db/schema";
 
 type NewTourMealCuisine = typeof tourMealCuisines.$inferInsert;
 
@@ -125,6 +104,27 @@ export type UpdateTourMealRecord = Partial<
     | "sortOrder"
   >
 >;
+
+export type UpdateTourCostRecord = Partial<
+  Pick<
+    NewTourCost,
+    | "title"
+    | "category"
+    | "calculationUnit"
+    | "travelerScope"
+    | "unitPrice"
+    | "quantity"
+    | "sortOrder"
+  >
+> & {
+  tourDayId?: string | null;
+  tourItemId?: string | null;
+  tourMealId?: string | null;
+
+  nightCount?: number | null;
+
+  note?: string | null;
+};
 
 function buildTourConditions(filters: TourFilters): SQL[] {
   const conditions: SQL[] = [];
@@ -265,15 +265,50 @@ async function findTourDetail(condition: SQL) {
     return null;
   }
 
-  const days = await db
-    .select()
-    .from(tourDays)
-    .where(eq(tourDays.tourId, tour.id))
-    .orderBy(asc(tourDays.dayNumber), asc(tourDays.id));
+  const [days, costs] =
+    await Promise.all([
+      db
+        .select()
+        .from(tourDays)
+        .where(
+          eq(
+            tourDays.tourId,
+            tour.id,
+          ),
+        )
+        .orderBy(
+          asc(
+            tourDays.dayNumber,
+          ),
+          asc(tourDays.id),
+        ),
+
+      db
+        .select()
+        .from(tourCosts)
+        .where(
+          eq(
+            tourCosts.tourId,
+            tour.id,
+          ),
+        )
+        .orderBy(
+          asc(
+            tourCosts.sortOrder,
+          ),
+          asc(
+            tourCosts.createdAt,
+          ),
+          asc(tourCosts.id),
+        ),
+    ]);
 
   if (days.length === 0) {
     return {
       ...tour,
+
+      costs,
+
       days: [],
     };
   }
@@ -429,8 +464,8 @@ async function findTourDetail(condition: SQL) {
 
   return {
     ...tour,
-    days: days.map((day) => ({
-      ...day,
+    costs,
+    days: days.map((day) => ({...day,
       items: itemsByDayId.get(day.id) ?? [],
       meals: mealsByDayId.get(day.id) ?? [],
     })),
@@ -533,9 +568,229 @@ export async function deleteTour(id: string) {
   return tour ?? null;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Validation queries                                                         */
-/* -------------------------------------------------------------------------- */
+export async function findTourCosts(
+  tourId: string,
+) {
+  return db
+    .select()
+    .from(tourCosts)
+    .where(eq(tourCosts.tourId, tourId))
+    .orderBy(
+      asc(tourCosts.sortOrder),
+      asc(tourCosts.createdAt),
+      asc(tourCosts.id),
+    );
+}
+
+export async function findTourCostById(
+  id: string,
+) {
+  const [cost] = await db
+    .select()
+    .from(tourCosts)
+    .where(eq(tourCosts.id, id))
+    .limit(1);
+
+  return cost ?? null;
+}
+
+export async function createTourCost(
+  tourId: string,
+  data: Omit<
+    NewTourCost,
+    "tourId" | "createdAt" | "updatedAt"
+  >,
+) {
+  const [cost] = await db
+    .insert(tourCosts)
+    .values({
+      ...data,
+      tourId,
+    })
+    .returning();
+
+  return cost ?? null;
+}
+
+export async function updateTourCost(
+  id: string,
+  data: UpdateTourCostRecord,
+) {
+  const {
+    nightCount,
+    ...restData
+  } = data;
+
+  const [cost] = await db
+    .update(tourCosts)
+    .set({
+      ...restData,
+
+      ...(nightCount !== undefined
+        ? {
+            nightCount:
+              nightCount === null
+                ? sql`NULL`
+                : nightCount,
+          }
+        : {}),
+
+      updatedAt: new Date(),
+    })
+    .where(eq(tourCosts.id, id))
+    .returning();
+
+  return cost ?? null;
+}
+
+export async function deleteTourCost(
+  id: string,
+) {
+  const [cost] = await db
+    .delete(tourCosts)
+    .where(eq(tourCosts.id, id))
+    .returning({
+      id: tourCosts.id,
+      tourId: tourCosts.tourId,
+    });
+
+  return cost ?? null;
+}
+
+export async function recalculateTourEstimatedPrice(
+  tourId: string,
+) {
+  const [tour, costs] = await Promise.all([
+    findTourById(tourId),
+    findTourCosts(tourId),
+  ]);
+
+  if (!tour) {
+    return null;
+  }
+
+  if (costs.length === 0) {
+    const [updatedTour] = await db
+      .update(tours)
+      .set({
+        estimatedPrice: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(tours.id, tourId))
+      .returning();
+
+    return updatedTour ?? null;
+  }
+
+  const estimatedPrice =
+    calculateCostsTotal(
+      costs,
+      {
+        adultCount: 1,
+        childCount: 0,
+        roomCount: 1,
+
+        /**
+         * Tour 1 ngày có durationNights = 0.
+         *
+         * Calculator per_room đã tự bảo vệ
+         * minimum 1 nếu thực sự xuất hiện
+         * một cost per_room.
+         */
+        defaultNightCount:
+          tour.durationNights,
+      },
+    );
+
+  const [updatedTour] = await db
+    .update(tours)
+    .set({
+      estimatedPrice:
+        String(estimatedPrice),
+
+      updatedAt: new Date(),
+    })
+    .where(eq(tours.id, tourId))
+    .returning();
+
+  return updatedTour ?? null;
+}
+
+//Validation queries
+
+export async function tourDayBelongsToTour(
+  tourDayId: string,
+  tourId: string,
+) {
+  const [day] = await db
+    .select({
+      id: tourDays.id,
+    })
+    .from(tourDays)
+    .where(
+      and(
+        eq(tourDays.id, tourDayId),
+        eq(tourDays.tourId, tourId),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(day);
+}
+
+export async function tourItemBelongsToTour(
+  tourItemId: string,
+  tourId: string,
+) {
+  const [item] = await db
+    .select({
+      id: tourItems.id,
+    })
+    .from(tourItems)
+    .innerJoin(
+      tourDays,
+      eq(
+        tourItems.tourDayId,
+        tourDays.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tourItems.id, tourItemId),
+        eq(tourDays.tourId, tourId),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(item);
+}
+
+export async function tourMealBelongsToTour(
+  tourMealId: string,
+  tourId: string,
+) {
+  const [meal] = await db
+    .select({
+      id: tourMeals.id,
+    })
+    .from(tourMeals)
+    .innerJoin(
+      tourDays,
+      eq(
+        tourMeals.tourDayId,
+        tourDays.id,
+      ),
+    )
+    .where(
+      and(
+        eq(tourMeals.id, tourMealId),
+        eq(tourDays.tourId, tourId),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(meal);
+}
 
 export async function startLocationExists(id: string) {
   const [location] = await db
