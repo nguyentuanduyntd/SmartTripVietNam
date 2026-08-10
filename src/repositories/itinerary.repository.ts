@@ -622,6 +622,25 @@ export async function findUserItineraryById(
     return itinerary ?? null;
 }
 
+export async function deleteUserItineraryById(
+    itineraryId: string,
+    userId: string,
+) {
+    const [deletedItinerary] = await db
+        .delete(userItineraries)
+        .where(
+            and(
+                eq(userItineraries.id, itineraryId),
+                eq(userItineraries.userId, userId),
+            ),
+        )
+        .returning({
+            id: userItineraries.id,
+        });
+
+    return deletedItinerary ?? null;
+}
+
 /**
  * Kiểm tra hành trình có thuộc người dùng hay không mà không
  * trả toàn bộ dữ liệu.

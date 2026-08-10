@@ -1,17 +1,7 @@
 import { requireUser } from "@/src/lib/auth/require-user";
-import {
-    itineraryIdParamsSchema,
-    updateItineraryRequestSchema,
-} from "@/src/db/schema/itinerary.schema";
-import {
-    getUserItineraryPlannerDetailService,
-    updateUserItineraryPlannerService,
-} from "@/src/services/itinerary.service";
-import {
-    errorResponse,
-    successResponse,
-    zodErrorToFieldErrors,
-} from "@/src/utils/api_response";
+import {itineraryIdParamsSchema,updateItineraryRequestSchema,} from "@/src/db/schema/itinerary.schema";
+import {getUserItineraryPlannerDetailService,updateUserItineraryPlannerService, deleteUserItineraryService} from "@/src/services/itinerary.service";
+import {errorResponse,successResponse,zodErrorToFieldErrors,} from "@/src/utils/api_response";
 import { handleItineraryServiceError } from "@/src/utils/itinerary_api_response";
 
 type RouteContext = {
@@ -152,6 +142,53 @@ export async function PATCH(
             {
                 message:
                     "Cập nhật hành trình thành công",
+            },
+        );
+    } catch (error) {
+        return handleItineraryServiceError(
+            error,
+        );
+    }
+}
+
+export async function DELETE(
+    _request: Request,
+    context: RouteContext,
+) {
+    const authResult = await requireUser();
+
+    if (!authResult.ok) {
+        return errorResponse(
+            authResult.message,
+            authResult.status,
+        );
+    }
+
+    const parsedId =
+        await parseItineraryId(context);
+
+    if (!parsedId.success) {
+        return errorResponse(
+            "Itinerary ID không hợp lệ",
+            400,
+            zodErrorToFieldErrors(
+                parsedId.error,
+            ),
+        );
+    }
+
+    try {
+        const deleted =
+            await deleteUserItineraryService(
+                parsedId.data.id,
+                authResult.user.id,
+            );
+
+        return successResponse(
+            deleted,
+            {
+                message:
+                    "Xóa hành trình thành công",
             },
         );
     } catch (error) {

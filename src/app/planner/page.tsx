@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-    ArrowRight,
-    BedDouble,
-    CalendarDays,
-    Clock3,
-    MapPin,
-    Plus,
-    Route,
-    UsersRound,
-} from "lucide-react";
+import {ArrowRight,BedDouble,CalendarDays,Clock3,MapPin,Plus,Route,UsersRound,} from "lucide-react";
 import { redirect } from "next/navigation";
-
 import { HomeHeader } from "@/src/components/home/HomeHeader";
 import { getCurrentUser } from "@/src/lib/auth/get-current-user";
 import { findUserItineraryList } from "@/src/repositories/itinerary-list.repository";
+import { DeleteItineraryButton } from "@/src/components/planner/DeleteItineraryButton";
 
 export const metadata: Metadata = {
     title: "Lịch trình của tôi",
@@ -279,13 +270,25 @@ export default async function MyItinerariesPage() {
                                         itinerary.childCount;
 
                                     return (
-                                        <Link
+                                        <article
                                             key={
                                                 itinerary.id
                                             }
-                                            href={`/planner/${itinerary.id}`}
-                                            className="group overflow-hidden rounded-[28px] border border-white/80 bg-[#fffaf1] shadow-[0_18px_54px_rgba(23,58,59,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(23,58,59,0.14)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2f8f8b]/20"
+                                            className="group relative overflow-hidden rounded-[28px] border border-white/80 bg-[#fffaf1] shadow-[0_18px_54px_rgba(23,58,59,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(23,58,59,0.14)]"
                                         >
+                                            <DeleteItineraryButton
+                                                itineraryId={
+                                                    itinerary.id
+                                                }
+                                                title={
+                                                    itinerary.title
+                                                }
+                                            />
+
+                                            <Link
+                                                href={`/planner/${itinerary.id}`}
+                                                className="block focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#2f8f8b]/20"
+                                            >
                                             <div className="relative h-52 overflow-hidden bg-[#dcebe7]">
                                                 {itinerary.coverImageUrl ? (
                                                     // eslint-disable-next-line @next/next/no-img-element
@@ -424,7 +427,8 @@ export default async function MyItinerariesPage() {
                                                     </span>
                                                 </div>
                                             </div>
-                                        </Link>
+                                            </Link>
+                                        </article>
                                     );
                                 },
                             )}

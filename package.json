@@ -11,10 +11,13 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "rag:ingest": "tsx scripts/ingest-rag.ts",
+    "rag:test": "tsx scripts/test-rag.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.0.0",
+    "@google/genai": "^2.16.0",
     "@hookform/resolvers": "^5.4.0",
     "@scalar/nextjs-api-reference": "^0.11.10",
     "@supabase/ssr": "^0.12.0",
@@ -23,6 +26,7 @@
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
+    "openai": "^7.4.0",
     "postgres": "^3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",

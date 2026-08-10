@@ -1,18 +1,9 @@
 import "server-only";
 
 import type { ItineraryStatus } from "@/src/constants/itinerary";
-import type {
-    CloneTourToItineraryRequest,
-    UpdateItineraryRequest,
-} from "@/src/db/schema/itinerary.schema";
-import {
-    clonePublishedTourToItinerary,
-    findUserItineraryById,
-} from "@/src/repositories/itinerary.repository";
-import {
-    findUserItineraryPlannerDetailById,
-    updateUserItineraryPlannerById,
-    type UpdateUserItineraryPlannerRecord,
+import type {CloneTourToItineraryRequest,UpdateItineraryRequest,} from "@/src/db/schema/itinerary.schema";
+import {clonePublishedTourToItinerary,findUserItineraryById,deleteUserItineraryById} from "@/src/repositories/itinerary.repository";
+import {findUserItineraryPlannerDetailById,updateUserItineraryPlannerById,type UpdateUserItineraryPlannerRecord,
     type UserItineraryPlannerDetail,
 } from "@/src/repositories/itinerary-planner.repository";
 
@@ -297,6 +288,23 @@ export async function cloneTourToItineraryService(
         copied:
             result.copied,
     };
+}
+
+export async function deleteUserItineraryService(
+    itineraryId: string,
+    userId: string,
+) {
+    const deleted =
+        await deleteUserItineraryById(
+            itineraryId,
+            userId,
+        );
+
+    if (!deleted) {
+        notFound("Không tìm thấy hành trình");
+    }
+
+    return deleted;
 }
 
 /**

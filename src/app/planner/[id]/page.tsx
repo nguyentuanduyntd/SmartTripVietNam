@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {ArrowLeft,BedDouble,CalendarDays,CheckCircle2,Clock3,MapPin,Route,UsersRound,Utensils,WalletCards,} from "lucide-react";
+import {ArrowLeft,BedDouble,CalendarDays,CheckCircle2,Clock3,Route,UsersRound,Utensils,WalletCards,} from "lucide-react";
 import {notFound,redirect,} from "next/navigation";
 import { itineraryIdParamsSchema } from "@/src/db/schema/itinerary.schema";
 import { getCurrentUser } from "@/src/lib/auth/get-current-user";
 import { CostBreakdownDialog } from "@/src/components/planner/CostBreakdownDialog";
+import {PlannerGoogleMapsPlace} from "@/src/components/planner/PlannerGoogleMapsPlace";
 import {getUserItineraryPlannerDetailService,ItineraryServiceError,} from "@/src/services/itinerary.service";
 
 type PlannerPageProps = {
@@ -413,18 +414,11 @@ export default async function PlannerPage({
                                                                                     }
                                                                                 </h4>
 
-                                                                                {item.destinationName ? (
-                                                                                    <p className="mt-1 flex items-center gap-1.5 text-sm text-[#6d7a77]">
-                                                                                        <MapPin
-                                                                                            size={
-                                                                                                14
-                                                                                            }
-                                                                                        />
-                                                                                        {
-                                                                                            item.destinationName
-                                                                                        }
-                                                                                    </p>
-                                                                                ) : null}
+                                                                                <PlannerGoogleMapsPlace
+                                                                                    destinationId={item.destinationId}
+                                                                                    label={item.destinationName ?? item.title}
+                                                                                    query={item.destinationName ?? item.title}
+                                                                                />
                                                                             </div>
 
                                                                             {startTime ||
@@ -506,13 +500,15 @@ export default async function PlannerPage({
                                                                         ) : null}
                                                                     </div>
 
-                                                                    {meal.venueName ? (
-                                                                        <p className="mt-2 text-sm text-[#687672]">
-                                                                            {
-                                                                                meal.venueName
-                                                                            }
-                                                                        </p>
-                                                                    ) : null}
+                                                                    <PlannerGoogleMapsPlace
+                                                                        label = {
+                                                                            meal.venueName ??
+                                                                            meal.cuisines[0] ?.cuisineName ?? "Địa điểm bữa ăn"
+                                                                        }
+                                                                        query = {
+                                                                            meal.venueName ?? meal.cuisines[0] ?.cuisineName ?? day.title
+                                                                        }
+                                                                    />
 
                                                                     {meal
                                                                         .cuisines
@@ -730,11 +726,12 @@ export default async function PlannerPage({
                                                 }
                                                 className="rounded-2xl border border-[#e0d7ca] bg-white px-4 py-4"
                                             >
-                                                <p className="font-bold">
-                                                    {
-                                                        stay.name
-                                                    }
-                                                </p>
+                                                <PlannerGoogleMapsPlace
+                                                    label={stay.name}
+                                                    query={stay.address ? `${stay.name}, ${stay.address}`
+                                                        : stay.name}
+                                                    subtitle={stay.address}
+                                                />
 
                                                 <p className="mt-2 text-sm text-[#6f7b78]">
                                                     {formatDate(

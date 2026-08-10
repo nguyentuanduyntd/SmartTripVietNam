@@ -1,33 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import {
-    ArrowLeft,
-    Bike,
-    BusFront,
-    CalendarDays,
-    CarFront,
-    Check,
-    Clock3,
-    Coffee,
-    Footprints,
-    MapPin,
-    Plane,
-    Route,
-    ShipWheel,
-    Sparkles,
-    TrainFront,
-    Utensils,
-    WalletCards,
-} from "lucide-react";
-
+import {ArrowLeft,Bike,BusFront,CalendarDays,CarFront,Check,Clock3,Coffee,Footprints,
+    MapPin,Plane,Route,ShipWheel,Sparkles,TrainFront,Utensils,WalletCards,} from "lucide-react";
 import { CloudinaryVisual } from "@/src/components/home/CloudinaryVisual";
 import { HomeFooter } from "@/src/components/home/HomeFooter";
 import { HomeHeader } from "@/src/components/home/HomeHeader";
-import type {
-    PublicTourDetail,
-    RelatedPublishedTour,
-} from "@/src/lib/tours/public-tour";
+import type {PublicTourDetail,RelatedPublishedTour,} from "@/src/lib/tours/public-tour";
 import { TourActions } from "./TourActions";
+import { TourCommunity } from "./TourCommunity";
 import { TourCostBreakdownDialog } from "./TourCostsBreakdownDialog";
 
 const FALLBACK_IMAGE = "smart-trip-vietnam/home/hero/hue";
@@ -720,6 +700,11 @@ export function TourDetailPage({
                     </div>
                 </div>
             </section>
+
+            <TourCommunity
+                tourId={tour.id}
+                tourName={tour.name}
+            />
 
             {relatedTours.length > 0 ? (
                 <section className="border-t border-[#e4dacb] bg-[#f2eadf] px-5 py-16 sm:px-8 lg:px-12 lg:py-20">
