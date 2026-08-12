@@ -129,13 +129,47 @@ type AiDay = {
         AiMeal[];
 };
 
+type AiEstimatedCost = {
+    title: string;
+
+    category:
+        | "ticket"
+        | "food"
+        | "transport"
+        | "accommodation"
+        | "activity"
+        | "shopping"
+        | "other";
+
+    calculationUnit:
+        | "per_person"
+        | "per_group"
+        | "per_room"
+        | "fixed";
+
+    travelerScope:
+        | "all"
+        | "adult"
+        | "child";
+
+    unitPrice: number;
+
+    quantity: number;
+
+    nightCount:
+        number | null;
+
+    note: string;
+};
+
 type AiPlan = {
     title: string;
 
     description: string;
 
-    days:
-        AiDay[];
+    days: AiDay[];
+
+    estimatedCosts: AiEstimatedCost[];
 };
 
 type RagSource = {
@@ -369,6 +403,51 @@ const TRANSPORT_LABELS:
         "Khác",
 };
 
+const COST_CATEGORY_LABELS:
+    Record<
+        AiEstimatedCost["category"],
+        string
+    > = {
+    ticket:
+        "Vé & tham quan",
+
+    food:
+        "Ăn uống",
+
+    transport:
+        "Di chuyển",
+
+    accommodation:
+        "Lưu trú",
+
+    activity:
+        "Hoạt động",
+
+    shopping:
+        "Mua sắm",
+
+    other:
+        "Chi phí khác",
+};
+
+const COST_UNIT_LABELS:
+    Record<
+        AiEstimatedCost["calculationUnit"],
+        string
+    > = {
+    per_person:
+        "người",
+
+    per_group:
+        "nhóm",
+
+    per_room:
+        "phòng / đêm",
+
+    fixed:
+        "khoản",
+};
+
 function createInitialForm(
     locations:
         LocationOption[],
@@ -503,9 +582,9 @@ function buildRequest(
 /* -------------------------------------------------------------------------- */
 
 function formatCurrency(
-    value?: number,
+    value?: number | null,
 ) {
-    if (!value) {
+    if (value === undefined || value === null) {
         return "Không giới hạn";
     }
 
@@ -542,6 +621,167 @@ function getTransportLabel(
             value
         ] ?? value
     );
+}
+
+function getTravelerCountForCost(
+    cost: AiEstimatedCost,
+    request: AiPlannerRequest,
+) {
+    switch (
+        cost.travelerScope
+    ) {
+        case "adult":
+            return request.adultCount;
+
+        case "child":
+            return request.childCount;
+
+        case "all":
+        default:
+            return (
+                request.adultCount +
+                request.childCount
+            );
+    }
+}
+
+/**
+ * Tính tiền giống logic backend.
+ *
+ * per_person:
+ * unitPrice × quantity × số người
+ *
+ * per_group:
+ * unitPrice × quantity
+ *
+ * fixed:
+ * unitPrice × quantity
+ *
+ * per_room:
+ * unitPrice × quantity × roomCount × nightCount
+ */
+function calculateEstimatedCostAmount(
+    cost: AiEstimatedCost,
+    request: AiPlannerRequest,
+) {
+    const unitPrice =
+        Number(
+            cost.unitPrice,
+        ) || 0;
+
+    const quantity =
+        Number(
+            cost.quantity,
+        ) || 1;
+
+    switch (
+        cost.calculationUnit
+    ) {
+        case "per_person": {
+            const travelerCount =
+                getTravelerCountForCost(
+                    cost,
+                    request,
+                );
+
+            return (
+                unitPrice *
+                quantity *
+                travelerCount
+            );
+        }
+
+        case "per_room": {
+            const nightCount =
+                cost.nightCount ??
+                Math.max(
+                    request.dayCount -
+                        1,
+                    1,
+                );
+
+            return (
+                unitPrice *
+                quantity *
+                request.roomCount *
+                nightCount
+            );
+        }
+
+        case "per_group":
+        case "fixed":
+        default:
+            return (
+                unitPrice *
+                quantity
+            );
+    }
+}
+
+function calculateAiEstimatedTotal(
+    plan: AiPlan,
+    request: AiPlannerRequest,
+) {
+    return plan.estimatedCosts.reduce(
+        (
+            total,
+            cost,
+        ) =>
+            total +
+            calculateEstimatedCostAmount(
+                cost,
+                request,
+            ),
+        0,
+    );
+}
+
+function groupEstimatedCosts(
+    costs:
+        AiEstimatedCost[],
+    request:
+        AiPlannerRequest,
+) {
+    const grouped =
+        new Map<
+            AiEstimatedCost["category"],
+            number
+        >();
+
+    for (const cost of costs) {
+        const amount =
+            calculateEstimatedCostAmount(
+                cost,
+                request,
+            );
+
+        grouped.set(
+            cost.category,
+            (
+                grouped.get(
+                    cost.category,
+                ) ?? 0
+            ) + amount,
+        );
+    }
+
+    return Array.from(
+        grouped.entries(),
+    )
+        .map(
+            ([
+                category,
+                amount,
+            ]) => ({
+                category,
+                amount,
+            }),
+        )
+        .sort(
+            (a, b) =>
+                b.amount -
+                a.amount,
+        );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -637,6 +877,32 @@ export function AiPlannerBuilder({
     /* ---------------------------------------------------------------------- */
     /* Form update                                                            */
     /* ---------------------------------------------------------------------- */
+
+    const estimatedTotal = useMemo(() =>{
+        if(!generated){ return 0;}
+
+        return calculateAiEstimatedTotal(generated.plan, generated.request);
+    },[generated]);
+
+    const estimatedCostGroups = useMemo(() => {
+        if(!generated){ return [];}
+
+        return groupEstimatedCosts(generated.plan.estimatedCosts, generated.request);
+    },[generated]);
+
+    const budgetDifference = useMemo(() => {
+        if(!generated?.request.budget){ return null;}
+
+        return (generated.request.budget - estimatedTotal);
+    },[generated, estimatedTotal]);
+
+    const budgetPercent = useMemo(() => {
+        const budget = generated?.request.budget;
+
+        if(!budget || budget <= 0){ return null;}
+
+        return Math.min((estimatedTotal / budget) * 100, 100);
+    },[generated, estimatedTotal]);
 
     function updateForm<
         K extends keyof FormState,
@@ -1696,11 +1962,21 @@ export function AiPlannerBuilder({
                                         </span>
                                     ) : null}
 
-                                    <span className="rounded-full bg-[#f4eee4] px-3 py-1.5 text-xs font-bold">
+                                    {generated.request.budget ? (
+                                        <span className="rounded-full bg-[#f4eee4] px-3 py-1.5 text-xs font-bold">
+                                            Ngân sách{" "}
+                                            {formatCurrency(
+                                                generated
+                                                    .request
+                                                    .budget,
+                                            )}
+                                        </span>
+                                    ) : null}
+
+                                    <span className="rounded-full bg-[#fff0ed] px-3 py-1.5 text-xs font-extrabold text-[#c94f40]">
+                                        Dự kiến{" "}
                                         {formatCurrency(
-                                            generated
-                                                .request
-                                                .budget,
+                                            estimatedTotal,
                                         )}
                                     </span>
                                 </div>
@@ -1758,6 +2034,272 @@ export function AiPlannerBuilder({
                             </div>
                         ) : null}
                     </div>
+
+                    {/* ============================================================= */}
+                    {/* AI COST PREVIEW                                               */}
+                    {/* ============================================================= */}
+
+                    <section className="mt-7 overflow-hidden rounded-[30px] border border-white/80 bg-[#fffaf1] shadow-[0_18px_55px_rgba(23,58,59,0.07)]">
+                        <div className="border-b border-[#e5dbce] bg-[linear-gradient(135deg,#fff4ef,#f3f8f5)] px-6 py-6 sm:px-8">
+                            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">
+                                        <WalletCards size={15} />
+                                        Dự toán AI
+                                    </div>
+
+                                    <h3 className="mt-2 font-display text-3xl font-semibold">
+                                        Chi phí chuyến đi
+                                    </h3>
+
+                                    <p className="mt-2 max-w-xl text-sm leading-6 text-[#6b7976]">
+                                        Chi phí được AI ước tính dựa trên hành trình, số hành khách, số phòng và dữ liệu RAG.
+                                    </p>
+                                </div>
+
+                                <div className="sm:text-right">
+                                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#75827f]">
+                                        Tổng dự kiến
+                                    </p>
+
+                                    <p className="mt-1 font-display text-4xl font-semibold text-[#d85b48]">
+                                        {formatCurrency(estimatedTotal)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-7 p-6 sm:p-8 lg:grid-cols-[0.9fr_1.1fr]">
+                            <div>
+                                <p className="text-sm font-extrabold text-[#173a3b]">
+                                    So với ngân sách
+                                </p>
+
+                                {generated.request.budget ? (
+                                    <div className="mt-4 rounded-[22px] border border-[#e0d6c8] bg-white p-5">
+                                        <div className="flex items-center justify-between gap-4 text-sm">
+                                            <span className="text-[#70807c]">Ngân sách</span>
+                                            <span className="font-extrabold">
+                                                {formatCurrency(generated.request.budget)}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                                            <span className="text-[#70807c]">Dự kiến</span>
+                                            <span className="font-extrabold text-[#d85b48]">
+                                                {formatCurrency(estimatedTotal)}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-[#eee7dc]">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${
+                                                    budgetDifference !== null &&
+                                                    budgetDifference >= 0
+                                                        ? "bg-[#4f8b78]"
+                                                        : "bg-[#d85b48]"
+                                                }`}
+                                                style={{
+                                                    width: `${budgetPercent ?? 0}%`,
+                                                }}
+                                            />
+                                        </div>
+
+                                        {budgetDifference !== null ? (
+                                            budgetDifference >= 0 ? (
+                                                <div className="mt-4 rounded-2xl bg-[#edf7f1] px-4 py-3">
+                                                    <p className="text-sm font-extrabold text-[#34705d]">
+                                                        ✓ Nằm trong ngân sách
+                                                    </p>
+                                                    <p className="mt-1 text-xs leading-5 text-[#637a71]">
+                                                        Còn khoảng{" "}
+                                                        <strong>
+                                                            {formatCurrency(budgetDifference)}
+                                                        </strong>{" "}
+                                                        so với mức ngân sách bạn đặt.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="mt-4 rounded-2xl bg-[#fff0ed] px-4 py-3">
+                                                    <p className="text-sm font-extrabold text-[#c55041]">
+                                                        ⚠ Vượt ngân sách
+                                                    </p>
+                                                    <p className="mt-1 text-xs leading-5 text-[#8b6963]">
+                                                        Lịch trình đang vượt khoảng{" "}
+                                                        <strong>
+                                                            {formatCurrency(
+                                                                Math.abs(budgetDifference),
+                                                            )}
+                                                        </strong>
+                                                        .
+                                                    </p>
+                                                    <p className="mt-2 text-xs leading-5 text-[#8b6963]">
+                                                        Bạn có thể đổi sang nhịp độ thư thả hơn hoặc giảm số hoạt động rồi tạo lại.
+                                                    </p>
+                                                </div>
+                                            )
+                                        ) : null}
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 rounded-[22px] border border-dashed border-[#d4c7b6] bg-white/60 p-5">
+                                        <p className="text-sm leading-6 text-[#6f7d79]">
+                                            Bạn chưa đặt giới hạn ngân sách cho chuyến đi này.
+                                        </p>
+                                    </div>
+                                )}
+
+                                <p className="mt-4 text-xs leading-5 text-[#89938f]">
+                                    Đây là mức tham khảo do AI ước tính. Giá thực tế có thể thay đổi theo thời điểm đặt dịch vụ.
+                                </p>
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-extrabold text-[#173a3b]">
+                                        Chi phí theo nhóm
+                                    </p>
+                                    <span className="text-xs text-[#7a8884]">
+                                        {generated.plan.estimatedCosts.length}{" "}
+                                        khoản
+                                    </span>
+                                </div>
+
+                                {estimatedCostGroups.length > 0 ? (
+                                    <div className="mt-4 space-y-2.5">
+                                        {estimatedCostGroups.map((group) => (
+                                            <div
+                                                key={group.category}
+                                                className="flex items-center justify-between gap-4 rounded-2xl border border-[#e2d8ca] bg-white px-4 py-3.5"
+                                            >
+                                                <span className="text-sm font-semibold text-[#62736f]">
+                                                    {COST_CATEGORY_LABELS[group.category]}
+                                                </span>
+                                                <span className="text-sm font-extrabold">
+                                                    {formatCurrency(group.amount)}
+                                                </span>
+                                            </div>
+                                        ))}
+
+                                        <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-[#173a3b] px-4 py-4 text-white">
+                                            <span className="text-sm font-extrabold">
+                                                Tổng cộng
+                                            </span>
+                                            <span className="font-display text-xl font-semibold">
+                                                {formatCurrency(estimatedTotal)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 rounded-2xl border border-dashed border-[#d4c7b6] bg-white/60 p-5">
+                                        <p className="text-sm leading-6 text-[#6f7d79]">
+                                            AI chưa trả về khoản dự toán nào. Hãy tạo lại hành trình sau khi backend đã bổ sung estimatedCosts.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {generated.plan.estimatedCosts.length > 0 ? (
+                            <details className="border-t border-[#e5dbce]">
+                                <summary className="cursor-pointer px-6 py-4 text-sm font-extrabold text-[#536c68] transition hover:bg-[#f9f4eb] sm:px-8">
+                                    Xem chi tiết từng khoản dự toán
+                                </summary>
+
+                                <div className="border-t border-[#eee5da] px-6 py-5 sm:px-8">
+                                    <div className="space-y-3">
+                                        {generated.plan.estimatedCosts.map(
+                                            (cost, index) => {
+                                                const amount =
+                                                    calculateEstimatedCostAmount(
+                                                        cost,
+                                                        generated.request,
+                                                    );
+
+                                                return (
+                                                    <div
+                                                        key={`${cost.category}-${cost.title}-${index}`}
+                                                        className="rounded-2xl border border-[#e3d9cc] bg-white p-4"
+                                                    >
+                                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                            <div>
+                                                                <p className="font-bold">
+                                                                    {cost.title}
+                                                                </p>
+                                                                <p className="mt-1 text-xs font-semibold text-[#73817d]">
+                                                                    {
+                                                                        COST_CATEGORY_LABELS[
+                                                                            cost.category
+                                                                        ]
+                                                                    }
+                                                                </p>
+                                                            </div>
+
+                                                            <span className="shrink-0 font-extrabold text-[#d85b48]">
+                                                                {formatCurrency(amount)}
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            <span className="rounded-full bg-[#f2eee7] px-2.5 py-1 text-[11px] font-semibold text-[#687773]">
+                                                                {formatCurrency(cost.unitPrice)}
+                                                                /
+                                                                {
+                                                                    COST_UNIT_LABELS[
+                                                                        cost.calculationUnit
+                                                                    ]
+                                                                }
+                                                            </span>
+
+                                                            {cost.quantity !== 1 ? (
+                                                                <span className="rounded-full bg-[#f2eee7] px-2.5 py-1 text-[11px] font-semibold text-[#687773]">
+                                                                    SL: {cost.quantity}
+                                                                </span>
+                                                            ) : null}
+
+                                                            {cost.calculationUnit ===
+                                                            "per_person" ? (
+                                                                <span className="rounded-full bg-[#f2eee7] px-2.5 py-1 text-[11px] font-semibold text-[#687773]">
+                                                                    {getTravelerCountForCost(
+                                                                        cost,
+                                                                        generated.request,
+                                                                    )}{" "}
+                                                                    người
+                                                                </span>
+                                                            ) : null}
+
+                                                            {cost.calculationUnit ===
+                                                            "per_room" ? (
+                                                                <span className="rounded-full bg-[#f2eee7] px-2.5 py-1 text-[11px] font-semibold text-[#687773]">
+                                                                    {
+                                                                        generated.request
+                                                                            .roomCount
+                                                                    }{" "}
+                                                                    phòng ×{" "}
+                                                                    {cost.nightCount ??
+                                                                        Math.max(
+                                                                            generated.request
+                                                                                .dayCount - 1,
+                                                                            1,
+                                                                        )}{" "}
+                                                                    đêm
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
+
+                                                        {cost.note ? (
+                                                            <p className="mt-3 text-xs leading-5 text-[#788581]">
+                                                                {cost.note}
+                                                            </p>
+                                                        ) : null}
+                                                    </div>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+                                </div>
+                            </details>
+                        ) : null}
+                    </section>
 
                     {/* ----------------------------------------------------- */}
                     {/* Days                                                  */}

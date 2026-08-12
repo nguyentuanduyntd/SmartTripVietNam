@@ -407,23 +407,27 @@ export const EXPERIENCE_ITEMS = [
 export const NAV_ITEMS = [
     {
         label: "Khám phá",
-        href: "#kham-pha",
+        href: "/#kham-pha",
     },
     {
         label: "Điểm đến",
-        href: "#diem-den",
+        href: "/#diem-den",
     },
     {
         label: "Ẩm thực",
-        href: "#am-thuc",
+        href: "/#am-thuc",
     },
     {
         label: "Hành trình",
-        href: "#hanh-trinh",
+        href: "/#hanh-trinh",
     },
     {
         label: "Trải nghiệm",
-        href: "#trai-nghiem",
+        href: "/#trai-nghiem",
+    },
+    {
+        label: "Cộng đồng",
+        href: "/community",
     },
 ] as const;
 

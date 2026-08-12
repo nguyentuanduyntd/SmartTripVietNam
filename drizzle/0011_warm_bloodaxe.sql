@@ -1,0 +1,1 @@
+ALTER TYPE "public"."itinerary_source" ADD VALUE 'community';

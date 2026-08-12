@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/src/lib/auth/get-current-user";
 import { CostBreakdownDialog } from "@/src/components/planner/CostBreakdownDialog";
 import {PlannerGoogleMapsPlace} from "@/src/components/planner/PlannerGoogleMapsPlace";
 import {getUserItineraryPlannerDetailService,ItineraryServiceError,} from "@/src/services/itinerary.service";
+import { PlannerShareExperienceLink } from "@/src/components/planner/PlannerShareExperienceLink";
 
 type PlannerPageProps = {
     params: Promise<{
@@ -238,6 +239,7 @@ export default async function PlannerPage({
                                     }
                                 </p>
                             ) : null}
+                            <PlannerShareExperienceLink itineraryId={itinerary.id}/>
                         </div>
 
                         <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">

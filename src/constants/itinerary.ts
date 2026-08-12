@@ -9,6 +9,7 @@ export const ITINERARY_SOURCES = [
     "tour_template",
     "manual",
     "ai",
+    "community",
 ] as const;
 
 export const COST_CATEGORIES = [
