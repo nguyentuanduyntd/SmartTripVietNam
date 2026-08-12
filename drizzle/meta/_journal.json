@@ -85,6 +85,13 @@
       "when": 1786422552502,
       "tag": "0011_warm_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786507895723,
+      "tag": "0012_luxuriant_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

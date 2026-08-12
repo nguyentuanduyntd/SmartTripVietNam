@@ -12,6 +12,7 @@ import {
     UserRound,
     X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,7 +22,7 @@ import {
     useState,
 } from "react";
 
-import { NAV_ITEMS } from "@/src/constants/home-data";
+import { LanguageSwitcher } from "@/src/components/common/LanguageSwitcher";
 import { createClient } from "@/src/lib/supabase/client";
 
 interface UserProfile {
@@ -53,7 +54,7 @@ function UserAvatar({
             // eslint-disable-next-line @next/next/no-img-element
             <img
                 src={avatarUrl}
-                alt={`Ảnh đại diện của ${displayName}`}
+                alt={displayName}
                 referrerPolicy="no-referrer"
                 className={`${className} shrink-0 rounded-full object-cover ring-2 ring-white`}
             />
@@ -83,7 +84,9 @@ function getMetadataString(
     return value.trim();
 }
 
-function getHomeSectionHref(href: string) {
+function getHomeSectionHref(
+    href: string,
+) {
     if (href.startsWith("#")) {
         return `/${href}`;
     }
@@ -91,7 +94,9 @@ function getHomeSectionHref(href: string) {
     return href;
 }
 
-function getInitials(name: string): string {
+function getInitials(
+    name: string,
+): string {
     const words = name
         .trim()
         .split(/\s+/)
@@ -108,20 +113,32 @@ function getInitials(name: string): string {
     }
 
     return `${words[0][0]}${
-        words[words.length - 1][0]
+        words[
+            words.length - 1
+        ][0]
     }`.toUpperCase();
 }
 
 export function HomeHeader() {
-    const router = useRouter();
+    const router =
+        useRouter();
 
-    const supabase = useMemo(
-        () => createClient(),
-        [],
-    );
+    const t =
+        useTranslations(
+            "Header",
+        );
+
+    const supabase =
+        useMemo(
+            () =>
+                createClient(),
+            [],
+        );
 
     const userMenuRef =
-        useRef<HTMLDivElement>(null);
+        useRef<HTMLDivElement>(
+            null,
+        );
 
     const [isOpen, setIsOpen] =
         useState(false);
@@ -132,18 +149,17 @@ export function HomeHeader() {
     ] = useState(false);
 
     const [user, setUser] =
-        useState<User | null>(null);
+        useState<User | null>(
+            null,
+        );
 
-    /*
-     * Lưu kèm userId để không hiển thị nhầm profile
-     * cũ trong lúc người dùng đăng nhập tài khoản khác.
-     */
     const [
         loadedProfile,
         setLoadedProfile,
-    ] = useState<LoadedUserProfile | null>(
-        null,
-    );
+    ] =
+        useState<LoadedUserProfile | null>(
+            null,
+        );
 
     const [
         isAuthLoading,
@@ -155,17 +171,53 @@ export function HomeHeader() {
         setIsSigningOut,
     ] = useState(false);
 
-    /*
-     * Lấy phiên đăng nhập ban đầu và lắng nghe
-     * thay đổi từ Supabase Auth.
-     */
+    const navItems =
+        useMemo(
+            () => [
+                {
+                    key:
+                        "explore" as const,
+                    href:
+                        "#kham-pha",
+                },
+                {
+                    key:
+                        "destinations" as const,
+                    href:
+                        "#diem-den",
+                },
+                {
+                    key:
+                        "cuisine" as const,
+                    href:
+                        "#am-thuc",
+                },
+                {
+                    key:
+                        "journeys" as const,
+                    href:
+                        "#hanh-trinh",
+                },
+                {
+                    key:
+                        "experiences" as const,
+                    href:
+                        "#trai-nghiem",
+                },
+            ],
+            [],
+        );
+
     useEffect(() => {
-        let isMounted = true;
+        let isMounted =
+            true;
 
         async function loadCurrentSession() {
             try {
                 const {
-                    data: { session },
+                    data: {
+                        session,
+                    },
                     error,
                 } =
                     await supabase.auth.getSession();
@@ -176,7 +228,7 @@ export function HomeHeader() {
 
                 if (error) {
                     console.error(
-                        "Không thể lấy thông tin người dùng:",
+                        "[HOME HEADER AUTH SESSION ERROR]",
                         error,
                     );
 
@@ -185,20 +237,29 @@ export function HomeHeader() {
                 }
 
                 setUser(
-                    session?.user ?? null,
+                    session?.user ??
+                        null,
                 );
             } catch (error) {
                 console.error(
-                    "Lỗi kiểm tra phiên đăng nhập:",
+                    "[HOME HEADER AUTH SESSION ERROR]",
                     error,
                 );
 
-                if (isMounted) {
-                    setUser(null);
+                if (
+                    isMounted
+                ) {
+                    setUser(
+                        null,
+                    );
                 }
             } finally {
-                if (isMounted) {
-                    setIsAuthLoading(false);
+                if (
+                    isMounted
+                ) {
+                    setIsAuthLoading(
+                        false,
+                    );
                 }
             }
         }
@@ -206,27 +267,39 @@ export function HomeHeader() {
         void loadCurrentSession();
 
         const {
-            data: { subscription },
+            data: {
+                subscription,
+            },
         } =
             supabase.auth.onAuthStateChange(
-                (_event, session) => {
-                    if (!isMounted) {
+                (
+                    _event,
+                    session,
+                ) => {
+                    if (
+                        !isMounted
+                    ) {
                         return;
                     }
 
                     const nextUser =
-                        session?.user ?? null;
+                        session?.user ??
+                        null;
 
-                    setUser(nextUser);
-                    setIsAuthLoading(false);
+                    setUser(
+                        nextUser,
+                    );
 
-                    /*
-                     * Đây là callback từ Supabase,
-                     * không phải cập nhật đồng bộ trực tiếp
-                     * trong thân useEffect.
-                     */
-                    if (!nextUser) {
-                        setLoadedProfile(null);
+                    setIsAuthLoading(
+                        false,
+                    );
+
+                    if (
+                        !nextUser
+                    ) {
+                        setLoadedProfile(
+                            null,
+                        );
 
                         setIsUserMenuOpen(
                             false,
@@ -236,87 +309,106 @@ export function HomeHeader() {
             );
 
         return () => {
-            isMounted = false;
+            isMounted =
+                false;
+
             subscription.unsubscribe();
         };
     }, [supabase]);
 
-    /*
-     * Tải profile sau khi đã có Auth user.
-     *
-     * Không gọi setState trực tiếp trước thao tác await,
-     * tránh lỗi react-hooks/set-state-in-effect.
-     */
     useEffect(() => {
-        let isMounted = true;
+        let isMounted =
+            true;
 
-        const userId = user?.id;
+        const userId =
+            user?.id;
 
-        if (typeof userId !== "string" || userId.length === 0) {
+        if (
+            typeof userId !==
+                "string" ||
+            userId.length === 0
+        ) {
             return;
         }
 
-        async function loadProfile(authenticatedUserId: string) {
+        async function loadProfile(
+            authenticatedUserId: string,
+        ) {
             const {
                 data,
                 error,
-            } = await supabase
-                .from("profiles")
-                .select(
-                    "full_name, avatar_url, role",
-                )
-                .eq(
-                    "id",
-                    authenticatedUserId,
-                )
-                .maybeSingle();
+            } =
+                await supabase
+                    .from(
+                        "profiles",
+                    )
+                    .select(
+                        "full_name, avatar_url, role",
+                    )
+                    .eq(
+                        "id",
+                        authenticatedUserId,
+                    )
+                    .maybeSingle();
 
-            if (!isMounted) {
+            if (
+                !isMounted
+            ) {
                 return;
             }
 
             if (error) {
                 console.error(
-                    "Không thể tải profile người dùng:",
+                    "[HOME HEADER PROFILE ERROR]",
                     error,
                 );
 
-                setLoadedProfile({
-                    userId: authenticatedUserId,
-                    profile: null,
-                });
+                setLoadedProfile(
+                    {
+                        userId:
+                            authenticatedUserId,
+                        profile:
+                            null,
+                    },
+                );
 
                 return;
             }
 
-            setLoadedProfile({
-                userId: authenticatedUserId,
-                profile: data as UserProfile | null,
-            });
+            setLoadedProfile(
+                {
+                    userId:
+                        authenticatedUserId,
+                    profile:
+                        data as UserProfile | null,
+                },
+            );
         }
 
-        void loadProfile(userId);
+        void loadProfile(
+            userId,
+        );
 
         return () => {
-            isMounted = false;
+            isMounted =
+                false;
         };
-    }, [supabase, user?.id]);
+    }, [
+        supabase,
+        user?.id,
+    ]);
 
-    /*
-     * Chỉ sử dụng profile nếu profile đó thuộc
-     * đúng user đang đăng nhập.
-     */
     const profile =
         user &&
-        loadedProfile?.userId === user.id
+        loadedProfile?.userId ===
+            user.id
             ? loadedProfile.profile
             : null;
 
-    /*
-     * Đóng dropdown khi bấm ra ngoài hoặc nhấn Escape.
-     */
     useEffect(() => {
-        if (!isUserMenuOpen) {
+        if (
+            !isUserMenuOpen
+        ) {
             return;
         }
 
@@ -332,15 +424,22 @@ export function HomeHeader() {
                     target,
                 )
             ) {
-                setIsUserMenuOpen(false);
+                setIsUserMenuOpen(
+                    false,
+                );
             }
         }
 
         function handleKeyDown(
             event: KeyboardEvent,
         ) {
-            if (event.key === "Escape") {
-                setIsUserMenuOpen(false);
+            if (
+                event.key ===
+                "Escape"
+            ) {
+                setIsUserMenuOpen(
+                    false,
+                );
             }
         }
 
@@ -369,30 +468,43 @@ export function HomeHeader() {
 
     const metadataFullName =
         getMetadataString(
-            user?.user_metadata
+            user
+                ?.user_metadata
                 ?.full_name,
         ) ??
         getMetadataString(
-            user?.user_metadata?.name,
+            user
+                ?.user_metadata
+                ?.name,
         );
 
     const metadataAvatarUrl =
         getMetadataString(
-            user?.user_metadata
+            user
+                ?.user_metadata
                 ?.avatar_url,
         ) ??
         getMetadataString(
-            user?.user_metadata?.picture,
+            user
+                ?.user_metadata
+                ?.picture,
         );
 
     const email =
-        user?.email ?? "Chưa có email";
+        user?.email ??
+        t(
+            "account.noEmail",
+        );
 
     const displayName =
         profile?.full_name?.trim() ||
         metadataFullName ||
-        user?.email?.split("@")[0] ||
-        "Thành viên";
+        user?.email?.split(
+            "@",
+        )[0] ||
+        t(
+            "account.member",
+        );
 
     const avatarUrl =
         profile?.avatar_url ||
@@ -400,36 +512,52 @@ export function HomeHeader() {
         null;
 
     const initials =
-        getInitials(displayName);
+        getInitials(
+            displayName,
+        );
 
     const roleLabel =
-        profile?.role === "admin"
-            ? "Quản trị viên"
-            : "Thành viên";
+        profile?.role ===
+        "admin"
+            ? t(
+                  "account.admin",
+              )
+            : t(
+                  "account.member",
+              );
 
     function closeMenu() {
         setIsOpen(false);
-        setIsUserMenuOpen(false);
+        setIsUserMenuOpen(
+            false,
+        );
     }
 
     async function handleSignOut() {
-        if (isSigningOut) {
+        if (
+            isSigningOut
+        ) {
             return;
         }
 
-        setIsSigningOut(true);
+        setIsSigningOut(
+            true,
+        );
 
         try {
-            const { error } =
+            const {
+                error,
+            } =
                 await supabase.auth.signOut(
                     {
-                        scope: "local",
+                        scope:
+                            "local",
                     },
                 );
 
             if (error) {
                 console.error(
-                    "Không thể đăng xuất:",
+                    "[HOME HEADER SIGN OUT ERROR]",
                     error,
                 );
 
@@ -437,19 +565,25 @@ export function HomeHeader() {
             }
 
             setUser(null);
-            setLoadedProfile(null);
+            setLoadedProfile(
+                null,
+            );
             setIsOpen(false);
-            setIsUserMenuOpen(false);
+            setIsUserMenuOpen(
+                false,
+            );
 
             router.replace("/");
             router.refresh();
         } catch (error) {
             console.error(
-                "Lỗi đăng xuất:",
+                "[HOME HEADER SIGN OUT ERROR]",
                 error,
             );
         } finally {
-            setIsSigningOut(false);
+            setIsSigningOut(
+                false,
+            );
         }
     }
 
@@ -458,28 +592,40 @@ export function HomeHeader() {
             <div className="mx-auto flex max-w-[1440px] items-center justify-between rounded-[24px] border border-white/60 bg-[#fffaf0]/88 px-4 py-3 shadow-[0_20px_70px_rgba(35,45,43,0.10)] backdrop-blur-xl sm:px-6 lg:px-8">
                 <Link
                     href="/"
-                    className="group flex items-center gap-3 text-[#173a3b]"
-                    aria-label="Rực Rỡ Miền Trung - Trang chủ"
-                    onClick={closeMenu}
+                    className="group flex min-w-0 items-center gap-3 text-[#173a3b]"
+                    aria-label={t(
+                        "brandHomeAria",
+                    )}
+                    onClick={
+                        closeMenu
+                    }
                 >
-                    <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f25f4b] text-white shadow-[0_10px_30px_rgba(242,95,75,0.24)] transition-transform group-hover:-rotate-3 group-hover:scale-105">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f25f4b] text-white shadow-[0_10px_30px_rgba(242,95,75,0.24)] transition-transform group-hover:-rotate-3 group-hover:scale-105">
                         <Landmark
                             size={23}
-                            strokeWidth={1.8}
+                            strokeWidth={
+                                1.8
+                            }
                         />
                     </span>
 
-                    <span className="font-display text-[22px] font-semibold tracking-[-0.02em] sm:text-[26px]">
-                        Rực Rỡ Miền Trung
+                    <span className="hidden truncate font-display text-[22px] font-semibold tracking-[-0.02em] sm:block sm:text-[26px]">
+                        {t(
+                            "brand",
+                        )}
                     </span>
                 </Link>
 
                 <nav
-                    className="hidden items-center gap-7 lg:flex"
-                    aria-label="Điều hướng chính"
+                    className="hidden items-center gap-6 xl:flex"
+                    aria-label={t(
+                        "mainNavigationAria",
+                    )}
                 >
-                    {NAV_ITEMS.map(
-                        (item) => (
+                    {navItems.map(
+                        (
+                            item,
+                        ) => (
                             <Link
                                 key={
                                     item.href
@@ -489,17 +635,21 @@ export function HomeHeader() {
                                 )}
                                 className="relative py-2 text-[15px] font-medium text-[#294748] transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-[#f25f4b] after:transition-transform hover:text-[#f25f4b] hover:after:scale-x-100"
                             >
-                                {
-                                    item.label
-                                }
+                                {t(
+                                    `nav.${item.key}`,
+                                )}
                             </Link>
                         ),
                     )}
                 </nav>
 
-                <div className="hidden items-center gap-3 lg:flex">
+                <div className="hidden items-center gap-2 lg:flex">
+                    <LanguageSwitcher
+                        compact
+                    />
+
                     {isAuthLoading ? (
-                        <div className="h-11 w-36 animate-pulse rounded-full bg-[#e8dfd1]" />
+                        <div className="h-11 w-32 animate-pulse rounded-full bg-[#e8dfd1]" />
                     ) : user ? (
                         <div
                             ref={
@@ -509,15 +659,15 @@ export function HomeHeader() {
                         >
                             <button
                                 type="button"
-                                onClick={() => {
+                                onClick={() =>
                                     setIsUserMenuOpen(
                                         (
-                                            currentValue,
+                                            current,
                                         ) =>
-                                            !currentValue,
-                                    );
-                                }}
-                                className="flex h-12 max-w-56 items-center gap-3 rounded-full border border-[#d8cdbc] bg-white/65 py-1.5 pl-1.5 pr-3 text-left transition-all hover:border-[#bcae9a] hover:bg-white"
+                                            !current,
+                                    )
+                                }
+                                className="flex h-12 max-w-52 items-center gap-3 rounded-full border border-[#d8cdbc] bg-white/65 py-1.5 pl-1.5 pr-3 text-left transition-all hover:border-[#bcae9a] hover:bg-white"
                                 aria-expanded={
                                     isUserMenuOpen
                                 }
@@ -538,7 +688,9 @@ export function HomeHeader() {
 
                                 <span className="min-w-0">
                                     <span className="block truncate text-[11px] font-medium text-[#77827f]">
-                                        Xin chào
+                                        {t(
+                                            "account.hello",
+                                        )}
                                     </span>
 
                                     <span className="block truncate text-sm font-bold text-[#294748]">
@@ -611,9 +763,9 @@ export function HomeHeader() {
                                                     18
                                                 }
                                             />
-
-                                            Lịch trình
-                                            của tôi
+                                            {t(
+                                                "account.myItineraries",
+                                            )}
                                         </Link>
 
                                         {profile?.role ===
@@ -630,9 +782,9 @@ export function HomeHeader() {
                                                         18
                                                     }
                                                 />
-
-                                                Trang quản
-                                                trị
+                                                {t(
+                                                    "account.adminDashboard",
+                                                )}
                                             </Link>
                                         ) : (
                                             <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748]">
@@ -641,17 +793,17 @@ export function HomeHeader() {
                                                         18
                                                     }
                                                 />
-
-                                                Tài khoản
-                                                của tôi
+                                                {t(
+                                                    "account.myAccount",
+                                                )}
                                             </div>
                                         )}
 
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                void handleSignOut();
-                                            }}
+                                            onClick={() =>
+                                                void handleSignOut()
+                                            }
                                             disabled={
                                                 isSigningOut
                                             }
@@ -664,8 +816,12 @@ export function HomeHeader() {
                                             />
 
                                             {isSigningOut
-                                                ? "Đang đăng xuất..."
-                                                : "Đăng xuất"}
+                                                ? t(
+                                                      "account.signingOut",
+                                                  )
+                                                : t(
+                                                      "account.signOut",
+                                                  )}
                                         </button>
                                     </div>
                                 </div>
@@ -674,46 +830,72 @@ export function HomeHeader() {
                     ) : (
                         <Link
                             href="/auth/login"
-                            className="rounded-full px-4 py-2.5 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
+                            className="rounded-full px-3 py-2.5 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
                         >
-                            Đăng nhập
+                            {t(
+                                "account.signIn",
+                            )}
                         </Link>
                     )}
 
                     <Link
                         href="/#hanh-trinh"
-                        className="inline-flex items-center gap-2 rounded-full bg-[#173a3b] px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#20494a]"
+                        className="inline-flex items-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#20494a]"
                     >
-                        <Route size={17} />
-                        Lập hành trình
+                        <Route
+                            size={17}
+                        />
+                        {t(
+                            "planTrip",
+                        )}
                     </Link>
                 </div>
 
-                <button
-                    type="button"
-                    className="grid h-11 w-11 place-items-center rounded-full border border-[#d9d0c1] text-[#173a3b] transition-colors hover:bg-[#efe7d8] lg:hidden"
-                    onClick={() => {
-                        setIsOpen(
-                            (
-                                currentValue,
-                            ) =>
-                                !currentValue,
-                        );
-                    }}
-                    aria-expanded={isOpen}
-                    aria-controls="home-mobile-menu"
-                    aria-label={
-                        isOpen
-                            ? "Đóng menu"
-                            : "Mở menu"
-                    }
-                >
-                    {isOpen ? (
-                        <X size={22} />
-                    ) : (
-                        <Menu size={22} />
-                    )}
-                </button>
+                <div className="flex items-center gap-2 lg:hidden">
+                    <LanguageSwitcher
+                        compact
+                    />
+
+                    <button
+                        type="button"
+                        className="grid h-11 w-11 place-items-center rounded-full border border-[#d9d0c1] text-[#173a3b] transition-colors hover:bg-[#efe7d8]"
+                        onClick={() =>
+                            setIsOpen(
+                                (
+                                    current,
+                                ) =>
+                                    !current,
+                            )
+                        }
+                        aria-expanded={
+                            isOpen
+                        }
+                        aria-controls="home-mobile-menu"
+                        aria-label={
+                            isOpen
+                                ? t(
+                                      "closeMenu",
+                                  )
+                                : t(
+                                      "openMenu",
+                                  )
+                        }
+                    >
+                        {isOpen ? (
+                            <X
+                                size={
+                                    22
+                                }
+                            />
+                        ) : (
+                            <Menu
+                                size={
+                                    22
+                                }
+                            />
+                        )}
+                    </button>
+                </div>
             </div>
 
             {isOpen ? (
@@ -723,10 +905,14 @@ export function HomeHeader() {
                 >
                     <nav
                         className="grid gap-1"
-                        aria-label="Điều hướng trên điện thoại"
+                        aria-label={t(
+                            "mobileNavigationAria",
+                        )}
                     >
-                        {NAV_ITEMS.map(
-                            (item) => (
+                        {navItems.map(
+                            (
+                                item,
+                            ) => (
                                 <Link
                                     key={
                                         item.href
@@ -739,9 +925,9 @@ export function HomeHeader() {
                                     }
                                     className="rounded-2xl px-4 py-3 font-medium text-[#294748] transition-colors hover:bg-[#efe7d8]"
                                 >
-                                    {
-                                        item.label
-                                    }
+                                    {t(
+                                        `nav.${item.key}`,
+                                    )}
                                 </Link>
                             ),
                         )}
@@ -800,9 +986,9 @@ export function HomeHeader() {
                                                 17
                                             }
                                         />
-
-                                        Lịch trình
-                                        của tôi
+                                        {t(
+                                            "account.myItineraries",
+                                        )}
                                     </Link>
 
                                     {profile?.role ===
@@ -819,9 +1005,9 @@ export function HomeHeader() {
                                                     17
                                                 }
                                             />
-
-                                            Trang quản
-                                            trị
+                                            {t(
+                                                "account.adminDashboard",
+                                            )}
                                         </Link>
                                     ) : (
                                         <div className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]">
@@ -830,17 +1016,17 @@ export function HomeHeader() {
                                                     17
                                                 }
                                             />
-
-                                            Tài khoản
-                                            của tôi
+                                            {t(
+                                                "account.myAccount",
+                                            )}
                                         </div>
                                     )}
 
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            void handleSignOut();
-                                        }}
+                                        onClick={() =>
+                                            void handleSignOut()
+                                        }
                                         disabled={
                                             isSigningOut
                                         }
@@ -853,8 +1039,12 @@ export function HomeHeader() {
                                         />
 
                                         {isSigningOut
-                                            ? "Đang đăng xuất..."
-                                            : "Đăng xuất"}
+                                            ? t(
+                                                  "account.signingOut",
+                                              )
+                                            : t(
+                                                  "account.signOut",
+                                              )}
                                     </button>
                                 </div>
                             </div>
@@ -866,17 +1056,27 @@ export function HomeHeader() {
                                 }
                                 className="flex min-h-12 items-center justify-center rounded-full border border-[#cfc5b5] px-4 py-3 text-center text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
                             >
-                                Đăng nhập
+                                {t(
+                                    "account.signIn",
+                                )}
                             </Link>
                         )}
 
                         <Link
                             href="/#hanh-trinh"
-                            onClick={closeMenu}
+                            onClick={
+                                closeMenu
+                            }
                             className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#20494a]"
                         >
-                            <Route size={17} />
-                            Lập hành trình
+                            <Route
+                                size={
+                                    17
+                                }
+                            />
+                            {t(
+                                "planTrip",
+                            )}
                         </Link>
                     </div>
                 </div>

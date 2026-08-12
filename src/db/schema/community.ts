@@ -19,7 +19,11 @@ import { destinations } from "./destinations";
 import { userItineraries } from "./itineraries";
 import { locations } from "./locations";
 import { profiles } from "./profiles";
-import { socialContentStatusEnum } from "./tour_community_enums";
+import {
+    communityReportReasonEnum,
+    communityReportStatusEnum,
+    socialContentStatusEnum,
+} from "./tour_community_enums";
 import { tours } from "./tours";
 
 /* -------------------------------------------------------------------------- */
@@ -466,6 +470,190 @@ export const postComments = pgTable(
     ],
 );
 
+
+/* -------------------------------------------------------------------------- */
+/* Community reports                                                          */
+/* -------------------------------------------------------------------------- */
+
+export const communityReports = pgTable(
+    "community_reports",
+    {
+        id: uuid("id")
+            .primaryKey()
+            .defaultRandom(),
+
+        /*
+         * Người gửi báo cáo.
+         */
+        reporterId: uuid("reporter_id")
+            .notNull()
+            .references(() => profiles.id, {
+                onDelete: "cascade",
+            }),
+
+        /*
+         * Nếu báo cáo bài viết thì postId có giá trị
+         * và commentId phải null.
+         */
+        postId: uuid("post_id").references(
+            () => communityPosts.id,
+            {
+                onDelete: "cascade",
+            },
+        ),
+
+        /*
+         * Nếu báo cáo bình luận thì commentId có giá trị
+         * và postId phải null.
+         */
+        commentId: uuid("comment_id").references(
+            () => postComments.id,
+            {
+                onDelete: "cascade",
+            },
+        ),
+
+        reason: communityReportReasonEnum("reason")
+            .notNull(),
+
+        /*
+         * Mô tả thêm từ người báo cáo.
+         * Nếu reason = "other" thì bắt buộc phải có nội dung.
+         */
+        details: text("details"),
+
+        status: communityReportStatusEnum("status")
+            .notNull()
+            .default("pending"),
+
+        /*
+         * Admin đã xử lý report.
+         * Nếu tài khoản admin bị xóa thì vẫn giữ report.
+         */
+        reviewedBy: uuid("reviewed_by").references(
+            () => profiles.id,
+            {
+                onDelete: "set null",
+            },
+        ),
+
+        /*
+         * Ghi chú nội bộ của admin.
+         */
+        reviewNote: text("review_note"),
+
+        createdAt: timestamp("created_at", {
+            withTimezone: true,
+        })
+            .defaultNow()
+            .notNull(),
+
+        updatedAt: timestamp("updated_at", {
+            withTimezone: true,
+        })
+            .defaultNow()
+            .notNull(),
+
+        reviewedAt: timestamp("reviewed_at", {
+            withTimezone: true,
+        }),
+    },
+    (table) => [
+        /*
+         * Một report bắt buộc chỉ trỏ tới đúng một đối tượng:
+         * - post
+         * hoặc
+         * - comment
+         */
+        check(
+            "community_reports_target_check",
+            sql`
+                (
+                    ${table.postId} is not null
+                    and ${table.commentId} is null
+                )
+                or
+                (
+                    ${table.postId} is null
+                    and ${table.commentId} is not null
+                )
+            `,
+        ),
+
+        /*
+         * Nếu chọn lý do "other" thì phải nhập details.
+         */
+        check(
+            "community_reports_other_reason_details_check",
+            sql`
+                ${table.reason} <> 'other'
+                or (
+                    ${table.details} is not null
+                    and length(btrim(${table.details})) > 0
+                )
+            `,
+        ),
+
+        /*
+         * Một user chỉ được report một post một lần.
+         *
+         * PostgreSQL cho phép nhiều NULL trong unique index,
+         * nên index này không cản report comment.
+         */
+        uniqueIndex(
+            "community_reports_reporter_post_uidx",
+        ).on(
+            table.reporterId,
+            table.postId,
+        ),
+
+        /*
+         * Một user chỉ được report một comment một lần.
+         */
+        uniqueIndex(
+            "community_reports_reporter_comment_uidx",
+        ).on(
+            table.reporterId,
+            table.commentId,
+        ),
+
+        /*
+         * Tối ưu màn hình moderation:
+         * lọc theo status + sắp xếp theo thời gian.
+         */
+        index(
+            "community_reports_status_created_at_idx",
+        ).on(
+            table.status,
+            table.createdAt,
+        ),
+
+        index(
+            "community_reports_reporter_id_idx",
+        ).on(
+            table.reporterId,
+        ),
+
+        index(
+            "community_reports_post_id_idx",
+        ).on(
+            table.postId,
+        ),
+
+        index(
+            "community_reports_comment_id_idx",
+        ).on(
+            table.commentId,
+        ),
+
+        index(
+            "community_reports_reviewed_by_idx",
+        ).on(
+            table.reviewedBy,
+        ),
+    ],
+);
+
 export type CommunityPost = typeof communityPosts.$inferSelect;
 export type NewCommunityPost = typeof communityPosts.$inferInsert;
 
@@ -476,3 +664,6 @@ export type PostComment = typeof postComments.$inferSelect;
 export type NewPostComment = typeof postComments.$inferInsert;
 
 export type PostSave = typeof postSaves.$inferSelect;
+
+export type CommunityReport = typeof communityReports.$inferSelect;
+export type NewCommunityReport = typeof communityReports.$inferInsert;

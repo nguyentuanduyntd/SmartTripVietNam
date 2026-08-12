@@ -1,0 +1,53 @@
+{
+  "Metadata": {
+    "title": "Rực Rỡ Miền Trung",
+    "description": "Khám phá Huế, Đà Nẵng và Hội An qua địa danh, ẩm thực, câu chuyện cộng đồng và hành trình cá nhân hóa."
+  },
+  "Language": {
+    "label": "Ngôn ngữ",
+    "vietnamese": "Tiếng Việt",
+    "english": "English",
+    "switchToVietnamese": "Chuyển sang Tiếng Việt",
+    "switchToEnglish": "Chuyển sang English",
+    "switching": "Đang đổi ngôn ngữ..."
+  },
+  "Common": {
+    "loading": "Đang tải...",
+    "retry": "Thử lại",
+    "cancel": "Hủy",
+    "close": "Đóng",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "confirm": "Xác nhận",
+    "back": "Quay lại"
+  },
+  "Header": {
+    "brand": "Rực Rỡ Miền Trung",
+    "brandHomeAria": "Rực Rỡ Miền Trung - Trang chủ",
+    "mainNavigationAria": "Điều hướng chính",
+    "mobileNavigationAria": "Điều hướng trên điện thoại",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu",
+    "planTrip": "Lập hành trình",
+    "nav": {
+      "explore": "Khám phá",
+      "destinations": "Điểm đến",
+      "cuisine": "Ẩm thực",
+      "journeys": "Hành trình",
+      "experiences": "Trải nghiệm"
+    },
+    "account": {
+      "hello": "Xin chào",
+      "member": "Thành viên",
+      "admin": "Quản trị viên",
+      "noEmail": "Chưa có email",
+      "myItineraries": "Lịch trình của tôi",
+      "adminDashboard": "Trang quản trị",
+      "myAccount": "Tài khoản của tôi",
+      "signIn": "Đăng nhập",
+      "signOut": "Đăng xuất",
+      "signingOut": "Đang đăng xuất..."
+    }
+  }
+}

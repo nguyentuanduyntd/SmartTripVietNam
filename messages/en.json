@@ -1,0 +1,53 @@
+{
+  "Metadata": {
+    "title": "Radiant Central Vietnam",
+    "description": "Discover Hue, Da Nang and Hoi An through destinations, cuisine, community stories and personalized travel itineraries."
+  },
+  "Language": {
+    "label": "Language",
+    "vietnamese": "Tiếng Việt",
+    "english": "English",
+    "switchToVietnamese": "Switch to Vietnamese",
+    "switchToEnglish": "Switch to English",
+    "switching": "Changing language..."
+  },
+  "Common": {
+    "loading": "Loading...",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "back": "Back"
+  },
+  "Header": {
+    "brand": "Radiant Central Vietnam",
+    "brandHomeAria": "Radiant Central Vietnam - Home",
+    "mainNavigationAria": "Main navigation",
+    "mobileNavigationAria": "Mobile navigation",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "planTrip": "Plan a trip",
+    "nav": {
+      "explore": "Explore",
+      "destinations": "Destinations",
+      "cuisine": "Cuisine",
+      "journeys": "Journeys",
+      "experiences": "Experiences"
+    },
+    "account": {
+      "hello": "Hello",
+      "member": "Member",
+      "admin": "Administrator",
+      "noEmail": "No email available",
+      "myItineraries": "My itineraries",
+      "adminDashboard": "Admin dashboard",
+      "myAccount": "My account",
+      "signIn": "Sign in",
+      "signOut": "Sign out",
+      "signingOut": "Signing out..."
+    }
+  }
+}

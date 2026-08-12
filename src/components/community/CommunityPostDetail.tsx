@@ -1,39 +1,12 @@
 "use client";
 
-import {
-    Bookmark,
-    CalendarDays,
-    ChevronRight,
-    Heart,
-    Loader2,
-    MapPin,
-    MessageCircle,
-    Pencil,
-    Reply,
-    Route,
-    Save,
-    Star,
-    Trash2,
-    Utensils,
-    WalletCards,
-    X,
-} from "lucide-react";
-
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-} from "react";
-
+import {Bookmark,CalendarDays,ChevronRight,Heart,Loader2,MapPin,MessageCircle,Pencil,
+    Reply,Route,Save,Star,Trash2,Utensils,WalletCards,X,} from "lucide-react";
+import {useCallback,useEffect,useMemo,useState,} from "react";
 import { useRouter } from "next/navigation";
-
 import { CommunityImageCarousel } from "@/src/components/community/CommunityImageCarousel";
-import {
-    readCommunityApi,
-    type CommunityCommentThread,
-    type CommunityPostDetailData,
-} from "@/src/components/community/community-types";
+import {readCommunityApi,type CommunityCommentThread,type CommunityPostDetailData,} from "@/src/components/community/community-types";
+import { CommunityReportDialog } from "@/src/components/community/CommunityReportDialog";
 
 type CommunityPostDetailProps = {
     postId: string;
@@ -1055,6 +1028,19 @@ export function CommunityPostDetail({
                                 : "Lưu bài"}{" "}
                             · {post.saveCount}
                         </button>
+
+                        {!isOwner ? (
+                            <CommunityReportDialog
+                                target={{
+                                    type: "post",
+                                    id: post.id,
+                                }}
+                                isAuthenticated={Boolean(
+                                    currentUserId,
+                                )}
+                                loginReturnTo={`/community/${postId}`}
+                            />
+                        ) : null}
                     </div>
                 </div>
             </section>
@@ -1381,6 +1367,24 @@ export function CommunityPostDetail({
                                                     Trả lời
                                                 </button>
 
+                                                
+
+                                                {currentUserId !==
+                                                comment.userId ? (
+                                                    <CommunityReportDialog
+                                                        target={{
+                                                            type: "comment",
+                                                            id:
+                                                                comment.id,
+                                                        }}
+                                                        isAuthenticated={Boolean(
+                                                            currentUserId,
+                                                        )}
+                                                        loginReturnTo={`/community/${postId}#comments`}
+                                                        triggerVariant="text"
+                                                    />
+                                                ) : null}
+
                                                 {currentUserId ===
                                                 comment.userId ? (
                                                     <>
@@ -1478,6 +1482,24 @@ export function CommunityPostDetail({
                                                                             />
                                                                             Trả lời
                                                                         </button>
+
+                                                                        
+
+                                                                        {currentUserId !==
+                                                                        reply.userId ? (
+                                                                            <CommunityReportDialog
+                                                                                target={{
+                                                                                    type: "comment",
+                                                                                    id:
+                                                                                        reply.id,
+                                                                                }}
+                                                                                isAuthenticated={Boolean(
+                                                                                    currentUserId,
+                                                                                )}
+                                                                                loginReturnTo={`/community/${postId}#comments`}
+                                                                                triggerVariant="text"
+                                                                            />
+                                                                        ) : null}
 
                                                                         {currentUserId ===
                                                                         reply.userId ? (
