@@ -1,9 +1,33 @@
+"use client";
+
 import Link from "next/link";
-import {Landmark,Mail,MapPin} from "lucide-react";
-import {FaFacebookF,FaInstagram,FaYoutube} from "react-icons/fa";
-import {NAV_ITEMS,} from "@/src/constants/home-data";
+import {
+    useTranslations,
+} from "next-intl";
+
+import {
+    Landmark,
+    Mail,
+    MapPin,
+} from "lucide-react";
+
+import {
+    FaFacebookF,
+    FaInstagram,
+    FaYoutube,
+} from "react-icons/fa";
 
 export function HomeFooter() {
+    const t =
+        useTranslations(
+            "Footer",
+        );
+
+    const tHeader =
+        useTranslations(
+            "Header",
+        );
+
     const socialLinks = [
         {
             label: "Instagram",
@@ -22,6 +46,34 @@ export function HomeFooter() {
         },
     ];
 
+    const navigationLinks =
+        [
+            {
+                href: "/#kham-pha",
+                label: t(
+                    "navigation.explore",
+                ),
+            },
+            {
+                href: "/#diem-den",
+                label: t(
+                    "navigation.destinations",
+                ),
+            },
+            {
+                href: "/#am-thuc",
+                label: t(
+                    "navigation.cuisine",
+                ),
+            },
+            {
+                href: "/#hanh-trinh",
+                label: t(
+                    "navigation.journeys",
+                ),
+            },
+        ];
+
     return (
         <footer className="bg-[#102f30] px-5 pb-8 pt-16 text-white sm:px-8 lg:px-12 lg:pt-20">
             <div className="mx-auto max-w-[1440px]">
@@ -29,22 +81,30 @@ export function HomeFooter() {
                     <div>
                         <Link
                             href="/"
+                            aria-label={tHeader(
+                                "brandHomeAria",
+                            )}
                             className="inline-flex items-center gap-3"
                         >
                             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f25f4b]">
-                                <Landmark size={24} />
+                                <Landmark
+                                    size={
+                                        24
+                                    }
+                                />
                             </span>
 
                             <span className="font-display text-3xl font-semibold">
-                                Rực Rỡ Miền Trung
+                                {tHeader(
+                                    "brand",
+                                )}
                             </span>
                         </Link>
 
                         <p className="mt-5 max-w-sm leading-7 text-white/60">
-                            Nền tảng khám phá Huế, Đà Nẵng
-                            và Hội An với dữ liệu địa
-                            phương, câu chuyện cộng đồng và
-                            trợ lý hành trình cá nhân hóa.
+                            {t(
+                                "description",
+                            )}
                         </p>
 
                         <div className="mt-6 flex gap-3">
@@ -55,13 +115,21 @@ export function HomeFooter() {
                                     icon: Icon,
                                 }) => (
                                     <a
-                                        key={label}
-                                        href={href}
-                                        aria-label={label}
+                                        key={
+                                            label
+                                        }
+                                        href={
+                                            href
+                                        }
+                                        aria-label={
+                                            label
+                                        }
                                         className="grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white/70 transition-colors hover:border-[#f25f4b] hover:bg-[#f25f4b] hover:text-white"
                                     >
                                         <Icon
-                                            size={18}
+                                            size={
+                                                18
+                                            }
                                         />
                                     </a>
                                 ),
@@ -71,28 +139,39 @@ export function HomeFooter() {
 
                     <div>
                         <h3 className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#f4c66f]">
-                            Khám phá
+                            {t(
+                                "exploreTitle",
+                            )}
                         </h3>
 
                         <div className="mt-5 grid gap-3">
-                            {NAV_ITEMS.slice(
-                                0,
-                                4,
-                            ).map((item) => (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className="text-white/65 transition-colors hover:text-white"
-                                >
-                                    {item.label}
-                                </Link>
-                            ))}
+                            {navigationLinks.map(
+                                (
+                                    item,
+                                ) => (
+                                    <Link
+                                        key={
+                                            item.href
+                                        }
+                                        href={
+                                            item.href
+                                        }
+                                        className="text-white/65 transition-colors hover:text-white"
+                                    >
+                                        {
+                                            item.label
+                                        }
+                                    </Link>
+                                ),
+                            )}
                         </div>
                     </div>
 
                     <div>
                         <h3 className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#f4c66f]">
-                            Hỗ trợ
+                            {t(
+                                "supportTitle",
+                            )}
                         </h3>
 
                         <div className="mt-5 grid gap-3 text-white/65">
@@ -100,53 +179,70 @@ export function HomeFooter() {
                                 href="/planner"
                                 className="hover:text-white"
                             >
-                                Trợ lý hành trình
+                                {t(
+                                    "support.planner",
+                                )}
                             </Link>
 
                             <Link
                                 href="/stories"
                                 className="hover:text-white"
                             >
-                                Cộng đồng
+                                {t(
+                                    "support.community",
+                                )}
                             </Link>
 
                             <Link
                                 href="/auth/login"
                                 className="hover:text-white"
                             >
-                                Đăng nhập
+                                {t(
+                                    "support.signIn",
+                                )}
                             </Link>
 
                             <Link
                                 href="/admin"
                                 className="hover:text-white"
                             >
-                                Khu vực quản trị
+                                {t(
+                                    "support.admin",
+                                )}
                             </Link>
                         </div>
                     </div>
 
                     <div>
                         <h3 className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#f4c66f]">
-                            Liên hệ
+                            {t(
+                                "contactTitle",
+                            )}
                         </h3>
 
                         <div className="mt-5 grid gap-4 text-sm leading-6 text-white/65">
                             <p className="flex items-start gap-3">
                                 <MapPin
                                     className="mt-1 shrink-0"
-                                    size={17}
+                                    size={
+                                        17
+                                    }
                                 />
 
-                                Huế · Đà Nẵng · Hội An,
-                                Việt Nam
+                                {t(
+                                    "location",
+                                )}
                             </p>
 
                             <a
                                 href="mailto:hello@rucromientrung.vn"
                                 className="flex items-center gap-3 hover:text-white"
                             >
-                                <Mail size={17} />
+                                <Mail
+                                    size={
+                                        17
+                                    }
+                                />
 
                                 hello@rucromientrung.vn
                             </a>
@@ -156,13 +252,17 @@ export function HomeFooter() {
 
                 <div className="flex flex-col gap-3 pt-7 text-sm text-white/42 sm:flex-row sm:items-center sm:justify-between">
                     <p>
-                        © 2026 Rực Rỡ Miền Trung.
-                        SmartTripVietNam.
+                        © 2026{" "}
+                        {tHeader(
+                            "brand",
+                        )}
+                        . SmartTripVietNam.
                     </p>
 
                     <p>
-                        Được xây dựng từ tình yêu dành cho
-                        miền Trung.
+                        {t(
+                            "builtWithLove",
+                        )}
                     </p>
                 </div>
             </div>

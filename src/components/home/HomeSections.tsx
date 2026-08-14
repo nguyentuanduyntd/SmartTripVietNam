@@ -1,31 +1,71 @@
 "use client";
+
 import Link from "next/link";
-import {ArrowRight,Bot,ChevronRight,Clock3,Heart,MapPin,MessageCircle,Route,Sparkles,Star,WalletCards} from "lucide-react";
-import {useMemo,useState,} from "react";
-import {BRAND_FEATURES,CITY_EDITORIAL,CUISINES,EXPERIENCE_ITEMS,FEATURED_DESTINATIONS,HOME_CITIES,JOURNEYS,STORIES,type CityId, type CuisineCardData, type DestinationCardData, type JourneyCardData} from "@/src/constants/home-data";
-import {CloudinaryVisual,} from "./CloudinaryVisual";
-import type { CityEditorialCardData } from "@/src/lib/home-data-mapper";
-const CITY_FILTERS: Array<{
-    id: "all" | CityId;
-    label: string;
-}> = [
-    {
-        id: "all",
-        label: "Tất cả",
-    },
-    {
-        id: "hue",
-        label: "Huế",
-    },
-    {
-        id: "da-nang",
-        label: "Đà Nẵng",
-    },
-    {
-        id: "hoi-an",
-        label: "Hội An",
-    },
-];
+
+import {
+    useLocale,
+    useTranslations,
+} from "next-intl";
+
+import {
+    ArrowRight,
+    Bot,
+    ChevronRight,
+    Clock3,
+    Heart,
+    MapPin,
+    MessageCircle,
+    Route,
+    Sparkles,
+    Star,
+    WalletCards,
+} from "lucide-react";
+
+import {
+    useMemo,
+    useState,
+} from "react";
+
+import {
+    BRAND_FEATURES,
+    EXPERIENCE_ITEMS,
+    STORIES,
+    type CityId,
+    type CuisineCardData,
+    type DestinationCardData,
+    type JourneyCardData,
+} from "@/src/constants/home-data";
+
+import {
+    DEFAULT_LOCALE,
+    isAppLocale,
+    type AppLocale,
+} from "@/src/i18n/config";
+
+import {
+    getLocalizedHomeStaticData,
+} from "@/src/i18n/home-static-data";
+
+import type {
+    CityEditorialCardData,
+} from "@/src/lib/home-data-mapper";
+
+import {
+    CloudinaryVisual,
+} from "./CloudinaryVisual";
+
+/* =========================================================
+ * HELPERS
+ * ======================================================= */
+
+function useResolvedLocale(): AppLocale {
+    const locale =
+        useLocale();
+
+    return isAppLocale(locale)
+        ? locale
+        : DEFAULT_LOCALE;
+}
 
 function SectionHeading({
     eyebrow,
@@ -63,13 +103,38 @@ function SectionHeading({
     );
 }
 
+/* =========================================================
+ * CITY EDITORIAL
+ * ======================================================= */
+
 interface CityEditorialSectionProps {
     items?: readonly CityEditorialCardData[];
 }
 
 export function CityEditorialSection({
-    items = CITY_EDITORIAL,
+    items,
 }: CityEditorialSectionProps) {
+    const t =
+        useTranslations(
+            "Home.sections.editorial",
+        );
+
+    const locale =
+        useResolvedLocale();
+
+    const fallbackData =
+        useMemo(
+            () =>
+                getLocalizedHomeStaticData(
+                    locale,
+                ),
+            [locale],
+        );
+
+    const sectionItems =
+        items ??
+        fallbackData.cityEditorial;
+
     return (
         <section
             id="kham-pha"
@@ -81,46 +146,62 @@ export function CityEditorialSection({
                 <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-end">
                     <div>
                         <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#f5ba54]">
-                            Ba sắc thái miền Trung
+                            {t(
+                                "eyebrow",
+                            )}
                         </p>
 
                         <h2 className="mt-4 font-display text-5xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-                            Mỗi thành phố,
+                            {t(
+                                "titleLine1",
+                            )}
 
                             <span className="block italic text-[#f7dca5]">
-                                một nhịp cảm xúc.
+                                {t(
+                                    "titleLine2",
+                                )}
                             </span>
                         </h2>
                     </div>
 
                     <p className="max-w-2xl text-lg leading-8 text-white/68 lg:justify-self-end">
-                        Không cần đi thật nhanh. Hãy chọn một
-                        thành phố, ở lại đủ lâu và để những
-                        điều nhỏ bé dẫn bạn vào câu chuyện của
-                        miền Trung.
+                        {t(
+                            "description",
+                        )}
                     </p>
                 </div>
 
                 <div className="mt-14 grid gap-5 lg:grid-cols-3">
-                    {items.map(
-                        (item, index) => {
-                            const Icon = item.icon;
+                    {sectionItems.map(
+                        (
+                            item,
+                            index,
+                        ) => {
+                            const Icon =
+                                item.icon;
 
                             return (
                                 <article
-                                    key={item.city}
+                                    key={`${item.city}-${index}`}
                                     className={`group relative min-h-[480px] overflow-hidden rounded-[34px] border border-white/15 ${
-                                        index === 1
+                                        index ===
+                                        1
                                             ? "lg:translate-y-10"
                                             : ""
                                     }`}
                                 >
                                     <CloudinaryVisual
-                                        source={item.image}
-                                        alt={item.imageAlt}
+                                        source={
+                                            item.image
+                                        }
+                                        alt={
+                                            item.imageAlt
+                                        }
                                         imageOptions={{
-                                            width: 900,
-                                            height: 1100,
+                                            width:
+                                                900,
+                                            height:
+                                                1100,
                                         }}
                                         className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
                                     />
@@ -131,26 +212,38 @@ export function CityEditorialSection({
                                         <div className="mb-5 flex items-center justify-between">
                                             <span className="grid h-12 w-12 place-items-center rounded-2xl border border-white/25 bg-white/12 backdrop-blur">
                                                 <Icon
-                                                    size={23}
-                                                    strokeWidth={1.7}
+                                                    size={
+                                                        23
+                                                    }
+                                                    strokeWidth={
+                                                        1.7
+                                                    }
                                                 />
                                             </span>
 
                                             <span className="rounded-full border border-white/20 bg-[#0e2f30]/45 px-3 py-1.5 text-xs font-bold text-white/76 backdrop-blur">
-                                                {item.stat}
+                                                {
+                                                    item.stat
+                                                }
                                             </span>
                                         </div>
 
                                         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#f4c56e]">
-                                            {item.kicker}
+                                            {
+                                                item.kicker
+                                            }
                                         </p>
 
                                         <h3 className="mt-2 font-display text-4xl font-semibold">
-                                            {item.city}
+                                            {
+                                                item.city
+                                            }
                                         </h3>
 
                                         <p className="mt-3 leading-7 text-white/72">
-                                            {item.title}
+                                            {
+                                                item.title
+                                            }
                                         </p>
                                     </div>
                                 </article>
@@ -163,22 +256,92 @@ export function CityEditorialSection({
     );
 }
 
+/* =========================================================
+ * DESTINATIONS
+ * ======================================================= */
+
 interface FeaturedDestinationsSectionProps {
     items?: readonly DestinationCardData[];
 }
 
 export function FeaturedDestinationsSection({
-    items = FEATURED_DESTINATIONS,
+    items,
 }: FeaturedDestinationsSectionProps) {
-    const [filter, setFilter] = useState<"all" | CityId>("all");
+    const t =
+        useTranslations(
+            "Home.sections.destinations",
+        );
 
-    const visibleItems = useMemo(
-        () =>
-            filter === "all"
-                ? items
-                : items.filter((item) => item.city === filter),
-        [filter, items],
-    );
+    const locale =
+        useResolvedLocale();
+
+    const fallbackData =
+        useMemo(
+            () =>
+                getLocalizedHomeStaticData(
+                    locale,
+                ),
+            [locale],
+        );
+
+    const sectionItems =
+        items ??
+        fallbackData.featuredDestinations;
+
+    const [
+        filter,
+        setFilter,
+    ] = useState<
+        "all" | CityId
+    >("all");
+
+    const filters: Array<{
+        id: "all" | CityId;
+        label: string;
+    }> = [
+        {
+            id: "all",
+            label: t(
+                "filters.all",
+            ),
+        },
+        {
+            id: "hue",
+            label: t(
+                "filters.hue",
+            ),
+        },
+        {
+            id: "da-nang",
+            label: t(
+                "filters.daNang",
+            ),
+        },
+        {
+            id: "hoi-an",
+            label: t(
+                "filters.hoiAn",
+            ),
+        },
+    ];
+
+    const visibleItems =
+        useMemo(
+            () =>
+                filter === "all"
+                    ? sectionItems
+                    : sectionItems.filter(
+                          (
+                              item,
+                          ) =>
+                              item.city ===
+                              filter,
+                      ),
+            [
+                filter,
+                sectionItems,
+            ],
+        );
 
     return (
         <section
@@ -188,53 +351,81 @@ export function FeaturedDestinationsSection({
             <div className="mx-auto max-w-[1440px]">
                 <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
                     <SectionHeading
-                        eyebrow="Điểm đến nổi bật"
-                        title="Những nơi khiến hành trình ở lại trong ký ức."
-                        description="Từ kinh thành, bãi biển đến phố cổ, mỗi điểm dừng đều mang một lớp văn hóa và nhịp sống riêng."
+                        eyebrow={t(
+                            "eyebrow",
+                        )}
+                        title={t(
+                            "title",
+                        )}
+                        description={t(
+                            "description",
+                        )}
                     />
 
                     <div className="flex flex-wrap gap-2">
-                        {CITY_FILTERS.map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() =>
-                                    setFilter(item.id)
-                                }
-                                className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                                    filter === item.id
-                                        ? "bg-[#173a3b] text-white shadow-lg"
-                                        : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
-                                }`}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
+                        {filters.map(
+                            (
+                                item,
+                            ) => (
+                                <button
+                                    key={
+                                        item.id
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                        setFilter(
+                                            item.id,
+                                        )
+                                    }
+                                    className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
+                                        filter ===
+                                        item.id
+                                            ? "bg-[#173a3b] text-white shadow-lg"
+                                            : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
+                                    }`}
+                                >
+                                    {
+                                        item.label
+                                    }
+                                </button>
+                            ),
+                        )}
                     </div>
                 </div>
 
                 <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                     {visibleItems.map(
-                        (item, index) => (
+                        (
+                            item,
+                            index,
+                        ) => (
                             <Link
-                                key={item.name}
-                                href={item.href}
+                                key={`${item.href}-${item.name}`}
+                                href={
+                                    item.href
+                                }
                                 className={`group overflow-hidden rounded-[30px] border border-[#ded3c3] bg-[#fffaf1] shadow-[0_16px_55px_rgba(35,55,50,0.06)] transition-all hover:-translate-y-2 hover:shadow-[0_24px_65px_rgba(35,55,50,0.13)] ${
-                                    index === 0 &&
-                                    filter === "all"
+                                    index ===
+                                        0 &&
+                                    filter ===
+                                        "all"
                                         ? "md:col-span-2 xl:col-span-1"
                                         : ""
                                 }`}
                             >
                                 <div className="relative h-72 overflow-hidden">
                                     <CloudinaryVisual
-                                        source={item.image}
+                                        source={
+                                            item.image
+                                        }
                                         alt={
                                             item.imageAlt
                                         }
                                         imageOptions={{
-                                            width: 900,
-                                            height: 650,
+                                            width:
+                                                900,
+                                            height:
+                                                650,
                                         }}
                                         className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
                                     />
@@ -242,17 +433,23 @@ export function FeaturedDestinationsSection({
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/38 via-transparent to-transparent" />
 
                                     <div className="absolute left-5 top-5 rounded-full bg-[#fffaf0]/90 px-3 py-1.5 text-xs font-extrabold text-[#315f5f] backdrop-blur">
-                                        {item.category}
+                                        {
+                                            item.category
+                                        }
                                     </div>
                                 </div>
 
                                 <div className="p-6 sm:p-7">
                                     <div className="flex items-center gap-2 text-sm font-semibold text-[#d55b48]">
                                         <MapPin
-                                            size={16}
+                                            size={
+                                                16
+                                            }
                                         />
 
-                                        {item.cityLabel}
+                                        {
+                                            item.cityLabel
+                                        }
                                     </div>
 
                                     <div className="mt-3 flex items-start justify-between gap-4">
@@ -272,7 +469,9 @@ export function FeaturedDestinationsSection({
 
                                         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#d7cbbb] text-[#173a3b] transition-colors group-hover:border-[#f25f4b] group-hover:bg-[#f25f4b] group-hover:text-white">
                                             <ArrowRight
-                                                size={18}
+                                                size={
+                                                    18
+                                                }
                                             />
                                         </span>
                                     </div>
@@ -287,9 +486,15 @@ export function FeaturedDestinationsSection({
                         href="/destinations"
                         className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white"
                     >
-                        Xem tất cả địa danh
+                        {t(
+                            "viewAll",
+                        )}
 
-                        <ChevronRight size={18} />
+                        <ChevronRight
+                            size={
+                                18
+                            }
+                        />
                     </Link>
                 </div>
             </div>
@@ -297,13 +502,95 @@ export function FeaturedDestinationsSection({
     );
 }
 
+/* =========================================================
+ * CUISINE
+ * ======================================================= */
+
 interface CuisineSectionProps {
     items?: readonly CuisineCardData[];
 }
 
 export function CuisineSection({
-    items = CUISINES,
+    items,
 }: CuisineSectionProps) {
+    const t =
+        useTranslations(
+            "Home.sections.cuisine",
+        );
+
+    const locale =
+        useResolvedLocale();
+
+    const fallbackData =
+        useMemo(
+            () =>
+                getLocalizedHomeStaticData(
+                    locale,
+                ),
+            [locale],
+        );
+
+    const sectionItems =
+        items ??
+        fallbackData.cuisines;
+
+    /*
+     * EXPERIENCE_ITEMS đang được khai báo bằng "as const"
+     * trong home-data.ts.
+     *
+     * Vì vậy phải widen label thành string.
+     * Nếu dùng:
+     *
+     * let label = item.label
+     *
+     * thì TypeScript sẽ giữ literal union và không cho
+     * gán string trả về từ next-intl.
+     */
+    const localizedExperiences =
+        EXPERIENCE_ITEMS.map(
+            (
+                item,
+                index,
+            ) => {
+                let label: string =
+                    item.label;
+
+                switch (index) {
+                    case 0:
+                        label = t(
+                            "experiences.cycling",
+                        );
+                        break;
+
+                    case 1:
+                        label = t(
+                            "experiences.riversideCoffee",
+                        );
+                        break;
+
+                    case 2:
+                        label = t(
+                            "experiences.moments",
+                        );
+                        break;
+
+                    case 3:
+                        label = t(
+                            "experiences.localFood",
+                        );
+                        break;
+
+                    default:
+                        break;
+                }
+
+                return {
+                    ...item,
+                    label,
+                };
+            },
+        );
+
     return (
         <section
             id="am-thuc"
@@ -316,27 +603,37 @@ export function CuisineSection({
             <div className="relative mx-auto max-w-[1440px]">
                 <div className="grid gap-7 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
                     <SectionHeading
-                        eyebrow="Hương vị miền Trung"
-                        title="Một vùng đất có thể nhớ bằng hương thơm."
-                        description="Ẩm thực nơi đây đậm nhưng không vội, bình dị mà nhiều lớp vị. Hãy bắt đầu bằng những món ăn quen tên nhưng luôn có điều mới để khám phá."
+                        eyebrow={t(
+                            "eyebrow",
+                        )}
+                        title={t(
+                            "title",
+                        )}
+                        description={t(
+                            "description",
+                        )}
                     />
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:justify-self-end">
-                        {EXPERIENCE_ITEMS.map(
-                            (item) => {
+                        {localizedExperiences.map(
+                            (
+                                item,
+                            ) => {
                                 const Icon =
                                     item.icon;
 
                                 return (
                                     <div
                                         key={
-                                            item.label
+                                            item.detail
                                         }
                                         className="rounded-2xl border border-[#e0d5c5] bg-white/70 p-4 text-center"
                                     >
                                         <Icon
                                             className="mx-auto text-[#e25d49]"
-                                            size={21}
+                                            size={
+                                                21
+                                            }
                                         />
 
                                         <p className="mt-2 text-xs font-bold text-[#315f5f]">
@@ -352,26 +649,37 @@ export function CuisineSection({
                 </div>
 
                 <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    {items.map(
-                        (item, index) => (
+                    {sectionItems.map(
+                        (
+                            item,
+                            index,
+                        ) => (
                             <Link
-                                key={item.name}
-                                href={item.href}
+                                key={`${item.href}-${item.name}`}
+                                href={
+                                    item.href
+                                }
                                 className={`group relative overflow-hidden rounded-[28px] ${
-                                    index % 2 === 1
+                                    index %
+                                        2 ===
+                                    1
                                         ? "xl:translate-y-8"
                                         : ""
                                 }`}
                             >
                                 <div className="relative h-[430px] overflow-hidden">
                                     <CloudinaryVisual
-                                        source={item.image}
+                                        source={
+                                            item.image
+                                        }
                                         alt={
                                             item.imageAlt
                                         }
                                         imageOptions={{
-                                            width: 700,
-                                            height: 950,
+                                            width:
+                                                700,
+                                            height:
+                                                950,
                                         }}
                                         className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
                                     />
@@ -394,7 +702,9 @@ export function CuisineSection({
                                         </div>
 
                                         <h3 className="font-display text-3xl font-semibold">
-                                            {item.name}
+                                            {
+                                                item.name
+                                            }
                                         </h3>
 
                                         <p className="mt-2 line-clamp-2 leading-6 text-white/72">
@@ -414,10 +724,14 @@ export function CuisineSection({
                         href="/cuisines"
                         className="group inline-flex items-center gap-3 rounded-full bg-[#f25f4b] px-7 py-4 font-bold text-white shadow-[0_18px_45px_rgba(242,95,75,0.22)]"
                     >
-                        Khám phá bản đồ ẩm thực
+                        {t(
+                            "exploreMap",
+                        )}
 
                         <ArrowRight
-                            size={19}
+                            size={
+                                19
+                            }
                             className="transition-transform group-hover:translate-x-1"
                         />
                     </Link>
@@ -427,17 +741,47 @@ export function CuisineSection({
     );
 }
 
+/* =========================================================
+ * JOURNEYS
+ * ======================================================= */
+
 interface JourneySectionProps {
     items?: readonly JourneyCardData[];
 }
 
 export function JourneySection({
-    items = JOURNEYS,
+    items,
 }: JourneySectionProps) {
+    const t =
+        useTranslations(
+            "Home.sections.journey",
+        );
+
+    const locale =
+        useResolvedLocale();
+
+    const fallbackData =
+        useMemo(
+            () =>
+                getLocalizedHomeStaticData(
+                    locale,
+                ),
+            [locale],
+        );
+
+    const sectionItems =
+        items ??
+        fallbackData.journeys;
+
     const toneClasses = {
-        coral: "bg-[#f25f4b] text-white",
-        teal: "bg-[#2f8f8b] text-white",
-        gold: "bg-[#e2aa3b] text-[#173a3b]",
+        coral:
+            "bg-[#f25f4b] text-white",
+
+        teal:
+            "bg-[#2f8f8b] text-white",
+
+        gold:
+            "bg-[#e2aa3b] text-[#173a3b]",
     } as const;
 
     return (
@@ -447,135 +791,317 @@ export function JourneySection({
         >
             <div className="mx-auto max-w-[1440px]">
                 <SectionHeading
-                    eyebrow="Hành trình gợi ý"
-                    title="Đi theo một lộ trình vừa đủ để còn muốn quay lại."
-                    description="Các lịch trình được thiết kế theo nhịp trải nghiệm, không nhồi quá nhiều điểm và luôn có khoảng trống để bạn tận hưởng thành phố."
+                    eyebrow={t(
+                        "eyebrow",
+                    )}
+                    title={t(
+                        "title",
+                    )}
+                    description={t(
+                        "description",
+                    )}
                     align="center"
                 />
 
                 <div className="mt-14 grid gap-6 lg:grid-cols-3">
-                    {items.map((item, index) => (
-                        <article
-                            key={item.id}
-                            className={`flex h-full flex-col overflow-hidden rounded-[32px] bg-[#fffaf1] shadow-[0_18px_65px_rgba(32,54,51,0.08)] ${
-                                index === 1
-                                    ? "lg:-translate-y-5"
-                                    : ""
-                            }`}
-                        >
-                            <div className="relative h-64 overflow-hidden">
-                                <CloudinaryVisual
-                                    source={item.image}
-                                    alt={item.imageAlt}
-                                    imageOptions={{
-                                        width: 900,
-                                        height: 650,
-                                    }}
-                                    className="absolute inset-0 transition-transform duration-700 hover:scale-105"
-                                />
+                    {sectionItems.map(
+                        (
+                            item,
+                            index,
+                        ) => (
+                            <article
+                                key={
+                                    item.id
+                                }
+                                className={`flex h-full flex-col overflow-hidden rounded-[32px] bg-[#fffaf1] shadow-[0_18px_65px_rgba(32,54,51,0.08)] ${
+                                    index ===
+                                    1
+                                        ? "lg:-translate-y-5"
+                                        : ""
+                                }`}
+                            >
+                                <div className="relative h-64 overflow-hidden">
+                                    <CloudinaryVisual
+                                        source={
+                                            item.image
+                                        }
+                                        alt={
+                                            item.imageAlt
+                                        }
+                                        imageOptions={{
+                                            width:
+                                                900,
+                                            height:
+                                                650,
+                                        }}
+                                        className="absolute inset-0 transition-transform duration-700 hover:scale-105"
+                                    />
 
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/34 to-transparent" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/34 to-transparent" />
 
-                                <span
-                                    className={`absolute left-5 top-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold ${
-                                        toneClasses[
-                                            item.tone
-                                        ]
-                                    }`}
-                                >
-                                    <Clock3 size={15} />
+                                    <span
+                                        className={`absolute left-5 top-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-extrabold ${
+                                            toneClasses[
+                                                item
+                                                    .tone
+                                            ]
+                                        }`}
+                                    >
+                                        <Clock3
+                                            size={
+                                                15
+                                            }
+                                        />
 
-                                    {item.duration}
-                                </span>
-                            </div>
-
-                            <div className="flex flex-1 flex-col p-7">
-                                <h3 className="font-display text-3xl font-semibold text-[#173a3b]">
-                                    {item.title}
-                                </h3>
-
-                                <p className="mt-3 line-clamp-3 leading-7 text-[#687572]">
-                                    {item.description}
-                                </p>
-
-                                <div className="mt-6 space-y-3">
-                                    <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
-                                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#e25d49]">
-                                            <MapPin
-                                                size={18}
-                                            />
-                                        </span>
-
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-semibold text-[#78837f]">
-                                                Khởi hành
-                                            </p>
-
-                                            <p className="truncate text-sm font-bold text-[#315f5f]">
-                                                {
-                                                    item.startLocation
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
-                                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#2f8f8b]">
-                                            <Clock3
-                                                size={18}
-                                            />
-                                        </span>
-
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-semibold text-[#78837f]">
-                                                Thời lượng
-                                            </p>
-
-                                            <p className="truncate text-sm font-bold text-[#315f5f]">
-                                                {
-                                                    item.duration
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
-                                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#d79d2d]">
-                                            <WalletCards
-                                                size={18}
-                                            />
-                                        </span>
-
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-semibold text-[#78837f]">
-                                                Giá dự kiến
-                                            </p>
-
-                                            <p className="truncate text-sm font-bold text-[#315f5f]">
-                                                {item.price}
-                                            </p>
-                                        </div>
-                                    </div>
+                                        {
+                                            item.duration
+                                        }
+                                    </span>
                                 </div>
 
-                                <Link
-                                    href={item.href}
-                                    className="mt-auto inline-flex items-center gap-2 pt-7 font-bold text-[#e25d49]"
-                                >
-                                    Xem hành trình
+                                <div className="flex flex-1 flex-col p-7">
+                                    <h3 className="font-display text-3xl font-semibold text-[#173a3b]">
+                                        {
+                                            item.title
+                                        }
+                                    </h3>
 
-                                    <ArrowRight size={18} />
-                                </Link>
-                            </div>
-                        </article>
-                    ))}
+                                    <p className="mt-3 line-clamp-3 leading-7 text-[#687572]">
+                                        {
+                                            item.description
+                                        }
+                                    </p>
+
+                                    <div className="mt-6 space-y-3">
+                                        <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#e25d49]">
+                                                <MapPin
+                                                    size={
+                                                        18
+                                                    }
+                                                />
+                                            </span>
+
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-[#78837f]">
+                                                    {t(
+                                                        "departure",
+                                                    )}
+                                                </p>
+
+                                                <p className="truncate text-sm font-bold text-[#315f5f]">
+                                                    {
+                                                        item.startLocation
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#2f8f8b]">
+                                                <Clock3
+                                                    size={
+                                                        18
+                                                    }
+                                                />
+                                            </span>
+
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-[#78837f]">
+                                                    {t(
+                                                        "duration",
+                                                    )}
+                                                </p>
+
+                                                <p className="truncate text-sm font-bold text-[#315f5f]">
+                                                    {
+                                                        item.duration
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 rounded-2xl bg-[#f3ece1] px-4 py-3">
+                                            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#fffaf1] text-[#d79d2d]">
+                                                <WalletCards
+                                                    size={
+                                                        18
+                                                    }
+                                                />
+                                            </span>
+
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-[#78837f]">
+                                                    {t(
+                                                        "estimatedPrice",
+                                                    )}
+                                                </p>
+
+                                                <p className="truncate text-sm font-bold text-[#315f5f]">
+                                                    {
+                                                        item.price
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <Link
+                                        href={
+                                            item.href
+                                        }
+                                        className="mt-auto inline-flex items-center gap-2 pt-7 font-bold text-[#e25d49]"
+                                    >
+                                        {t(
+                                            "viewJourney",
+                                        )}
+
+                                        <ArrowRight
+                                            size={
+                                                18
+                                            }
+                                        />
+                                    </Link>
+                                </div>
+                            </article>
+                        ),
+                    )}
                 </div>
             </div>
         </section>
     );
 }
 
+/* =========================================================
+ * EXPERIENCES / COMMUNITY
+ * ======================================================= */
+
 export function ExperienceSection() {
+    const t =
+        useTranslations(
+            "Home.sections.experience",
+        );
+
+    /*
+     * BRAND_FEATURES cũng được khai báo "as const".
+     * Widen label thành string để next-intl có thể gán
+     * chuỗi dịch vào mà không lỗi TypeScript.
+     */
+    const localizedFeatures =
+        BRAND_FEATURES.map(
+            (
+                feature,
+                index,
+            ) => {
+                let label: string =
+                    feature.label;
+
+                switch (index) {
+                    case 0:
+                        label = t(
+                            "features.personalized",
+                        );
+                        break;
+
+                    case 1:
+                        label = t(
+                            "features.visual",
+                        );
+                        break;
+
+                    case 2:
+                        label = t(
+                            "features.localData",
+                        );
+                        break;
+
+                    case 3:
+                        label = t(
+                            "features.ai",
+                        );
+                        break;
+
+                    default:
+                        break;
+                }
+
+                return {
+                    ...feature,
+                    label,
+                };
+            },
+        );
+
+    /*
+     * Đây là block bị mất trong file hiện tại của bạn.
+     *
+     * JSX bên dưới gọi localizedStories.map(...),
+     * nên bắt buộc phải khai báo localizedStories ở đây.
+     */
+    const localizedStories =
+        STORIES.map(
+            (
+                story,
+                index,
+            ) => {
+                switch (index) {
+                    case 0:
+                        return {
+                            ...story,
+
+                            title: t(
+                                "stories.lantern.title",
+                            ),
+
+                            location: t(
+                                "stories.lantern.location",
+                            ),
+
+                            imageAlt: t(
+                                "stories.lantern.imageAlt",
+                            ),
+                        };
+
+                    case 1:
+                        return {
+                            ...story,
+
+                            title: t(
+                                "stories.hueMorning.title",
+                            ),
+
+                            location: t(
+                                "stories.hueMorning.location",
+                            ),
+
+                            imageAlt: t(
+                                "stories.hueMorning.imageAlt",
+                            ),
+                        };
+
+                    case 2:
+                        return {
+                            ...story,
+
+                            title: t(
+                                "stories.beach.title",
+                            ),
+
+                            location: t(
+                                "stories.beach.location",
+                            ),
+
+                            imageAlt: t(
+                                "stories.beach.imageAlt",
+                            ),
+                        };
+
+                    default:
+                        return story;
+                }
+            },
+        );
+
     return (
         <section
             id="trai-nghiem"
@@ -584,14 +1110,22 @@ export function ExperienceSection() {
             <div className="mx-auto max-w-[1440px]">
                 <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-end">
                     <SectionHeading
-                        eyebrow="Câu chuyện trải nghiệm"
-                        title="Những chuyến đi được kể lại bằng cảm xúc thật."
-                        description="Lưu lại khoảnh khắc, chia sẻ một quán nhỏ vừa tìm thấy hay kể về một buổi sáng mà bạn không muốn quên."
+                        eyebrow={t(
+                            "eyebrow",
+                        )}
+                        title={t(
+                            "title",
+                        )}
+                        description={t(
+                            "description",
+                        )}
                     />
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:justify-self-end">
-                        {BRAND_FEATURES.map(
-                            (feature) => {
+                        {localizedFeatures.map(
+                            (
+                                feature,
+                            ) => {
                                 const Icon =
                                     feature.icon;
 
@@ -604,7 +1138,9 @@ export function ExperienceSection() {
                                     >
                                         <Icon
                                             className="mx-auto"
-                                            size={20}
+                                            size={
+                                                20
+                                            }
                                         />
 
                                         <p className="mt-2 text-xs font-bold leading-5">
@@ -620,28 +1156,37 @@ export function ExperienceSection() {
                 </div>
 
                 <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                    {STORIES.map(
-                        (story, index) => (
+                    {localizedStories.map(
+                        (
+                            story,
+                            index,
+                        ) => (
                             <article
-                                key={story.title}
+                                key={`${story.title}-${index}`}
                                 className={`group relative overflow-hidden rounded-[34px] ${
-                                    index === 0
+                                    index ===
+                                    0
                                         ? "min-h-[610px] lg:row-span-2"
                                         : "min-h-[292px]"
                                 }`}
                             >
                                 <CloudinaryVisual
-                                    source={story.image}
+                                    source={
+                                        story.image
+                                    }
                                     alt={
                                         story.imageAlt
                                     }
                                     imageOptions={{
                                         width:
-                                            index === 0
+                                            index ===
+                                            0
                                                 ? 1100
                                                 : 850,
+
                                         height:
-                                            index === 0
+                                            index ===
+                                            0
                                                 ? 1200
                                                 : 600,
                                     }}
@@ -653,7 +1198,9 @@ export function ExperienceSection() {
                                 <div className="absolute inset-x-0 bottom-0 p-7 text-white sm:p-9">
                                     <div className="flex items-center gap-2 text-sm font-semibold text-[#f5cf84]">
                                         <MapPin
-                                            size={16}
+                                            size={
+                                                16
+                                            }
                                         />
 
                                         {
@@ -663,20 +1210,26 @@ export function ExperienceSection() {
 
                                     <h3
                                         className={`mt-3 font-display font-semibold ${
-                                            index === 0
+                                            index ===
+                                            0
                                                 ? "text-4xl sm:text-5xl"
                                                 : "text-3xl"
                                         }`}
                                     >
-                                        {story.title}
+                                        {
+                                            story.title
+                                        }
                                     </h3>
 
                                     <div className="mt-5 flex items-center justify-between gap-4 text-sm text-white/72">
                                         <span>
-                                            Chia sẻ bởi{" "}
-                                            {
-                                                story.author
-                                            }
+                                            {t(
+                                                "sharedBy",
+                                                {
+                                                    author:
+                                                        story.author,
+                                                },
+                                            )}
                                         </span>
 
                                         <div className="flex items-center gap-4">
@@ -710,11 +1263,17 @@ export function ExperienceSection() {
                 <div className="mt-10 flex justify-center">
                     <Link
                         href="/stories"
-                        className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] hover:bg-[#173a3b] hover:text-white"
+                        className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white"
                     >
-                        Xem cộng đồng chia sẻ
+                        {t(
+                            "viewCommunity",
+                        )}
 
-                        <ChevronRight size={18} />
+                        <ChevronRight
+                            size={
+                                18
+                            }
+                        />
                     </Link>
                 </div>
             </div>
@@ -722,7 +1281,28 @@ export function ExperienceSection() {
     );
 }
 
+/* =========================================================
+ * AI PLANNER
+ * ======================================================= */
+
 export function PlannerSection() {
+    const t =
+        useTranslations(
+            "Home.sections.planner",
+        );
+
+    const locale =
+        useResolvedLocale();
+
+    const localizedCities =
+        useMemo(
+            () =>
+                getLocalizedHomeStaticData(
+                    locale,
+                ).cities,
+            [locale],
+        );
+
     return (
         <section className="bg-[#fffaf1] px-5 pb-24 sm:px-8 lg:px-12 lg:pb-32">
             <div className="relative mx-auto max-w-[1440px] overflow-hidden rounded-[42px] bg-[#173a3b] px-6 py-16 text-white sm:px-10 lg:px-16 lg:py-20">
@@ -733,33 +1313,48 @@ export function PlannerSection() {
                 <div className="relative grid gap-10 lg:grid-cols-[1fr_0.8fr] lg:items-center">
                     <div>
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/8 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-[#f5cb79]">
-                            <Sparkles size={16} />
+                            <Sparkles
+                                size={
+                                    16
+                                }
+                            />
 
-                            Trợ lý hành trình AI
+                            {t(
+                                "badge",
+                            )}
                         </div>
 
                         <h2 className="mt-6 max-w-3xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-6xl">
-                            Kể chúng tôi nghe chuyến đi
-                            bạn đang mơ tới.
+                            {t(
+                                "title",
+                            )}
                         </h2>
 
                         <p className="mt-5 max-w-2xl text-lg leading-8 text-white/68">
-                            Chọn số ngày, ngân sách và
-                            điều bạn yêu thích. Trợ lý sẽ
-                            kết hợp dữ liệu địa phương để
-                            tạo một lịch trình riêng cho
-                            bạn.
+                            {t(
+                                "description",
+                            )}
                         </p>
 
                         <Link
                             href="/planner"
                             className="mt-8 inline-flex items-center gap-3 rounded-2xl bg-[#f25f4b] px-7 py-4 font-bold text-white shadow-[0_18px_45px_rgba(242,95,75,0.24)]"
                         >
-                            <Route size={20} />
+                            <Route
+                                size={
+                                    20
+                                }
+                            />
 
-                            Tạo hành trình của tôi
+                            {t(
+                                "createJourney",
+                            )}
 
-                            <ArrowRight size={19} />
+                            <ArrowRight
+                                size={
+                                    19
+                                }
+                            />
                         </Link>
                     </div>
 
@@ -767,17 +1362,24 @@ export function PlannerSection() {
                         <div className="rounded-[24px] bg-[#fffaf1] p-5 text-[#173a3b] sm:p-6">
                             <div className="flex items-center gap-3 border-b border-[#ddd1bf] pb-4">
                                 <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#dff0ec] text-[#2f8f8b]">
-                                    <Bot size={23} />
+                                    <Bot
+                                        size={
+                                            23
+                                        }
+                                    />
                                 </span>
 
                                 <div>
                                     <p className="font-bold">
-                                        Trợ lý Rực Rỡ
+                                        {t(
+                                            "assistantName",
+                                        )}
                                     </p>
 
                                     <p className="text-xs text-[#74807d]">
-                                        Sẵn sàng lên lịch
-                                        trình
+                                        {t(
+                                            "assistantStatus",
+                                        )}
                                     </p>
                                 </div>
 
@@ -785,21 +1387,26 @@ export function PlannerSection() {
                             </div>
 
                             <div className="mt-5 rounded-2xl bg-[#f1eadf] p-4 text-sm leading-7 text-[#52615e]">
-                                “Tôi có 4 ngày, thích di
-                                sản, đồ ăn địa phương và
-                                muốn dành một buổi chiều ở
-                                biển.”
+                                “
+                                {t(
+                                    "examplePrompt",
+                                )}
+                                ”
                             </div>
 
                             <div className="mt-4 rounded-2xl border border-[#dcd1c0] p-4">
                                 <div className="flex items-center justify-between text-sm font-bold">
                                     <span>
-                                        Gợi ý phù hợp
+                                        {t(
+                                            "suggestion",
+                                        )}
                                     </span>
 
                                     <span className="inline-flex items-center gap-1 text-[#e3a83b]">
                                         <Star
-                                            size={15}
+                                            size={
+                                                15
+                                            }
                                             fill="currentColor"
                                         />
 
@@ -808,8 +1415,10 @@ export function PlannerSection() {
                                 </div>
 
                                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-[#315f5f]">
-                                    {HOME_CITIES.map(
-                                        (city) => (
+                                    {localizedCities.map(
+                                        (
+                                            city,
+                                        ) => (
                                             <span
                                                 key={
                                                     city.id

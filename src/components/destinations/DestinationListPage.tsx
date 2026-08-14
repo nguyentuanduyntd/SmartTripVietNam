@@ -1,151 +1,356 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Search as SearchIcon } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
+
+import {
+    Search as SearchIcon,
+} from "lucide-react";
+
+import {
+    useLocale,
+    useTranslations,
+} from "next-intl";
+
+import {
+    useRouter,
+    useSearchParams,
+} from "next/navigation";
 
 import {
     DestinationCard,
     locationNameFor,
 } from "@/src/components/destinations/DestinationCard";
-import { HomeFooter } from "@/src/components/home/HomeFooter";
-import { HomeHeader } from "@/src/components/home/HomeHeader";
+
+import {
+    HomeFooter,
+} from "@/src/components/home/HomeFooter";
+
+import {
+    HomeHeader,
+} from "@/src/components/home/HomeHeader";
+
+import {
+    localizedText,
+} from "@/src/i18n/localized-text";
+
 import {
     destinationsApi,
     type Destination,
 } from "@/src/lib/api-client/destinations";
-import { ApiRequestError } from "@/src/lib/api-client/http";
+
 import {
     locationsApi,
     type Location,
 } from "@/src/lib/api-client/locations";
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE =
+    24;
 
 interface DestinationQueryUpdate {
     location?: string;
     q?: string;
 }
 
+type ErrorKey =
+    | "loadList"
+    | "loadMore";
+
 export function DestinationsListPage() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
+    const router =
+        useRouter();
 
-    const activeLocationId = searchParams.get("location") ?? "";
-    const searchInUrl = searchParams.get("q") ?? "";
+    const searchParams =
+        useSearchParams();
 
-    const requestKey = JSON.stringify([
-        activeLocationId,
-        searchInUrl,
-    ]);
+    const locale =
+        useLocale();
 
-    const currentRequestKeyRef = useRef(requestKey);
+    const t =
+        useTranslations(
+            "Destinations.list",
+        );
 
-    const [locations, setLocations] = useState<Location[]>([]);
-    const [destinations, setDestinations] = useState<Destination[]>([]);
-    const [total, setTotal] = useState(0);
-    const [page, setPage] = useState(1);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(
-        null,
-    );
-    const [resolvedRequestKey, setResolvedRequestKey] = useState<
-        string | null
-    >(null);
+    const activeLocationId =
+        searchParams.get(
+            "location",
+        ) ?? "";
 
-    const loading = resolvedRequestKey !== requestKey;
+    const searchInUrl =
+        searchParams.get(
+            "q",
+        ) ?? "";
+
+    const requestKey =
+        JSON.stringify([
+            activeLocationId,
+            searchInUrl,
+        ]);
+
+    const currentRequestKeyRef =
+        useRef(
+            requestKey,
+        );
+
+    const [
+        locations,
+        setLocations,
+    ] =
+        useState<
+            Location[]
+        >([]);
+
+    const [
+        destinations,
+        setDestinations,
+    ] =
+        useState<
+            Destination[]
+        >([]);
+
+    const [
+        total,
+        setTotal,
+    ] =
+        useState(0);
+
+    const [
+        page,
+        setPage,
+    ] =
+        useState(1);
+
+    const [
+        loadingMore,
+        setLoadingMore,
+    ] =
+        useState(
+            false,
+        );
+
+    const [
+        errorKey,
+        setErrorKey,
+    ] =
+        useState<
+            ErrorKey | null
+        >(null);
+
+    const [
+        resolvedRequestKey,
+        setResolvedRequestKey,
+    ] =
+        useState<
+            string | null
+        >(null);
+
+    const loading =
+        resolvedRequestKey !==
+        requestKey;
 
     useEffect(() => {
-        currentRequestKeyRef.current = requestKey;
+        currentRequestKeyRef.current =
+            requestKey;
     }, [requestKey]);
 
+    /*
+     * Locations chỉ cần fetch 1 lần.
+     * Dữ liệu chứa cả VI + EN.
+     */
     useEffect(() => {
-        let active = true;
+        let active =
+            true;
 
         locationsApi
             .list()
-            .then((data) => {
-                if (!active) {
-                    return;
-                }
+            .then(
+                (data) => {
+                    if (
+                        !active
+                    ) {
+                        return;
+                    }
 
-                setLocations(data);
-            })
-            .catch((error: unknown) => {
-                console.error(
-                    "Không tải được danh sách khu vực:",
-                    error,
-                );
-            });
+                    setLocations(
+                        data,
+                    );
+                },
+            )
+            .catch(
+                (
+                    error: unknown,
+                ) => {
+                    console.error(
+                        "Failed to load locations:",
+                        error,
+                    );
+                },
+            );
 
         return () => {
-            active = false;
+            active =
+                false;
         };
     }, []);
 
     useEffect(() => {
-        let active = true;
+        let active =
+            true;
 
         destinationsApi
             .list({
                 page: 1,
-                limit: PAGE_SIZE,
-                locationId: activeLocationId || undefined,
-                search: searchInUrl || undefined,
-            })
-            .then(({ data, meta }) => {
-                if (!active) {
-                    return;
-                }
 
-                setDestinations(data);
-                setTotal(meta.total);
-                setPage(1);
-                setLoadingMore(false);
-                setErrorMessage(null);
-                setResolvedRequestKey(requestKey);
-            })
-            .catch((error: unknown) => {
-                if (!active) {
-                    return;
-                }
+                limit:
+                    PAGE_SIZE,
 
-                setDestinations([]);
-                setTotal(0);
-                setPage(1);
-                setLoadingMore(false);
-                setErrorMessage(
-                    error instanceof ApiRequestError
-                        ? error.message
-                        : "Không tải được danh sách địa danh.",
-                );
-                setResolvedRequestKey(requestKey);
-            });
+                locationId:
+                    activeLocationId ||
+                    undefined,
+
+                search:
+                    searchInUrl ||
+                    undefined,
+            })
+            .then(
+                ({
+                    data,
+                    meta,
+                }) => {
+                    if (
+                        !active
+                    ) {
+                        return;
+                    }
+
+                    setDestinations(
+                        data,
+                    );
+
+                    setTotal(
+                        meta.total,
+                    );
+
+                    setPage(
+                        1,
+                    );
+
+                    setLoadingMore(
+                        false,
+                    );
+
+                    setErrorKey(
+                        null,
+                    );
+
+                    setResolvedRequestKey(
+                        requestKey,
+                    );
+                },
+            )
+            .catch(
+                (
+                    error: unknown,
+                ) => {
+                    if (
+                        !active
+                    ) {
+                        return;
+                    }
+
+                    console.error(
+                        "Failed to load destinations:",
+                        error,
+                    );
+
+                    setDestinations(
+                        [],
+                    );
+
+                    setTotal(
+                        0,
+                    );
+
+                    setPage(
+                        1,
+                    );
+
+                    setLoadingMore(
+                        false,
+                    );
+
+                    setErrorKey(
+                        "loadList",
+                    );
+
+                    setResolvedRequestKey(
+                        requestKey,
+                    );
+                },
+            );
 
         return () => {
-            active = false;
+            active =
+                false;
         };
-    }, [activeLocationId, requestKey, searchInUrl]);
+    }, [
+        activeLocationId,
+        requestKey,
+        searchInUrl,
+    ]);
 
     async function loadMore() {
-        if (loadingMore || destinations.length >= total) {
+        if (
+            loadingMore ||
+            destinations.length >=
+                total
+        ) {
             return;
         }
 
-        const requestKeyAtStart = requestKey;
-        const nextPage = page + 1;
+        const requestKeyAtStart =
+            requestKey;
 
-        setLoadingMore(true);
-        setErrorMessage(null);
+        const nextPage =
+            page + 1;
+
+        setLoadingMore(
+            true,
+        );
+
+        setErrorKey(
+            null,
+        );
 
         try {
-            const { data } = await destinationsApi.list({
-                page: nextPage,
-                limit: PAGE_SIZE,
-                locationId: activeLocationId || undefined,
-                search: searchInUrl || undefined,
-            });
+            const {
+                data,
+            } =
+                await destinationsApi.list(
+                    {
+                        page:
+                            nextPage,
 
+                        limit:
+                            PAGE_SIZE,
+
+                        locationId:
+                            activeLocationId ||
+                            undefined,
+
+                        search:
+                            searchInUrl ||
+                            undefined,
+                    },
+                );
+
+            /*
+             * Nếu user đổi filter khi request
+             * cũ chưa hoàn tất thì bỏ response cũ.
+             */
             if (
                 currentRequestKeyRef.current !==
                 requestKeyAtStart
@@ -153,23 +358,43 @@ export function DestinationsListPage() {
                 return;
             }
 
-            setDestinations((current) => {
-                const existingIds = new Set(
-                    current.map(
-                        (destination) => destination.id,
-                    ),
-                );
+            setDestinations(
+                (
+                    current,
+                ) => {
+                    const existingIds =
+                        new Set(
+                            current.map(
+                                (
+                                    destination,
+                                ) =>
+                                    destination.id,
+                            ),
+                        );
 
-                const newItems = data.filter(
-                    (destination) =>
-                        !existingIds.has(destination.id),
-                );
+                    const newItems =
+                        data.filter(
+                            (
+                                destination,
+                            ) =>
+                                !existingIds.has(
+                                    destination.id,
+                                ),
+                        );
 
-                return [...current, ...newItems];
-            });
+                    return [
+                        ...current,
+                        ...newItems,
+                    ];
+                },
+            );
 
-            setPage(nextPage);
-        } catch (error) {
+            setPage(
+                nextPage,
+            );
+        } catch (
+            error
+        ) {
             if (
                 currentRequestKeyRef.current !==
                 requestKeyAtStart
@@ -177,70 +402,133 @@ export function DestinationsListPage() {
                 return;
             }
 
-            setErrorMessage(
-                error instanceof ApiRequestError
-                    ? error.message
-                    : "Không tải thêm được địa danh.",
+            console.error(
+                "Failed to load more destinations:",
+                error,
+            );
+
+            setErrorKey(
+                "loadMore",
             );
         } finally {
             if (
                 currentRequestKeyRef.current ===
                 requestKeyAtStart
             ) {
-                setLoadingMore(false);
+                setLoadingMore(
+                    false,
+                );
             }
         }
     }
 
-    function updateQuery(next: DestinationQueryUpdate) {
-        const params = new URLSearchParams(
-            searchParams.toString(),
-        );
+    function updateQuery(
+        next:
+            DestinationQueryUpdate,
+    ) {
+        const params =
+            new URLSearchParams(
+                searchParams.toString(),
+            );
 
         const nextLocation =
-            next.location !== undefined
+            next.location !==
+            undefined
                 ? next.location
                 : activeLocationId;
 
         const nextSearch =
-            next.q !== undefined ? next.q : searchInUrl;
+            next.q !==
+            undefined
+                ? next.q
+                : searchInUrl;
 
-        if (nextLocation) {
-            params.set("location", nextLocation);
+        if (
+            nextLocation
+        ) {
+            params.set(
+                "location",
+                nextLocation,
+            );
         } else {
-            params.delete("location");
+            params.delete(
+                "location",
+            );
         }
 
-        if (nextSearch) {
-            params.set("q", nextSearch);
+        if (
+            nextSearch
+        ) {
+            params.set(
+                "q",
+                nextSearch,
+            );
         } else {
-            params.delete("q");
+            params.delete(
+                "q",
+            );
         }
 
-        const query = params.toString();
+        const query =
+            params.toString();
 
-        const nextUrl = `/destinations${
-            query ? `?${query}` : ""
-        }`;
+        const nextUrl =
+            `/destinations${
+                query
+                    ? `?${query}`
+                    : ""
+            }`;
 
-        const currentQuery = searchParams.toString();
+        const currentQuery =
+            searchParams.toString();
 
-        const currentUrl = `/destinations${
-            currentQuery ? `?${currentQuery}` : ""
-        }`;
+        const currentUrl =
+            `/destinations${
+                currentQuery
+                    ? `?${currentQuery}`
+                    : ""
+            }`;
 
-        if (nextUrl === currentUrl) {
+        if (
+            nextUrl ===
+            currentUrl
+        ) {
             return;
         }
 
-        setErrorMessage(null);
-        setPage(1);
-        setLoadingMore(false);
+        setErrorKey(
+            null,
+        );
 
-        router.push(nextUrl, {
-            scroll: false,
-        });
+        setPage(
+            1,
+        );
+
+        setLoadingMore(
+            false,
+        );
+
+        router.push(
+            nextUrl,
+            {
+                scroll:
+                    false,
+            },
+        );
     }
+
+    const errorMessage =
+        errorKey ===
+        "loadMore"
+            ? t(
+                  "errors.loadMore",
+              )
+            : errorKey ===
+                "loadList"
+              ? t(
+                    "errors.loadList",
+                )
+              : null;
 
     return (
         <main className="overflow-x-hidden bg-[#fffaf1] text-[#173a3b]">
@@ -249,78 +537,123 @@ export function DestinationsListPage() {
             <section className="bg-[#f7f0e4] px-5 pb-16 pt-32 sm:px-8 lg:px-12 lg:pt-40">
                 <div className="mx-auto max-w-[1440px]">
                     <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.22em] text-[#e55c49]">
-                        Điểm đến
+                        {t(
+                            "eyebrow",
+                        )}
                     </p>
 
                     <h1 className="font-display text-4xl font-semibold leading-[1.03] tracking-[-0.035em] text-[#173a3b] sm:text-5xl lg:text-6xl">
-                        Khám phá địa danh Huế · Đà Nẵng · Hội An
+                        {t(
+                            "title",
+                        )}
                     </h1>
 
                     <p className="mt-5 max-w-2xl text-base leading-8 text-[#60706d] sm:text-lg">
-                        Toàn bộ địa danh trong hệ thống, lọc theo
-                        khu vực để tìm đúng nơi bạn muốn đến.
+                        {t(
+                            "description",
+                        )}
                     </p>
 
                     <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                         <div
                             className="flex flex-wrap gap-2"
                             role="tablist"
-                            aria-label="Lọc theo khu vực"
+                            aria-label={t(
+                                "filterAria",
+                            )}
                         >
                             <button
                                 type="button"
                                 role="tab"
                                 aria-selected={
-                                    activeLocationId === ""
+                                    activeLocationId ===
+                                    ""
                                 }
                                 onClick={() =>
-                                    updateQuery({
-                                        location: "",
-                                    })
+                                    updateQuery(
+                                        {
+                                            location:
+                                                "",
+                                        },
+                                    )
                                 }
                                 className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                                    activeLocationId === ""
+                                    activeLocationId ===
+                                    ""
                                         ? "bg-[#173a3b] text-white shadow-lg"
                                         : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
                                 }`}
                             >
-                                Tất cả
+                                {t(
+                                    "all",
+                                )}
                             </button>
 
-                            {locations.map((location) => (
-                                <button
-                                    key={location.id}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={
-                                        activeLocationId ===
-                                        location.id
-                                    }
-                                    onClick={() =>
-                                        updateQuery({
-                                            location:
-                                                location.id,
-                                        })
-                                    }
-                                    className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                                        activeLocationId ===
-                                        location.id
-                                            ? "bg-[#173a3b] text-white shadow-lg"
-                                            : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
-                                    }`}
-                                >
-                                    {location.name}
-                                </button>
-                            ))}
+                            {locations.map(
+                                (
+                                    location,
+                                ) => (
+                                    <button
+                                        key={
+                                            location.id
+                                        }
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={
+                                            activeLocationId ===
+                                            location.id
+                                        }
+                                        onClick={() =>
+                                            updateQuery(
+                                                {
+                                                    location:
+                                                        location.id,
+                                                },
+                                            )
+                                        }
+                                        className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
+                                            activeLocationId ===
+                                            location.id
+                                                ? "bg-[#173a3b] text-white shadow-lg"
+                                                : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
+                                        }`}
+                                    >
+                                        {localizedText(
+                                            locale,
+                                            {
+                                                vi:
+                                                    location.name,
+
+                                                en:
+                                                    location.nameEn,
+                                            },
+                                        )}
+                                    </button>
+                                ),
+                            )}
                         </div>
 
                         <SearchBox
-                            key={searchInUrl}
-                            defaultValue={searchInUrl}
-                            onSubmit={(value) =>
-                                updateQuery({
-                                    q: value,
-                                })
+                            key={
+                                searchInUrl
+                            }
+                            defaultValue={
+                                searchInUrl
+                            }
+                            placeholder={t(
+                                "searchPlaceholder",
+                            )}
+                            ariaLabel={t(
+                                "searchAria",
+                            )}
+                            onSubmit={(
+                                value,
+                            ) =>
+                                updateQuery(
+                                    {
+                                        q: value,
+                                    },
+                                )
                             }
                         />
                     </div>
@@ -329,7 +662,9 @@ export function DestinationsListPage() {
 
             <section
                 className="bg-[#fffaf1] px-5 py-16 sm:px-8 lg:px-12 lg:py-20"
-                aria-busy={loading}
+                aria-busy={
+                    loading
+                }
             >
                 <div className="mx-auto max-w-[1440px]">
                     {errorMessage ? (
@@ -337,41 +672,63 @@ export function DestinationsListPage() {
                             role="alert"
                             className="mb-8 rounded-2xl border border-[#e9c3bb] bg-[#fff8f4] px-5 py-4 text-sm text-[#8f3f34]"
                         >
-                            {errorMessage}
+                            {
+                                errorMessage
+                            }
                         </div>
                     ) : null}
 
                     {loading ? (
                         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                            {Array.from({
-                                length: 6,
-                            }).map((_, index) => (
-                                <div
-                                    key={`destination-skeleton-${index}`}
-                                    className="h-[420px] animate-pulse rounded-[30px] bg-[#ede6d7]"
-                                />
-                            ))}
+                            {Array.from(
+                                {
+                                    length:
+                                        6,
+                                },
+                            ).map(
+                                (
+                                    _,
+                                    index,
+                                ) => (
+                                    <div
+                                        key={`destination-skeleton-${index}`}
+                                        className="h-[420px] animate-pulse rounded-[30px] bg-[#ede6d7]"
+                                    />
+                                ),
+                            )}
                         </div>
-                    ) : destinations.length === 0 ? (
+                    ) : destinations.length ===
+                      0 ? (
                         <div className="rounded-[30px] border border-dashed border-[#d3c8b7] px-8 py-20 text-center">
                             <p className="font-display text-2xl font-semibold text-[#173a3b]">
-                                Không tìm thấy địa danh phù hợp
+                                {t(
+                                    "emptyTitle",
+                                )}
                             </p>
 
                             <p className="mt-3 text-[#667370]">
-                                Thử chọn khu vực khác hoặc xóa từ
-                                khóa tìm kiếm.
+                                {t(
+                                    "emptyDescription",
+                                )}
                             </p>
                         </div>
                     ) : (
                         <>
                             <p className="mb-6 text-sm font-semibold text-[#60706d]">
-                                {total} địa danh
+                                {t(
+                                    "resultCount",
+                                    {
+                                        count:
+                                            total,
+                                    },
+                                )}
                             </p>
 
                             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                                 {destinations.map(
-                                    (destination) => (
+                                    (
+                                        destination,
+                                    ) => (
                                         <DestinationCard
                                             key={
                                                 destination.id
@@ -382,25 +739,39 @@ export function DestinationsListPage() {
                                             locationName={locationNameFor(
                                                 destination,
                                                 locations,
+                                                locale,
                                             )}
                                         />
                                     ),
                                 )}
                             </div>
 
-                            {destinations.length < total ? (
+                            {destinations.length <
+                            total ? (
                                 <div className="mt-10 flex justify-center">
                                     <button
                                         type="button"
                                         onClick={() =>
                                             void loadMore()
                                         }
-                                        disabled={loadingMore}
+                                        disabled={
+                                            loadingMore
+                                        }
                                         className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {loadingMore
-                                            ? "Đang tải…"
-                                            : `Xem thêm (${destinations.length}/${total})`}
+                                            ? t(
+                                                  "loadingMore",
+                                              )
+                                            : t(
+                                                  "loadMore",
+                                                  {
+                                                      loaded:
+                                                          destinations.length,
+
+                                                      total,
+                                                  },
+                                              )}
                                     </button>
                                 </div>
                             ) : null}
@@ -415,37 +786,76 @@ export function DestinationsListPage() {
 }
 
 interface SearchBoxProps {
-    defaultValue: string;
-    onSubmit: (value: string) => void;
+    defaultValue:
+        string;
+
+    placeholder:
+        string;
+
+    ariaLabel:
+        string;
+
+    onSubmit:
+        (
+            value:
+                string,
+        ) => void;
 }
 
 function SearchBox({
     defaultValue,
+    placeholder,
+    ariaLabel,
     onSubmit,
 }: SearchBoxProps) {
-    const [value, setValue] = useState(defaultValue);
+    const [
+        value,
+        setValue,
+    ] =
+        useState(
+            defaultValue,
+        );
 
     return (
         <form
-            onSubmit={(event) => {
+            onSubmit={(
+                event,
+            ) => {
                 event.preventDefault();
-                onSubmit(value.trim());
+
+                onSubmit(
+                    value.trim(),
+                );
             }}
             className="flex w-full max-w-sm items-center gap-2 rounded-full border border-[#d3c8b7] bg-white/70 px-4 py-2.5"
         >
             <SearchIcon
-                size={18}
+                size={
+                    18
+                }
                 className="shrink-0 text-[#8a8575]"
             />
 
             <input
                 type="search"
-                value={value}
-                onChange={(event) =>
-                    setValue(event.target.value)
+                value={
+                    value
                 }
-                placeholder="Tìm địa danh…"
-                aria-label="Tìm địa danh"
+                onChange={(
+                    event,
+                ) =>
+                    setValue(
+                        event
+                            .target
+                            .value,
+                    )
+                }
+                placeholder={
+                    placeholder
+                }
+                aria-label={
+                    ariaLabel
+                }
                 className="w-full bg-transparent text-sm text-[#173a3b] outline-none placeholder:text-[#8a8575]"
             />
         </form>

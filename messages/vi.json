@@ -49,5 +49,161 @@
       "signOut": "Đăng xuất",
       "signingOut": "Đang đăng xuất..."
     }
+  },
+  "Home": {
+    "hero": {
+      "regionCities": "Huế · Đà Nẵng · Hội An",
+      "titleLine1": "Ba thành phố,",
+      "titleLine2": "một miền thương nhớ",
+      "startJourney": "Bắt đầu hành trình",
+      "viewDestinations": "Xem điểm đến",
+      "exploring": "Đang khám phá",
+      "personalRegion": "Miền Trung theo cách thật riêng",
+      "scrollAria": "Cuộn xuống phần khám phá"
+    },
+    "common": {
+      "fallbackNotice": "Không tải được dữ liệu mới. Trang đang hiển thị dữ liệu mẫu."
+    },
+    "sections": {
+      "editorial": {
+        "eyebrow": "Ba sắc thái miền Trung",
+        "titleLine1": "Mỗi thành phố,",
+        "titleLine2": "một nhịp cảm xúc.",
+        "description": "Không cần đi thật nhanh. Hãy chọn một thành phố, ở lại đủ lâu và để những điều nhỏ bé dẫn bạn vào câu chuyện của miền Trung."
+      },
+      "destinations": {
+        "eyebrow": "Điểm đến nổi bật",
+        "title": "Những nơi khiến hành trình ở lại trong ký ức.",
+        "description": "Từ kinh thành, bãi biển đến phố cổ, mỗi điểm dừng đều mang một lớp văn hóa và nhịp sống riêng.",
+        "filters": {
+          "all": "Tất cả",
+          "hue": "Huế",
+          "daNang": "Đà Nẵng",
+          "hoiAn": "Hội An"
+        },
+        "viewAll": "Xem tất cả địa danh"
+      },
+      "cuisine": {
+        "eyebrow": "Hương vị miền Trung",
+        "title": "Một vùng đất có thể nhớ bằng hương thơm.",
+        "description": "Ẩm thực nơi đây đậm nhưng không vội, bình dị mà nhiều lớp vị. Hãy bắt đầu bằng những món ăn quen tên nhưng luôn có điều mới để khám phá.",
+        "experiences": {
+          "cycling": "Đạp xe làng quê",
+          "riversideCoffee": "Cà phê ven sông",
+          "moments": "Săn khoảnh khắc",
+          "localFood": "Ăn như người bản địa"
+        },
+        "exploreMap": "Khám phá bản đồ ẩm thực"
+      },
+      "journey": {
+        "eyebrow": "Hành trình gợi ý",
+        "title": "Đi theo một lộ trình vừa đủ để còn muốn quay lại.",
+        "description": "Các lịch trình được thiết kế theo nhịp trải nghiệm, không nhồi quá nhiều điểm và luôn có khoảng trống để bạn tận hưởng thành phố.",
+        "departure": "Khởi hành",
+        "duration": "Thời lượng",
+        "estimatedPrice": "Giá dự kiến",
+        "viewJourney": "Xem hành trình"
+      },
+      "experience": {
+        "eyebrow": "Câu chuyện trải nghiệm",
+        "title": "Những chuyến đi được kể lại bằng cảm xúc thật.",
+        "description": "Lưu lại khoảnh khắc, chia sẻ một quán nhỏ vừa tìm thấy hay kể về một buổi sáng mà bạn không muốn quên.",
+        "features": {
+          "personalized": "Gợi ý đúng sở thích",
+          "visual": "Lịch trình trực quan",
+          "localData": "Dữ liệu địa phương",
+          "ai": "Trợ lý AI cá nhân hóa"
+        },
+        "stories": {
+          "lantern": {
+            "title": "Một đêm theo ánh đèn lồng",
+            "location": "Hội An",
+            "imageAlt": "Đèn lồng Hội An về đêm"
+          },
+          "hueMorning": {
+            "title": "Buổi sớm nghe Huế thức giấc",
+            "location": "Huế",
+            "imageAlt": "Buổi sáng bình yên ở Huế"
+          },
+          "beach": {
+            "title": "Một ngày chỉ có biển và gió",
+            "location": "Đà Nẵng",
+            "imageAlt": "Trải nghiệm trên biển Đà Nẵng"
+          }
+        },
+        "sharedBy": "Chia sẻ bởi {author}",
+        "viewCommunity": "Xem cộng đồng chia sẻ"
+      },
+      "planner": {
+        "badge": "Trợ lý hành trình AI",
+        "title": "Kể chúng tôi nghe chuyến đi bạn đang mơ tới.",
+        "description": "Chọn số ngày, ngân sách và điều bạn yêu thích. Trợ lý sẽ kết hợp dữ liệu địa phương để tạo một lịch trình riêng cho bạn.",
+        "createJourney": "Tạo hành trình của tôi",
+        "assistantName": "Trợ lý Rực Rỡ",
+        "assistantStatus": "Sẵn sàng lên lịch trình",
+        "examplePrompt": "Tôi có 4 ngày, thích di sản, đồ ăn địa phương và muốn dành một buổi chiều ở biển.",
+        "suggestion": "Gợi ý phù hợp"
+      }
+    }
+  },
+  "Footer": {
+    "description": "Nền tảng khám phá Huế, Đà Nẵng và Hội An với dữ liệu địa phương, câu chuyện cộng đồng và trợ lý hành trình cá nhân hóa.",
+    "exploreTitle": "Khám phá",
+    "supportTitle": "Hỗ trợ",
+    "contactTitle": "Liên hệ",
+    "navigation": {
+      "explore": "Khám phá",
+      "destinations": "Điểm đến",
+      "cuisine": "Ẩm thực",
+      "journeys": "Hành trình"
+    },
+    "support": {
+      "planner": "Trợ lý hành trình",
+      "community": "Cộng đồng",
+      "signIn": "Đăng nhập",
+      "admin": "Khu vực quản trị"
+    },
+    "location": "Huế · Đà Nẵng · Hội An, Việt Nam",
+    "builtWithLove": "Được xây dựng từ tình yêu dành cho miền Trung."
+  },
+  "Destinations": {
+    "metadata": {
+      "title": "Điểm đến",
+      "description": "Khám phá các địa danh nổi bật tại Huế, Đà Nẵng và Hội An."
+    },
+    "list": {
+      "eyebrow": "Điểm đến",
+      "title": "Khám phá địa danh Huế · Đà Nẵng · Hội An",
+      "description": "Toàn bộ địa danh trong hệ thống, lọc theo khu vực để tìm đúng nơi bạn muốn đến.",
+      "filterAria": "Lọc theo khu vực",
+      "all": "Tất cả",
+      "searchPlaceholder": "Tìm địa danh…",
+      "searchAria": "Tìm địa danh",
+      "emptyTitle": "Không tìm thấy địa danh phù hợp",
+      "emptyDescription": "Thử chọn khu vực khác hoặc xóa từ khóa tìm kiếm.",
+      "resultCount": "{count} địa danh",
+      "loadingMore": "Đang tải…",
+      "loadMore": "Xem thêm ({loaded}/{total})",
+      "errors": {
+        "loadList": "Không tải được danh sách địa danh. Vui lòng thử lại.",
+        "loadMore": "Không tải thêm được địa danh. Vui lòng thử lại."
+      }
+    },
+    "detail": {
+      "notFoundTitle": "Không tìm thấy địa danh này",
+      "notFoundDescription": "Địa danh có thể đã bị xóa hoặc đường dẫn không chính xác.",
+      "errorTitle": "Có lỗi xảy ra",
+      "loadError": "Không tải được thông tin địa danh. Vui lòng thử lại.",
+      "backToList": "Về trang danh sách địa danh",
+      "allDestinations": "Tất cả địa danh",
+      "introduction": "Giới thiệu",
+      "history": "Lịch sử",
+      "noDetails": "Địa danh này chưa có nội dung giới thiệu chi tiết.",
+      "quickInfo": "Thông tin nhanh",
+      "region": "Khu vực",
+      "address": "Địa chỉ",
+      "categories": "Danh mục",
+      "viewGoogleMaps": "Xem trên Google Maps"
+    }
   }
 }

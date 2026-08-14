@@ -49,5 +49,161 @@
       "signOut": "Sign out",
       "signingOut": "Signing out..."
     }
+  },
+  "Home": {
+    "hero": {
+      "regionCities": "Hue · Da Nang · Hoi An",
+      "titleLine1": "Three cities,",
+      "titleLine2": "one unforgettable region",
+      "startJourney": "Start the journey",
+      "viewDestinations": "View destinations",
+      "exploring": "Exploring",
+      "personalRegion": "Central Vietnam, your own way",
+      "scrollAria": "Scroll to the explore section"
+    },
+    "common": {
+      "fallbackNotice": "Fresh data could not be loaded. Sample data is being shown."
+    },
+    "sections": {
+      "editorial": {
+        "eyebrow": "Three shades of Central Vietnam",
+        "titleLine1": "Each city,",
+        "titleLine2": "a different rhythm.",
+        "description": "There is no need to rush. Choose a city, stay long enough, and let the small details lead you into the story of Central Vietnam."
+      },
+      "destinations": {
+        "eyebrow": "Featured destinations",
+        "title": "Places that stay with you long after the journey.",
+        "description": "From imperial landmarks and beaches to ancient streets, every stop carries its own culture, atmosphere and rhythm of life.",
+        "filters": {
+          "all": "All",
+          "hue": "Hue",
+          "daNang": "Da Nang",
+          "hoiAn": "Hoi An"
+        },
+        "viewAll": "View all destinations"
+      },
+      "cuisine": {
+        "eyebrow": "Flavors of Central Vietnam",
+        "title": "A region you can remember through its aromas.",
+        "description": "The cuisine here is bold yet unhurried, humble yet layered with flavor. Start with familiar dishes and discover something new in every bite.",
+        "experiences": {
+          "cycling": "Cycle through villages",
+          "riversideCoffee": "Riverside coffee",
+          "moments": "Capture the moment",
+          "localFood": "Eat like a local"
+        },
+        "exploreMap": "Explore the food map"
+      },
+      "journey": {
+        "eyebrow": "Suggested journeys",
+        "title": "Travel at just the right pace to leave you wanting to return.",
+        "description": "These itineraries are designed around meaningful experiences rather than packed schedules, leaving you time to truly enjoy each city.",
+        "departure": "Departure",
+        "duration": "Duration",
+        "estimatedPrice": "Estimated price",
+        "viewJourney": "View journey"
+      },
+      "experience": {
+        "eyebrow": "Travel stories",
+        "title": "Journeys told through real emotions.",
+        "description": "Save a meaningful moment, share a little place you have just discovered, or tell the story of a morning you never want to forget.",
+        "features": {
+          "personalized": "Personalized suggestions",
+          "visual": "Visual itineraries",
+          "localData": "Local insights",
+          "ai": "Personalized AI assistant"
+        },
+        "stories": {
+          "lantern": {
+            "title": "A night beneath the lantern lights",
+            "location": "Hoi An",
+            "imageAlt": "Lanterns glowing in Hoi An at night"
+          },
+          "hueMorning": {
+            "title": "A quiet morning as Hue wakes",
+            "location": "Hue",
+            "imageAlt": "A peaceful morning in Hue"
+          },
+          "beach": {
+            "title": "A day of nothing but sea and wind",
+            "location": "Da Nang",
+            "imageAlt": "A seaside experience in Da Nang"
+          }
+        },
+        "sharedBy": "Shared by {author}",
+        "viewCommunity": "Explore community stories"
+      },
+      "planner": {
+        "badge": "AI Travel Assistant",
+        "title": "Tell us about the journey you have been dreaming of.",
+        "description": "Choose your number of days, budget and interests. The assistant will combine local data to create an itinerary designed around you.",
+        "createJourney": "Create my itinerary",
+        "assistantName": "Radiant Assistant",
+        "assistantStatus": "Ready to plan your trip",
+        "examplePrompt": "I have 4 days, love heritage and local food, and would like to spend one afternoon at the beach.",
+        "suggestion": "Recommended match"
+      }
+    }
+  },
+  "Footer": {
+    "description": "Discover Hue, Da Nang and Hoi An through local insights, community stories and a personalized travel assistant.",
+    "exploreTitle": "Explore",
+    "supportTitle": "Support",
+    "contactTitle": "Contact",
+    "navigation": {
+      "explore": "Explore",
+      "destinations": "Destinations",
+      "cuisine": "Cuisine",
+      "journeys": "Journeys"
+    },
+    "support": {
+      "planner": "Travel assistant",
+      "community": "Community",
+      "signIn": "Sign in",
+      "admin": "Admin area"
+    },
+    "location": "Hue · Da Nang · Hoi An, Vietnam",
+    "builtWithLove": "Built with love for Central Vietnam."
+  },
+  "Destinations": {
+    "metadata": {
+      "title": "Destinations",
+      "description": "Discover remarkable destinations across Hue, Da Nang and Hoi An."
+    },
+    "list": {
+      "eyebrow": "Destinations",
+      "title": "Discover Hue · Da Nang · Hoi An",
+      "description": "Explore destinations across Central Vietnam and filter by area to find the places that fit your journey.",
+      "filterAria": "Filter by area",
+      "all": "All",
+      "searchPlaceholder": "Search destinations…",
+      "searchAria": "Search destinations",
+      "emptyTitle": "No matching destinations found",
+      "emptyDescription": "Try another area or clear your search keywords.",
+      "resultCount": "{count} destinations",
+      "loadingMore": "Loading…",
+      "loadMore": "Load more ({loaded}/{total})",
+      "errors": {
+        "loadList": "Destinations could not be loaded. Please try again.",
+        "loadMore": "More destinations could not be loaded. Please try again."
+      }
+    },
+    "detail": {
+      "notFoundTitle": "Destination not found",
+      "notFoundDescription": "This destination may have been removed or the link may be incorrect.",
+      "errorTitle": "Something went wrong",
+      "loadError": "The destination information could not be loaded. Please try again.",
+      "backToList": "Back to destinations",
+      "allDestinations": "All destinations",
+      "introduction": "Introduction",
+      "history": "History",
+      "noDetails": "Detailed information for this destination is not available yet.",
+      "quickInfo": "Quick information",
+      "region": "Area",
+      "address": "Address",
+      "categories": "Categories",
+      "viewGoogleMaps": "View on Google Maps"
+    }
   }
 }

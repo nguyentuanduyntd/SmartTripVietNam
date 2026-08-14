@@ -1,15 +1,46 @@
-import { Suspense } from "react";
-import { DestinationsListPage } from "@/src/components/destinations/DestinationListPage"; 
+import type {
+    Metadata,
+} from "next";
 
-export const metadata = {
-    title: "Điểm đến | SmartTripVietNam",
-    description: "Khám phá toàn bộ địa danh tại Huế, Đà Nẵng và Hội An, lọc theo khu vực.",
-};
+import {
+    getTranslations,
+} from "next-intl/server";
 
-export default function Page(){
+import {
+    Suspense,
+} from "react";
+
+import {
+    DestinationsListPage,
+} from "@/src/components/destinations/DestinationListPage";
+
+export async function generateMetadata(): Promise<Metadata> {
+    const t =
+        await getTranslations(
+            "Destinations.metadata",
+        );
+
+    return {
+        title:
+            t(
+                "title",
+            ),
+
+        description:
+            t(
+                "description",
+            ),
+    };
+}
+
+export default function Page() {
     return (
-        <Suspense fallback={null} >
-            <DestinationsListPage/>
+        <Suspense
+            fallback={
+                null
+            }
+        >
+            <DestinationsListPage />
         </Suspense>
     );
 }
