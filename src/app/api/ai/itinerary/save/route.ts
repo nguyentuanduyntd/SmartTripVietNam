@@ -27,6 +27,19 @@ const saveSchema =
 
         plan:
             aiItineraryPlanSchema,
+
+        /**
+         * Proof server trả về
+         * cùng kết quả Generate.
+         *
+         * Không phải secret.
+         * Có thể client nhìn thấy,
+         * nhưng không thể tự ký lại.
+         */
+        generationProof:
+            z.string()
+                .min(32)
+                .max(16_000),
     });
 
 export async function POST(
@@ -80,6 +93,10 @@ export async function POST(
                     plan:
                         parsed.data
                             .plan,
+
+                    generationProof:
+                        parsed.data
+                            .generationProof,
                 },
             );
 

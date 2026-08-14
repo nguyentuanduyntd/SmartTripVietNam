@@ -1,5 +1,4 @@
-export const AI_ITINERARY_JSON_SCHEMA =
-{
+export const AI_ITINERARY_JSON_SCHEMA = {
     type: "object",
 
     properties: {
@@ -19,62 +18,50 @@ export const AI_ITINERARY_JSON_SCHEMA =
 
                 properties: {
                     dayNumber: {
-                        type:
-                            "integer",
+                        type: "integer",
                     },
 
                     title: {
-                        type:
-                            "string",
+                        type: "string",
                     },
 
                     description: {
-                        type:
-                            "string",
+                        type: "string",
                     },
 
                     activities: {
-                        type:
-                            "array",
+                        type: "array",
 
                         items: {
-                            type:
-                                "object",
+                            type: "object",
 
                             properties: {
                                 destinationId: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 destinationName: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 title: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 description: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 startTime: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 endTime: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 transportMethod: {
-                                    type:
-                                        "string",
+                                    type: "string",
 
                                     enum: [
                                         "walking",
@@ -89,11 +76,9 @@ export const AI_ITINERARY_JSON_SCHEMA =
                                     ],
                                 },
 
-                                estimatedTravelMinutes:
-                                    {
-                                        type:
-                                            "integer",
-                                    },
+                                estimatedTravelMinutes: {
+                                    type: "integer",
+                                },
                             },
 
                             required: [
@@ -110,17 +95,14 @@ export const AI_ITINERARY_JSON_SCHEMA =
                     },
 
                     meals: {
-                        type:
-                            "array",
+                        type: "array",
 
                         items: {
-                            type:
-                                "object",
+                            type: "object",
 
                             properties: {
                                 mealType: {
-                                    type:
-                                        "string",
+                                    type: "string",
 
                                     enum: [
                                         "breakfast",
@@ -131,43 +113,33 @@ export const AI_ITINERARY_JSON_SCHEMA =
                                 },
 
                                 startTime: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 note: {
-                                    type:
-                                        "string",
+                                    type: "string",
                                 },
 
                                 cuisines: {
-                                    type:
-                                        "array",
+                                    type: "array",
 
                                     items: {
-                                        type:
-                                            "object",
+                                        type: "object",
 
-                                        properties:
-                                            {
-                                                cuisineId:
-                                                    {
-                                                        type:
-                                                            "string",
-                                                    },
-
-                                                cuisineName:
-                                                    {
-                                                        type:
-                                                            "string",
-                                                    },
+                                        properties: {
+                                            cuisineId: {
+                                                type: "string",
                                             },
 
-                                        required:
-                                            [
-                                                "cuisineId",
-                                                "cuisineName",
-                                            ],
+                                            cuisineName: {
+                                                type: "string",
+                                            },
+                                        },
+
+                                        required: [
+                                            "cuisineId",
+                                            "cuisineName",
+                                        ],
                                     },
                                 },
                             },
@@ -191,6 +163,7 @@ export const AI_ITINERARY_JSON_SCHEMA =
                 ],
             },
         },
+
         estimatedCosts: {
             type: "array",
 

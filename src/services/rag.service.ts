@@ -604,17 +604,175 @@ export async function ingestTravelKnowledgeService() {
     return result;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Retrieval                                                                  */
-/* -------------------------------------------------------------------------- */
+
+type RagRetrievalOptions = {
+    /**
+     * Tổng số entity tối đa cuối cùng
+     * được đưa vào RAG context.
+     */
+    limit?: number;
+
+    /**
+     * Số destination ưu tiên giữ lại
+     * sau khi dedupe theo destinationId.
+     */
+    destinationLimit?: number;
+
+    /**
+     * Số cuisine ưu tiên giữ lại
+     * sau khi dedupe theo cuisineId.
+     */
+    cuisineLimit?: number;
+
+    minSimilarity?: number;
+
+    locationId?: string;
+};
+
+/**
+ * Vì vector search hiện chạy trên từng chunk,
+ * một destination có thể xuất hiện nhiều lần.
+ *
+ * Ta lấy rộng hơn trước rồi mới dedupe entity.
+ */
+const RAG_CHUNK_CANDIDATE_MULTIPLIER =
+    3;
+
+/**
+ * Tránh query quá nhiều chunk trong một lần.
+ */
+const RAG_MAX_CHUNK_CANDIDATES = 96;
+
+function buildChunkCandidateLimit(
+    entityLimit: number,
+) {
+    return Math.min(
+        Math.max(
+            entityLimit *
+                RAG_CHUNK_CANDIDATE_MULTIPLIER,
+            entityLimit,
+        ),
+        RAG_MAX_CHUNK_CANDIDATES,
+    );
+}
+
+/**
+ * Giữ đúng 1 kết quả tốt nhất cho mỗi entity.
+ *
+ * Ví dụ:
+ *
+ * Bà Nà chunk 0 -> 0.91
+ * Bà Nà chunk 1 -> 0.88
+ * Bà Nà chunk 2 -> 0.84
+ *
+ * Sau hàm này chỉ còn Bà Nà score 0.91.
+ */
+function dedupeRagItems(
+    items: RagRetrievedItem[],
+) {
+    const bestByEntity =
+        new Map<
+            string,
+            RagRetrievedItem
+        >();
+
+    for (const item of items) {
+        /**
+         * Có thêm kind vào key để destination UUID
+         * và cuisine UUID không thể đụng nhau.
+         */
+        const key =
+            `${item.kind}:${item.id}`;
+
+        const current =
+            bestByEntity.get(key);
+
+        if (
+            !current ||
+            item.similarity >
+                current.similarity
+        ) {
+            bestByEntity.set(
+                key,
+                item,
+            );
+        }
+    }
+
+    return [
+        ...bestByEntity.values(),
+    ].sort(
+        (a, b) =>
+            b.similarity -
+            a.similarity,
+    );
+}
+
+function resolveRetrievalLimits(
+    options?: RagRetrievalOptions,
+) {
+    const totalLimit =
+        normalizeRagLimit(
+            options?.limit,
+        );
+
+    /**
+     * Mặc định ưu tiên khoảng 70%
+     * context cho destination.
+     *
+     * AI itinerary cần destination nhiều hơn
+     * cuisine vì activity dựa trên destination.
+     */
+    const requestedDestinationLimit =
+        options?.destinationLimit ??
+        Math.ceil(
+            totalLimit * 0.7,
+        );
+
+    const destinationLimit =
+        Math.min(
+            normalizeRagLimit(
+                requestedDestinationLimit,
+            ),
+            totalLimit,
+        );
+
+    const remainingAfterDestination =
+        Math.max(
+            totalLimit -
+                destinationLimit,
+            0,
+        );
+
+    let cuisineLimit = 0;
+
+    if (
+        remainingAfterDestination >
+        0
+    ) {
+        const requestedCuisineLimit =
+            options?.cuisineLimit ??
+            remainingAfterDestination;
+
+        cuisineLimit =
+            Math.min(
+                normalizeRagLimit(
+                    requestedCuisineLimit,
+                ),
+                remainingAfterDestination,
+            );
+    }
+
+    return {
+        totalLimit,
+        destinationLimit,
+        cuisineLimit,
+    };
+}
 
 export async function retrieveTravelContextService(
     query: string,
-    options?: {
-        limit?: number;
-        minSimilarity?: number;
-        locationId?: string;
-    },
+    options?: RagRetrievalOptions,
 ) {
     const normalizedQuery =
         query
@@ -627,10 +785,13 @@ export async function retrieveTravelContextService(
         );
     }
 
-    const limit =
-        normalizeRagLimit(
-            options?.limit,
-        );
+    const {
+        totalLimit,
+        destinationLimit,
+        cuisineLimit,
+    } = resolveRetrievalLimits(
+        options,
+    );
 
     const minSimilarity =
         options?.minSimilarity ??
@@ -638,7 +799,8 @@ export async function retrieveTravelContextService(
 
     /**
      * Bước Retrieval #1:
-     * biến câu hỏi user thành vector.
+     *
+     * Chuyển query của user thành embedding.
      */
     const queryEmbedding =
         await createEmbedding(
@@ -646,9 +808,31 @@ export async function retrieveTravelContextService(
         );
 
     /**
+     * Vector DB lưu theo chunk.
+     *
+     * Không query đúng bằng destinationLimit
+     * vì một destination có thể có nhiều chunk
+     * nằm trong top kết quả.
+     *
+     * Ta over-fetch trước, sau đó mới dedupe.
+     */
+    const destinationChunkLimit =
+        buildChunkCandidateLimit(
+            destinationLimit,
+        );
+
+    const cuisineChunkLimit =
+        cuisineLimit > 0
+            ? buildChunkCandidateLimit(
+                  cuisineLimit,
+              )
+            : 0;
+
+    /**
      * Bước Retrieval #2:
-     * semantic search đồng thời trên
-     * destination knowledge và cuisine knowledge.
+     *
+     * Semantic/vector retrieval +
+     * metadata filtering theo locationId.
      */
     const [
         destinationHits,
@@ -657,23 +841,36 @@ export async function retrieveTravelContextService(
         searchDestinationEmbeddings(
             queryEmbedding,
             {
-                limit,
+                limit:
+                    destinationChunkLimit,
+
                 minSimilarity,
-                locationId: options?.locationId,
+
+                locationId:
+                    options?.locationId,
             },
         ),
 
-        searchCuisineEmbeddings(
-            queryEmbedding,
-            {
-                limit,
-                minSimilarity,
-                locationId: options?.locationId,
-            },
-        ),
+        cuisineChunkLimit > 0
+            ? searchCuisineEmbeddings(
+                  queryEmbedding,
+                  {
+                      limit:
+                          cuisineChunkLimit,
+
+                      minSimilarity,
+
+                      locationId:
+                          options?.locationId,
+                  },
+              )
+            : Promise.resolve([]),
     ]);
 
-    const destinationResults: RagRetrievedItem[] =
+    /**
+     * Map chunk result -> RAG item.
+     */
+    const rawDestinationResults: RagRetrievedItem[] =
         destinationHits.map(
             (hit) => ({
                 kind:
@@ -710,7 +907,7 @@ export async function retrieveTravelContextService(
             }),
         );
 
-    const cuisineResults: RagRetrievedItem[] =
+    const rawCuisineResults: RagRetrievedItem[] =
         cuisineHits.map(
             (hit) => ({
                 kind:
@@ -736,29 +933,140 @@ export async function retrieveTravelContextService(
         );
 
     /**
-     * Gộp 2 nguồn knowledge rồi xếp
-     * lại bằng similarity toàn cục.
+     * Quan trọng:
+     *
+     * Từ đây trở đi ranking là ranking theo ENTITY,
+     * không còn ranking theo chunk.
      */
-    const results = [
-        ...destinationResults,
-        ...cuisineResults,
-    ]
-        .sort(
-            (a, b) =>
-                b.similarity -
-                a.similarity,
-        )
-        .slice(
-            0,
-            limit,
+    const uniqueDestinations =
+        dedupeRagItems(
+            rawDestinationResults,
+        );
+
+    const uniqueCuisines =
+        dedupeRagItems(
+            rawCuisineResults,
         );
 
     /**
-     * Context này sẽ được đưa sang Gemini ở Giai đoạn 2.
+     * Giữ quota riêng.
      *
-     * Quan trọng:
-     * giữ ID database trong context để AI trả về canonical ID,
-     * sau đó backend còn validate lại trước khi save itinerary.
+     * Điều này ngăn trường hợp cuisine score cao
+     * chiếm hết các slot vốn cần cho destination.
+     */
+    const selectedDestinations =
+        uniqueDestinations.slice(
+            0,
+            destinationLimit,
+        );
+
+    const selectedCuisines =
+        uniqueCuisines.slice(
+            0,
+            cuisineLimit,
+        );
+
+    let results: RagRetrievedItem[] =
+        [
+            ...selectedDestinations,
+            ...selectedCuisines,
+        ];
+
+    /**
+     * Nếu một loại knowledge không đủ dữ liệu
+     * để lấp quota, dùng entity còn dư của loại kia
+     * để tận dụng hết totalLimit.
+     *
+     * Ví dụ:
+     * destinationLimit = 20
+     * cuisineLimit = 8
+     *
+     * nhưng DB chỉ có 3 cuisine,
+     * thì các slot cuisine còn thiếu có thể
+     * được bổ sung bằng destination.
+     */
+    if (
+        results.length <
+        totalLimit
+    ) {
+        const selectedKeys =
+            new Set(
+                results.map(
+                    (item) =>
+                        `${item.kind}:${item.id}`,
+                ),
+            );
+
+        const overflowCandidates =
+            [
+                ...uniqueDestinations.slice(
+                    destinationLimit,
+                ),
+
+                ...uniqueCuisines.slice(
+                    cuisineLimit,
+                ),
+            ].sort(
+                (a, b) =>
+                    b.similarity -
+                    a.similarity,
+            );
+
+        for (
+            const candidate of
+            overflowCandidates
+        ) {
+            if (
+                results.length >=
+                totalLimit
+            ) {
+                break;
+            }
+
+            const key =
+                `${candidate.kind}:${candidate.id}`;
+
+            if (
+                selectedKeys.has(
+                    key,
+                )
+            ) {
+                continue;
+            }
+
+            selectedKeys.add(
+                key,
+            );
+
+            results.push(
+                candidate,
+            );
+        }
+    }
+
+    /**
+     * Sort lại chỉ để context dễ đọc:
+     * entity similarity cao đứng trước.
+     *
+     * Việc sort này không phá quota,
+     * vì selection đã hoàn tất bên trên.
+     */
+    results =
+        results.sort(
+            (a, b) =>
+                b.similarity -
+                a.similarity,
+        );
+
+    /**
+     * Context đưa sang Gemini.
+     *
+     * Sau dedupe:
+     *
+     * 1 entity = tối đa 1 source.
+     *
+     * DATABASE_ID vẫn được giữ nguyên
+     * để backend validate canonical IDs.
      */
     const contextText =
         results
@@ -773,16 +1081,27 @@ export async function retrieveTravelContextService(
                     ) {
                         return [
                             `[NGUỒN ${index + 1}]`,
+
                             "TYPE: destination",
+
                             `DATABASE_ID: ${result.id}`,
+
                             `NAME: ${result.name}`,
+
                             `LOCATION_ID: ${result.locationId}`,
+
                             `LOCATION: ${result.locationName}`,
+
                             result.address
                                 ? `ADDRESS: ${result.address}`
                                 : null,
-                            `SIMILARITY: ${result.similarity.toFixed(4)}`,
+
+                            `SIMILARITY: ${result.similarity.toFixed(
+                                4,
+                            )}`,
+
                             "",
+
                             result.content,
                         ]
                             .filter(
@@ -790,7 +1109,7 @@ export async function retrieveTravelContextService(
                                     value,
                                 ): value is string =>
                                     value !==
-                                        null,
+                                    null,
                             )
                             .join(
                                 "\n",
@@ -799,15 +1118,24 @@ export async function retrieveTravelContextService(
 
                     return [
                         `[NGUỒN ${index + 1}]`,
+
                         "TYPE: cuisine",
+
                         `DATABASE_ID: ${result.id}`,
+
                         `NAME: ${result.name}`,
+
                         result.avgPrice !==
                         null
                             ? `AVG_PRICE: ${result.avgPrice}`
                             : null,
-                        `SIMILARITY: ${result.similarity.toFixed(4)}`,
+
+                        `SIMILARITY: ${result.similarity.toFixed(
+                            4,
+                        )}`,
+
                         "",
+
                         result.content,
                     ]
                         .filter(
@@ -815,7 +1143,7 @@ export async function retrieveTravelContextService(
                                 value,
                             ): value is string =>
                                 value !==
-                                    null,
+                                null,
                         )
                         .join(
                             "\n",
@@ -832,6 +1160,32 @@ export async function retrieveTravelContextService(
 
         resultCount:
             results.length,
+
+        /**
+         * Có stats để sau này benchmark/debug RAG
+         * dễ hơn mà không cần console.log lung tung.
+         */
+        retrievalStats: {
+            totalLimit,
+
+            destinationLimit,
+
+            cuisineLimit,
+
+            rawDestinationChunks:
+                destinationHits.length,
+
+            rawCuisineChunks:
+                cuisineHits.length,
+
+            uniqueDestinations:
+                uniqueDestinations.length,
+
+            uniqueCuisines:
+                uniqueCuisines.length,
+
+            minSimilarity,
+        },
 
         results,
 

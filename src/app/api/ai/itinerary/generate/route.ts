@@ -56,9 +56,10 @@ export async function POST(
 
     try {
         const result =
-            await generateAiItineraryService(
-                parsed.data,
-            );
+        await generateAiItineraryService(
+            parsed.data,
+            auth.user.id,
+        );
 
         return successResponse(
             result,

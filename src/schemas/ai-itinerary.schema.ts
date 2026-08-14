@@ -1,6 +1,16 @@
 import { z } from "zod";
-import {MEAL_TYPES,TRANSPORT_METHODS,} from "@/src/constants/tour_community";
-import {COST_CALCULATION_UNITS,COST_CATEGORIES,TRAVELER_SCOPES,} from "@/src/constants/itinerary";
+
+import {
+    MEAL_TYPES,
+    TRANSPORT_METHODS,
+} from "@/src/constants/tour_community";
+
+import {
+    COST_CALCULATION_UNITS,
+    COST_CATEGORIES,
+    TRAVELER_SCOPES,
+} from "@/src/constants/itinerary";
+
 /* -------------------------------------------------------------------------- */
 /* User request                                                               */
 /* -------------------------------------------------------------------------- */
@@ -82,6 +92,10 @@ const timeSchema =
         /^([01]\d|2[0-3]):[0-5]\d$/,
     );
 
+/* -------------------------------------------------------------------------- */
+/* Activity                                                                   */
+/* -------------------------------------------------------------------------- */
+
 const aiActivitySchema =
     z.object({
         destinationId:
@@ -123,6 +137,10 @@ const aiActivitySchema =
                 .max(360),
     });
 
+/* -------------------------------------------------------------------------- */
+/* Cuisine                                                                    */
+/* -------------------------------------------------------------------------- */
+
 const aiCuisineSchema =
     z.object({
         cuisineId:
@@ -134,6 +152,10 @@ const aiCuisineSchema =
                 .min(1)
                 .max(200),
     });
+
+/* -------------------------------------------------------------------------- */
+/* Meal                                                                       */
+/* -------------------------------------------------------------------------- */
 
 const aiMealSchema =
     z.object({
@@ -150,21 +172,36 @@ const aiMealSchema =
                 .trim()
                 .max(500),
 
+        /**
+         * Một bữa ăn không bắt buộc phải
+         * gắn với cuisine cụ thể trong RAG.
+         *
+         * Ví dụ:
+         * - Ăn sáng tại khách sạn
+         * - Ăn tối tự do
+         * - Ăn nhẹ trên đường
+         *
+         * Khi RAG có cuisine phù hợp,
+         * AI vẫn có thể trả 1-3 cuisine.
+         */
         cuisines:
             z.array(
                 aiCuisineSchema,
             )
-                .min(1)
                 .max(3),
     });
 
+/* -------------------------------------------------------------------------- */
+/* Estimated cost                                                             */
+/* -------------------------------------------------------------------------- */
+
 const aiEstimatedCostSchema =
     z.object({
-        title: z
-            .string()
-            .trim()
-            .min(1)
-            .max(200),
+        title:
+            z.string()
+                .trim()
+                .min(1)
+                .max(200),
 
         category:
             z.enum(
@@ -208,6 +245,10 @@ const aiEstimatedCostSchema =
                 .max(500),
     });
 
+/* -------------------------------------------------------------------------- */
+/* Day                                                                        */
+/* -------------------------------------------------------------------------- */
+
 const aiDaySchema =
     z.object({
         dayNumber:
@@ -241,6 +282,10 @@ const aiDaySchema =
             )
                 .max(4),
     });
+
+/* -------------------------------------------------------------------------- */
+/* Complete itinerary                                                         */
+/* -------------------------------------------------------------------------- */
 
 export const aiItineraryPlanSchema =
     z.object({
@@ -276,6 +321,10 @@ export const aiItineraryPlanSchema =
                 .min(1)
                 .max(30),
     });
+
+/* -------------------------------------------------------------------------- */
+/* Types                                                                      */
+/* -------------------------------------------------------------------------- */
 
 export type AiPlannerRequest =
     z.infer<
