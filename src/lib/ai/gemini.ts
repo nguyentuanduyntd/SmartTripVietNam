@@ -1,35 +1,24 @@
 import "server-only";
 
-import {
-    GoogleGenAI,
-} from "@google/genai";
+import {GoogleGenAI,} from "@google/genai";
 
-let client:
-    GoogleGenAI | null =
-    null;
+let client: GoogleGenAI | null =null;
 
 export const GEMINI_MODEL =
-    process.env.GEMINI_MODEL?.trim() ||
-    "gemini-3.6-flash";
+    process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash";
 
 function getGeminiClient() {
     if (client) {
         return client;
     }
-
-    const apiKey =
-        process.env.GEMINI_API_KEY?.trim();
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
 
     if (!apiKey) {
         throw new Error(
             "GEMINI_API_KEY chưa được cấu hình.",
         );
     }
-
-    client =
-        new GoogleGenAI({
-            apiKey,
-        });
+    client =new GoogleGenAI({apiKey,});
 
     return client;
 }
@@ -44,22 +33,18 @@ export async function generateGeminiJson(
     },
 ) {
     const response =
-        await getGeminiClient()
-            .interactions.create({
-                model:
-                    GEMINI_MODEL,
-
-                input:
-                    input.prompt,
-
-                response_format: {
-                    type: "text",
-                    mime_type:
-                        "application/json",
-                    schema:
-                        input.schema,
-                },
-            });
+        await getGeminiClient().interactions.create({
+            model: GEMINI_MODEL,
+            input: input.prompt,
+            generation_config: {
+                thinking_level: "low",
+            },
+            response_format: {
+                type: "text",
+                mime_type: "application/json",
+                schema: input.schema,
+            },
+        });
 
     if (
         !response.output_text
