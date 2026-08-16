@@ -1,40 +1,31 @@
-import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { AdminSidebar } from "@/src/components/layout/AdminSidebar";
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  weight: ["400", "500", "600"],
-});
+export default function AdminLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <div
+            className="flex min-h-screen bg-admin-paper font-sans text-admin-ink"
+            style={
+                {
+                    "--font-sans":
+                        '"IBM Plex Sans", "Segoe UI", Arial, sans-serif',
 
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  variable: "--font-plex-sans",
-  weight: ["400", "500", "600"],
-});
+                    "--font-mono":
+                        '"IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace',
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  variable: "--font-plex-mono",
-  weight: ["400", "500"],
-});
+                    "--font-fraunces":
+                        '"Fraunces", Georgia, "Times New Roman", serif',
+                } as React.CSSProperties
+            }
+        >
+            <AdminSidebar />
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} flex h-screen overflow-hidden bg-admin-paper font-sans text-admin-ink`}
-      style={
-        {
-          "--font-sans": "var(--font-plex-sans)",
-          "--font-mono": "var(--font-plex-mono)",
-        } as React.CSSProperties
-      }
-    >
-      <AdminSidebar />
-
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-10 py-8">
-        {children}
-      </main>
-    </div>
-  );
+            <main className="flex-1 px-10 py-8">
+                {children}
+            </main>
+        </div>
+    );
 }

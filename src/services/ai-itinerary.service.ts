@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-    AI_ITINERARY_JSON_SCHEMA,
+    buildAiItineraryJsonSchema,
 } from "@/src/lib/ai/ai-itinerary-json-schema";
 
 import {
@@ -66,15 +66,42 @@ const PACE_LABELS = {
         "nhiều trải nghiệm, lịch trình khá dày",
 } as const;
 
-/**
- * Dùng để ước lượng số destination
- * cần lấy từ RAG.
- */
 const PACE_ACTIVITY_TARGET = {
     relaxed: 2,
     balanced: 3,
     packed: 4,
 } as const;
+
+/* -------------------------------------------------------------------------- */
+/* Timing                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function nowMs() {
+    return performance.now();
+}
+
+function logAiTiming(
+    label: string,
+    startedAt: number,
+    extra?: unknown,
+) {
+    const elapsed = Math.round(
+        nowMs() - startedAt,
+    );
+
+    if (extra === undefined) {
+        console.info(
+            `[AI TIMING] ${label}: ${elapsed}ms`,
+        );
+
+        return;
+    }
+
+    console.info(
+        `[AI TIMING] ${label}: ${elapsed}ms`,
+        extra,
+    );
+}
 
 /* -------------------------------------------------------------------------- */
 /* RAG limits                                                                 */
@@ -88,42 +115,31 @@ function getRagRetrievalLimits(
             request.pace
         ];
 
-    /**
-     * Cho AI thêm một ít destination
-     * ngoài số activity dự kiến để
-     * có lựa chọn thay thế.
-     */
     const desiredDestinations =
         request.dayCount *
             activitiesPerDay +
-        4;
+        2;
 
     const destinationLimit =
         Math.min(
             Math.max(
                 desiredDestinations,
-                8,
+                6,
             ),
-            32,
+            20,
         );
 
-    /**
-     * Cuisine tăng theo số ngày nhưng
-     * không cần tăng nhanh như destination.
-     */
     const cuisineLimit =
         Math.min(
             Math.max(
-                request.dayCount +
-                    3,
-                5,
+                request.dayCount + 2,
+                3,
             ),
-            10,
+            6,
         );
 
     return {
         destinationLimit,
-
         cuisineLimit,
 
         totalLimit:
@@ -169,19 +185,10 @@ async function validateCanonicalIds(
         ),
     ];
 
-    /**
-     * Khi validate ngay sau generation
-     * hoặc lúc Save với proof:
-     *
-     * tất cả IDs phải nằm trong
-     * chính RAG context đã cho AI.
-     */
-    if (
-        allowedDestinationIds
-    ) {
+    if (allowedDestinationIds) {
         for (
             const id of
-                destinationIds
+            destinationIds
         ) {
             if (
                 !allowedDestinationIds.has(
@@ -196,12 +203,10 @@ async function validateCanonicalIds(
         }
     }
 
-    if (
-        allowedCuisineIds
-    ) {
+    if (allowedCuisineIds) {
         for (
             const id of
-                cuisineIds
+            cuisineIds
         ) {
             if (
                 !allowedCuisineIds.has(
@@ -229,9 +234,6 @@ async function validateCanonicalIds(
         ),
     ]);
 
-    /**
-     * Destination ID phải tồn tại.
-     */
     if (
         destinations.length !==
         destinationIds.length
@@ -242,10 +244,6 @@ async function validateCanonicalIds(
         );
     }
 
-    /**
-     * Destination phải thuộc đúng
-     * location user đã chọn.
-     */
     if (
         destinations.some(
             (destination) =>
@@ -259,9 +257,6 @@ async function validateCanonicalIds(
         );
     }
 
-    /**
-     * Cuisine ID phải tồn tại.
-     */
     if (
         cuisines.length !==
         cuisineIds.length
@@ -292,19 +287,13 @@ async function validateCanonicalIds(
             ),
         );
 
-    /**
-     * Không tin các trường name do AI tạo.
-     *
-     * ID là canonical key,
-     * name sẽ lấy lại từ database.
-     */
     for (
         const day of
-            plan.days
+        plan.days
     ) {
         for (
             const activity of
-                day.activities
+            day.activities
         ) {
             const canonical =
                 destinationById.get(
@@ -319,11 +308,11 @@ async function validateCanonicalIds(
 
         for (
             const meal of
-                day.meals
+            day.meals
         ) {
             for (
                 const cuisine of
-                    meal.cuisines
+                meal.cuisines
             ) {
                 const canonical =
                     cuisineById.get(
@@ -342,6 +331,531 @@ async function validateCanonicalIds(
 }
 
 /* -------------------------------------------------------------------------- */
+/* RAG short-key context                                                      */
+/* -------------------------------------------------------------------------- */
+
+type RetrievedTravelItem =
+    Awaited<
+        ReturnType<
+            typeof retrieveTravelContextService
+        >
+    >["results"][number];
+
+type CanonicalKeyEntity = {
+    id: string;
+    name: string;
+};
+
+type RagKeyContext = {
+    destinationKeyToEntity: Map<
+        string,
+        CanonicalKeyEntity
+    >;
+
+    cuisineKeyToEntity: Map<
+        string,
+        CanonicalKeyEntity
+    >;
+
+    destinationKeys: string[];
+    cuisineKeys: string[];
+
+    contextText: string;
+};
+
+function makeShortKey(
+    prefix: "D" | "C",
+    index: number,
+) {
+    return `${prefix}${String(
+        index + 1,
+    ).padStart(2, "0")}`;
+}
+
+function compactRagContent(
+    content: string,
+) {
+    return content
+        .replace(/\r\n/g, "\n")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+
+function buildRagKeyContext(
+    results: RetrievedTravelItem[],
+): RagKeyContext {
+    const destinationKeyToEntity =
+        new Map<
+            string,
+            CanonicalKeyEntity
+        >();
+
+    const cuisineKeyToEntity =
+        new Map<
+            string,
+            CanonicalKeyEntity
+        >();
+
+    const destinationKeys:
+        string[] = [];
+
+    const cuisineKeys:
+        string[] = [];
+
+    const destinationBlocks:
+        string[] = [];
+
+    const cuisineBlocks:
+        string[] = [];
+
+    let destinationIndex = 0;
+    let cuisineIndex = 0;
+
+    for (
+        const item of
+        results
+    ) {
+        if (
+            item.kind ===
+            "destination"
+        ) {
+            const key =
+                makeShortKey(
+                    "D",
+                    destinationIndex,
+                );
+
+            destinationIndex++;
+
+            destinationKeys.push(
+                key,
+            );
+
+            destinationKeyToEntity.set(
+                key,
+                {
+                    id: item.id,
+                    name: item.name,
+                },
+            );
+
+            destinationBlocks.push(
+                [
+                    `[${key}] ${item.name}`,
+
+                    compactRagContent(
+                        item.content,
+                    ),
+                ].join("\n"),
+            );
+
+            continue;
+        }
+
+        const key =
+            makeShortKey(
+                "C",
+                cuisineIndex,
+            );
+
+        cuisineIndex++;
+
+        cuisineKeys.push(
+            key,
+        );
+
+        cuisineKeyToEntity.set(
+            key,
+            {
+                id: item.id,
+                name: item.name,
+            },
+        );
+
+        cuisineBlocks.push(
+            [
+                `[${key}] ${item.name}`,
+
+                item.avgPrice !==
+                null
+                    ? `AVG_PRICE: ${item.avgPrice}`
+                    : null,
+
+                compactRagContent(
+                    item.content,
+                ),
+            ]
+                .filter(
+                    (
+                        value,
+                    ): value is string =>
+                        value !==
+                        null,
+                )
+                .join("\n"),
+        );
+    }
+
+    const contextText = [
+        "DESTINATIONS:",
+
+        destinationBlocks.join(
+            "\n\n",
+        ),
+
+        "",
+
+        "CUISINES:",
+
+        cuisineBlocks.length > 0
+            ? cuisineBlocks.join(
+                  "\n\n",
+              )
+            : "(không có cuisine phù hợp trong RAG)",
+    ].join("\n");
+
+    return {
+        destinationKeyToEntity,
+        cuisineKeyToEntity,
+        destinationKeys,
+        cuisineKeys,
+        contextText,
+    };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Gemini generated types                                                     */
+/* -------------------------------------------------------------------------- */
+
+type AiActivity =
+    AiItineraryPlan[
+        "days"
+    ][number][
+        "activities"
+    ][number];
+
+type AiMeal =
+    AiItineraryPlan[
+        "days"
+    ][number][
+        "meals"
+    ][number];
+
+type AiCuisine =
+    AiMeal[
+        "cuisines"
+    ][number];
+
+type GeneratedActivity =
+    Omit<
+        AiActivity,
+        | "destinationId"
+        | "destinationName"
+    > & {
+        destinationKey:
+            string;
+    };
+
+type GeneratedCuisine =
+    Omit<
+        AiCuisine,
+        | "cuisineId"
+        | "cuisineName"
+    > & {
+        cuisineKey:
+            string;
+    };
+
+type GeneratedMeal =
+    Omit<
+        AiMeal,
+        "cuisines"
+    > & {
+        cuisines:
+            GeneratedCuisine[];
+    };
+
+type GeneratedDay =
+    Omit<
+        AiItineraryPlan[
+            "days"
+        ][number],
+        | "activities"
+        | "meals"
+    > & {
+        activities:
+            GeneratedActivity[];
+
+        meals:
+            GeneratedMeal[];
+    };
+
+type GeneratedPlan =
+    Omit<
+        AiItineraryPlan,
+        "days"
+    > & {
+        days:
+            GeneratedDay[];
+    };
+
+/* -------------------------------------------------------------------------- */
+/* Normalize time                                                             */
+/* -------------------------------------------------------------------------- */
+
+function normalizeTime(
+    value: string,
+) {
+    const normalized =
+        value.trim();
+
+    const match =
+        /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(
+            normalized,
+        );
+
+    if (!match) {
+        return normalized;
+    }
+
+    const hour =
+        Number(
+            match[1],
+        );
+
+    const minute =
+        Number(
+            match[2],
+        );
+
+    if (
+        !Number.isInteger(
+            hour,
+        ) ||
+        !Number.isInteger(
+            minute,
+        ) ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59
+    ) {
+        return normalized;
+    }
+
+    return `${String(
+        hour,
+    ).padStart(
+        2,
+        "0",
+    )}:${String(
+        minute,
+    ).padStart(
+        2,
+        "0",
+    )}`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Hydrate Gemini output                                                      */
+/* -------------------------------------------------------------------------- */
+
+function hydrateGeneratedPlan(
+    raw: unknown,
+    keyContext:
+        RagKeyContext,
+): unknown {
+    try {
+        if (
+            raw === null ||
+            typeof raw !==
+                "object"
+        ) {
+            throw new Error(
+                "Root output không phải object.",
+            );
+        }
+
+        const generated =
+            raw as GeneratedPlan;
+
+        if (
+            !Array.isArray(
+                generated.days,
+            )
+        ) {
+            throw new Error(
+                "days không phải array.",
+            );
+        }
+
+        return {
+            title:
+                generated.title,
+
+            description:
+                generated.description,
+
+            days:
+                generated.days.map(
+                    (
+                        day,
+                        dayIndex,
+                    ) => {
+                        if (
+                            !Array.isArray(
+                                day.activities,
+                            ) ||
+                            !Array.isArray(
+                                day.meals,
+                            )
+                        ) {
+                            throw new Error(
+                                `Ngày ${dayIndex + 1} có activities/meals không hợp lệ.`,
+                            );
+                        }
+
+                        return {
+                            /**
+                             * dayNumber sai không cần gọi
+                             * Gemini lại.
+                             */
+                            dayNumber:
+                                dayIndex +
+                                1,
+
+                            title:
+                                day.title,
+
+                            description:
+                                day.description,
+
+                            activities:
+                                day.activities.map(
+                                    (
+                                        activity,
+                                    ) => {
+                                        const destination =
+                                            keyContext.destinationKeyToEntity.get(
+                                                activity.destinationKey,
+                                            );
+
+                                        if (
+                                            !destination
+                                        ) {
+                                            throw new AiItineraryServiceError(
+                                                `AI trả về destinationKey không thuộc RAG context: ${activity.destinationKey}`,
+                                                422,
+                                            );
+                                        }
+
+                                        return {
+                                            destinationId:
+                                                destination.id,
+
+                                            destinationName:
+                                                destination.name,
+
+                                            title:
+                                                activity.title,
+
+                                            description:
+                                                activity.description,
+
+                                            startTime:
+                                                normalizeTime(
+                                                    activity.startTime,
+                                                ),
+
+                                            endTime:
+                                                normalizeTime(
+                                                    activity.endTime,
+                                                ),
+
+                                            transportMethod:
+                                                activity.transportMethod,
+
+                                            estimatedTravelMinutes:
+                                                activity.estimatedTravelMinutes,
+                                        };
+                                    },
+                                ),
+
+                            meals:
+                                day.meals.map(
+                                    (
+                                        meal,
+                                    ) => ({
+                                        mealType:
+                                            meal.mealType,
+
+                                        startTime:
+                                            normalizeTime(
+                                                meal.startTime,
+                                            ),
+
+                                        note:
+                                            meal.note,
+
+                                        cuisines:
+                                            meal.cuisines.map(
+                                                (
+                                                    cuisine,
+                                                ) => {
+                                                    const canonical =
+                                                        keyContext.cuisineKeyToEntity.get(
+                                                            cuisine.cuisineKey,
+                                                        );
+
+                                                    if (
+                                                        !canonical
+                                                    ) {
+                                                        throw new AiItineraryServiceError(
+                                                            `AI trả về cuisineKey không thuộc RAG context: ${cuisine.cuisineKey}`,
+                                                            422,
+                                                        );
+                                                    }
+
+                                                    return {
+                                                        cuisineId:
+                                                            canonical.id,
+
+                                                        cuisineName:
+                                                            canonical.name,
+                                                    };
+                                                },
+                                            ),
+                                    }),
+                                ),
+                        };
+                    },
+                ),
+
+            estimatedCosts:
+                generated.estimatedCosts,
+        };
+    } catch (error) {
+        if (
+            error instanceof
+            AiItineraryServiceError
+        ) {
+            throw error;
+        }
+
+        console.error(
+            "[AI PLAN HYDRATION ERROR]",
+            error,
+        );
+
+        throw new AiItineraryServiceError(
+            "AI trả về cấu trúc lịch trình không hợp lệ.",
+            422,
+        );
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Prompt                                                                     */
 /* -------------------------------------------------------------------------- */
 
@@ -355,27 +869,32 @@ function buildAiPlannerPrompt(
 
         ragContext:
             string;
+
+        cuisineKeysAvailable:
+            boolean;
     },
 ) {
     const {
         request,
         locationName,
         ragContext,
+        cuisineKeysAvailable,
     } = input;
 
     const nightCount =
         Math.max(
-            request.dayCount - 1,
+            request.dayCount -
+                1,
             1,
         );
 
     return `
-Bạn là hệ thống lập lịch trình du lịch cho SmartTripVietNam.
+Bạn là hệ thống lập lịch trình du lịch SmartTripVietNam.
 
-NHIỆM VỤ:
+NHIỆM VỤ
 Tạo lịch trình ${request.dayCount} ngày tại ${locationName}.
 
-THÔNG TIN NGƯỜI DÙNG:
+NGƯỜI DÙNG
 - Ngày khởi hành: ${request.startDate}
 - Người lớn: ${request.adultCount}
 - Trẻ em: ${request.childCount}
@@ -390,139 +909,53 @@ THÔNG TIN NGƯỜI DÙNG:
               )} VNĐ`
             : "không giới hạn cụ thể"
     }
-- Yêu cầu bổ sung: ${
+- Yêu cầu thêm: ${
         request.note ||
         "không có"
     }
 
-QUY TẮC RAG BẮT BUỘC:
+QUY TẮC BẮT BUỘC
+1. destinationKey chỉ được chọn từ mã Dxx trong CONTEXT.
+2. Không tự tạo destinationKey mới.
+3. Không dùng địa điểm ngoài ${locationName}.
+4. cuisineKey chỉ được chọn từ mã Cxx trong CONTEXT.
+5. ${
+        cuisineKeysAvailable
+            ? "Nếu bữa ăn không cần gắn món cụ thể thì cuisines có thể là []."
+            : "Không có cuisine trong context, vì vậy mọi cuisines phải là []."
+    }
+6. days phải có chính xác ${request.dayCount} phần tử.
+7. Mỗi ngày có ít nhất 1 activity; ưu tiên 2-4 activity tùy nhịp độ.
+8. Không xếp hai activity trùng thời gian.
+9. startTime phải nhỏ hơn endTime và dùng định dạng HH:mm.
+10. Hạn chế lặp destination giữa nhiều ngày nếu không cần thiết.
+11. Không bịa nhà hàng, khách sạn hoặc địa chỉ cụ thể ngoài CONTEXT.
 
-1. Chỉ được sử dụng destination có DATABASE_ID xuất hiện trong RAG CONTEXT.
-2. Không được tự tạo destinationId.
-3. Không được sử dụng destination ngoài ${locationName}.
-4. Cuisine chỉ được sử dụng DATABASE_ID xuất hiện trong RAG CONTEXT.
-5. Không bịa destinationId hoặc cuisineId.
-6. destinationName và cuisineName phải tương ứng với DATABASE_ID.
-7. Không bịa nhà hàng, khách sạn hoặc địa chỉ cụ thể không có trong context.
+CHI PHÍ
+- estimatedCosts phải có ít nhất 1 phần tử.
+- Đây là dự toán, không khẳng định là giá thực tế.
+- Với món ăn có AVG_PRICE trong CONTEXT thì ưu tiên dùng AVG_PRICE.
+- Food: calculationUnit="per_person", travelerScope="all" khi phù hợp.
+- Transport có thể dùng calculationUnit="per_group".
+- Nếu chuyến đi từ 2 ngày trở lên, nên có accommodation.
+- Accommodation: calculationUnit="per_room", nightCount=${nightCount}.
+- quantity thông thường bằng 1.
+- Nếu phải tự ước tính giá, note phải ghi rõ "AI ước tính".
 
-QUY TẮC LỊCH TRÌNH:
+CÁCH TÍNH
+- per_person: unitPrice × quantity × số hành khách theo travelerScope
+- per_group: unitPrice × quantity
+- fixed: unitPrice × quantity
+- per_room: unitPrice × số phòng × nightCount
 
-8. days phải có CHÍNH XÁC ${request.dayCount} phần tử.
-9. Tuyệt đối không trả "days": [].
-10. dayNumber phải lần lượt từ 1 đến ${request.dayCount}.
-11. Mỗi ngày phải có ít nhất 1 activity.
-12. Mỗi ngày nên có từ 2 đến 4 activity tùy nhịp độ.
-13. Không xếp hai activity trùng thời gian.
-14. startTime phải nhỏ hơn endTime.
-15. Thời gian phải ở định dạng HH:mm.
-16. Ưu tiên sắp xếp địa điểm hợp lý theo khu vực.
-17. Không lặp một destination ở nhiều ngày nếu không thật sự cần.
-
-QUY TẮC CHI PHÍ:
-
-18. estimatedCosts phải có ít nhất một phần tử.
-19. Đây chỉ là DỰ TOÁN, không khẳng định là giá thực tế.
-
-20. estimatedCosts nên bao gồm khi phù hợp:
-- ăn uống
-- di chuyển
-- vé tham quan
-- hoạt động
-- lưu trú
-
-21. Với món ăn:
-- Nếu RAG CONTEXT có AVG_PRICE thì ưu tiên AVG_PRICE.
-- calculationUnit = "per_person".
-- travelerScope = "all".
-
-22. Với vé tham quan:
-- Nếu context không có giá chính xác thì có thể ước tính.
-- Khi ước tính, note phải ghi rõ "AI ước tính".
-
-23. Với phương tiện:
-- Có thể dùng calculationUnit = "per_group".
-
-24. Với lưu trú:
-- Nếu chuyến đi từ 2 ngày trở lên thì phải có khoản accommodation.
-- calculationUnit = "per_room".
-- nightCount = ${nightCount}.
-- unitPrice là giá dự kiến cho một phòng / một đêm.
-
-25. quantity thông thường bằng 1.
-
-CÁCH HỆ THỐNG TÍNH CHI PHÍ:
-
-- per_person:
-  unitPrice × quantity × số hành khách phù hợp travelerScope
-
-- per_group:
-  unitPrice × quantity
-
-- fixed:
-  unitPrice × quantity
-
-- per_room:
-  unitPrice × số phòng × nightCount
-
-Số người lớn: ${request.adultCount}
-Số trẻ em: ${request.childCount}
-Số phòng: ${request.roomCount}
-Số đêm dự kiến: ${nightCount}
-
-OUTPUT:
-
-- Chỉ trả JSON theo schema.
+OUTPUT
+- Chỉ trả JSON đúng schema.
 - Không markdown.
-- Không đặt JSON trong code block.
 - Không giải thích ngoài JSON.
-- Không được để days rỗng.
-- Phải tạo đủ ${request.dayCount} ngày.
 
-RAG CONTEXT:
-
+CONTEXT
 ${ragContext}
 `.trim();
-}
-
-/* -------------------------------------------------------------------------- */
-/* Retry prompt                                                               */
-/* -------------------------------------------------------------------------- */
-
-function buildRetryPrompt(
-    input: {
-        originalPrompt:
-            string;
-
-        request:
-            AiPlannerRequest;
-
-        reason:
-            string;
-    },
-) {
-    return `${input.originalPrompt}
-
-----------------------------------------
-
-LẦN TRƯỚC OUTPUT KHÔNG VƯỢT QUA VALIDATION.
-
-LÝ DO:
-${input.reason}
-
-HÃY TẠO LẠI TOÀN BỘ JSON TỪ ĐẦU.
-
-YÊU CẦU BẮT BUỘC:
-- days phải có CHÍNH XÁC ${input.request.dayCount} phần tử.
-- Không được trả "days": [].
-- dayNumber phải lần lượt từ 1 đến ${input.request.dayCount}.
-- Mỗi ngày phải có ít nhất 1 activity.
-- destinationId chỉ lấy từ DATABASE_ID destination trong RAG CONTEXT.
-- cuisineId chỉ lấy từ DATABASE_ID cuisine trong RAG CONTEXT.
-- Không tự tạo UUID.
-- estimatedCosts phải có ít nhất 1 phần tử.
-- Chỉ trả JSON.
-- Không markdown.
-- Không giải thích.`.trim();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -530,13 +963,31 @@ YÊU CẦU BẮT BUỘC:
 /* -------------------------------------------------------------------------- */
 
 export async function generateAiItineraryService(
-    request: AiPlannerRequest,
-    userId: string,
+    request:
+        AiPlannerRequest,
+
+    userId:
+        string,
 ) {
+    const totalStartedAt =
+        nowMs();
+
+    /* ---------------------------------------------------------------------- */
+    /* Location                                                               */
+    /* ---------------------------------------------------------------------- */
+
+    const locationStartedAt =
+        nowMs();
+
     const location =
         await findAiPlannerLocationById(
             request.locationId,
         );
+
+    logAiTiming(
+        "location lookup",
+        locationStartedAt,
+    );
 
     if (!location) {
         throw new AiItineraryServiceError(
@@ -546,7 +997,7 @@ export async function generateAiItineraryService(
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Build RAG query                                                        */
+    /* RAG query                                                              */
     /* ---------------------------------------------------------------------- */
 
     const query = [
@@ -584,13 +1035,16 @@ export async function generateAiItineraryService(
         .join(". ");
 
     /* ---------------------------------------------------------------------- */
-    /* Dynamic RAG retrieval                                                  */
+    /* RAG                                                                    */
     /* ---------------------------------------------------------------------- */
 
     const ragLimits =
         getRagRetrievalLimits(
             request,
         );
+
+    const ragStartedAt =
+        nowMs();
 
     const rag =
         await retrieveTravelContextService(
@@ -608,15 +1062,16 @@ export async function generateAiItineraryService(
                 cuisineLimit:
                     ragLimits.cuisineLimit,
 
-                /**
-                 * Tạm giữ threshold hiện tại.
-                 * Benchmark threshold sẽ làm
-                 * ở bước riêng.
-                 */
                 minSimilarity:
                     0.3,
             },
         );
+
+    logAiTiming(
+        "RAG retrieval",
+        ragStartedAt,
+        rag.retrievalStats,
+    );
 
     const destinations =
         rag.results.filter(
@@ -636,8 +1091,13 @@ export async function generateAiItineraryService(
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Allowed canonical IDs                                                  */
+    /* Short key                                                              */
     /* ---------------------------------------------------------------------- */
+
+    const keyContext =
+        buildRagKeyContext(
+            rag.results,
+        );
 
     const allowedDestinationIds =
         new Set(
@@ -668,7 +1128,7 @@ export async function generateAiItineraryService(
         );
 
     /* ---------------------------------------------------------------------- */
-    /* Prompt                                                                 */
+    /* Prompt/schema                                                          */
     /* ---------------------------------------------------------------------- */
 
     const prompt =
@@ -679,233 +1139,98 @@ export async function generateAiItineraryService(
                 location.name,
 
             ragContext:
-                rag.contextText,
+                keyContext.contextText,
+
+            cuisineKeysAvailable:
+                keyContext
+                    .cuisineKeys
+                    .length >
+                0,
+        });
+
+    const generationSchema =
+        buildAiItineraryJsonSchema({
+            dayCount:
+                request.dayCount,
+
+            destinationKeys:
+                keyContext
+                    .destinationKeys,
+
+            cuisineKeys:
+                keyContext
+                    .cuisineKeys,
         });
 
     /* ---------------------------------------------------------------------- */
-    /* Gemini + validation retry                                              */
+    /* Gemini                                                                 */
     /* ---------------------------------------------------------------------- */
 
-    const MAX_GENERATION_ATTEMPTS =
-        2;
+    const geminiStartedAt =
+        nowMs();
 
-    let finalPlan:
-        AiItineraryPlan | null =
-        null;
+    const raw =
+        await generateGeminiJson({
+            prompt,
 
-    let lastRaw:
-        unknown = null;
+            schema:
+                generationSchema,
+        });
 
-    let lastFailureReason =
-        "Output không hợp lệ.";
+    logAiTiming(
+        "Gemini generation",
+        geminiStartedAt,
+    );
 
-    for (
-        let attempt = 1;
-        attempt <=
-        MAX_GENERATION_ATTEMPTS;
-        attempt++
+    /* ---------------------------------------------------------------------- */
+    /* Hydrate + Zod                                                          */
+    /* ---------------------------------------------------------------------- */
+
+    const hydrationStartedAt =
+        nowMs();
+
+    const hydrated =
+        hydrateGeneratedPlan(
+            raw,
+            keyContext,
+        );
+
+    const parsed =
+        aiItineraryPlanSchema.safeParse(
+            hydrated,
+        );
+
+    if (
+        !parsed.success
     ) {
-        const attemptPrompt =
-            attempt === 1
-                ? prompt
-                : buildRetryPrompt(
-                      {
-                          originalPrompt:
-                              prompt,
+        const flattened =
+            parsed.error.flatten();
 
-                          request,
+        console.error(
+            "[AI PLAN VALIDATION ERROR]",
+            flattened,
+        );
 
-                          reason:
-                              lastFailureReason,
-                      },
-                  );
-
-        const raw =
-            await generateGeminiJson({
-                prompt:
-                    attemptPrompt,
-
-                /**
-                 * Không thêm minItems /
-                 * maxItems vào schema này.
-                 *
-                 * Validation chi tiết
-                 * được thực hiện bằng Zod.
-                 */
-                schema:
-                    AI_ITINERARY_JSON_SCHEMA,
-            });
-
-        lastRaw =
-            raw;
-
-        /* ------------------------------------------------------------------ */
-        /* Zod                                                                */
-        /* ------------------------------------------------------------------ */
-
-        const parsed =
-            aiItineraryPlanSchema.safeParse(
-                raw,
-            );
-
-        if (
-            !parsed.success
-        ) {
-            const flattened =
-                parsed.error.flatten();
-
-            console.error(
-                `[AI PLAN VALIDATION ERROR] attempt=${attempt}`,
-                flattened,
-            );
-
-            if (
-                process.env
-                    .NODE_ENV !==
-                "production"
-            ) {
-                console.error(
-                    "[AI PLAN RAW RESPONSE]",
-                    JSON.stringify(
-                        raw,
-                        null,
-                        2,
-                    ),
-                );
-            }
-
-            lastFailureReason =
-                JSON.stringify(
-                    flattened,
-                );
-
-            continue;
-        }
-
-        /* ------------------------------------------------------------------ */
-        /* Exact day count                                                    */
-        /* ------------------------------------------------------------------ */
-
-        if (
-            parsed.data.days
-                .length !==
-            request.dayCount
-        ) {
-            lastFailureReason =
-                `AI tạo ${parsed.data.days.length} ngày nhưng cần chính xác ${request.dayCount} ngày.`;
-
-            console.error(
-                `[AI PLAN DAY COUNT ERROR] attempt=${attempt}`,
-                {
-                    expected:
-                        request.dayCount,
-
-                    actual:
-                        parsed.data.days
-                            .length,
-                },
-            );
-
-            continue;
-        }
-
-        /* ------------------------------------------------------------------ */
-        /* dayNumber sequence                                                 */
-        /* ------------------------------------------------------------------ */
-
-        const validDayNumbers =
-            parsed.data.days.every(
-                (
-                    day,
-                    index,
-                ) =>
-                    day.dayNumber ===
-                    index + 1,
-            );
-
-        if (
-            !validDayNumbers
-        ) {
-            lastFailureReason =
-                `dayNumber phải lần lượt từ 1 đến ${request.dayCount}.`;
-
-            console.error(
-                `[AI PLAN DAY NUMBER ERROR] attempt=${attempt}`,
-                parsed.data.days.map(
-                    (day) =>
-                        day.dayNumber,
-                ),
-            );
-
-            continue;
-        }
-
-        /* ------------------------------------------------------------------ */
-        /* Canonical validation                                               */
-        /* ------------------------------------------------------------------ */
-
-        try {
-            /**
-             * Clone vì canonical validation
-             * sẽ ghi đè name bằng DB value.
-             */
-            const candidate =
-                structuredClone(
-                    parsed.data,
-                );
-
-            finalPlan =
-                await validateCanonicalIds(
-                    candidate,
-
-                    location.id,
-
-                    allowedDestinationIds,
-
-                    allowedCuisineIds,
-                );
-
-            break;
-        } catch (error) {
-            /**
-             * Nếu AI hallucinate ID thì
-             * cho model thêm một cơ hội.
-             */
-            if (
-                error instanceof
-                    AiItineraryServiceError &&
-                error.status ===
-                    422
-            ) {
-                lastFailureReason =
-                    error.message;
-
-                console.error(
-                    `[AI PLAN CANONICAL VALIDATION ERROR] attempt=${attempt}`,
-                    error.message,
-                );
-
-                continue;
-            }
-
-            throw error;
-        }
-    }
-
-    /* ---------------------------------------------------------------------- */
-    /* All attempts failed                                                    */
-    /* ---------------------------------------------------------------------- */
-
-    if (!finalPlan) {
         if (
             process.env
                 .NODE_ENV !==
             "production"
         ) {
             console.error(
-                "[AI PLAN FINAL INVALID RESPONSE]",
+                "[AI PLAN RAW RESPONSE]",
+
                 JSON.stringify(
-                    lastRaw,
+                    raw,
+                    null,
+                    2,
+                ),
+            );
+
+            console.error(
+                "[AI PLAN HYDRATED RESPONSE]",
+
+                JSON.stringify(
+                    hydrated,
                     null,
                     2,
                 ),
@@ -913,13 +1238,38 @@ export async function generateAiItineraryService(
         }
 
         throw new AiItineraryServiceError(
-            `AI không thể tạo lịch trình hợp lệ sau ${MAX_GENERATION_ATTEMPTS} lần thử.`,
+            "AI trả về lịch trình chưa hợp lệ. Vui lòng thử lại.",
             422,
         );
     }
 
+    if (
+        parsed.data.days
+            .length !==
+        request.dayCount
+    ) {
+        throw new AiItineraryServiceError(
+            `AI tạo ${parsed.data.days.length} ngày nhưng cần chính xác ${request.dayCount} ngày.`,
+            422,
+        );
+    }
+
+    logAiTiming(
+        "hydrate + Zod validation",
+        hydrationStartedAt,
+    );
+
+    /**
+     * Không query DB lần nữa sau Gemini.
+     *
+     * ID đã được map từ chính RAG result.
+     * Khi Save vẫn validate DB + signed proof.
+     */
+    const finalPlan =
+        parsed.data;
+
     /* ---------------------------------------------------------------------- */
-    /* Signed generation proof                                                */
+    /* Proof                                                                  */
     /* ---------------------------------------------------------------------- */
 
     const generationProof =
@@ -937,6 +1287,25 @@ export async function generateAiItineraryService(
                 allowedCuisineIds,
             },
         );
+
+    logAiTiming(
+        "TOTAL generate itinerary",
+        totalStartedAt,
+        {
+            ragSources:
+                rag.resultCount,
+
+            destinations:
+                keyContext
+                    .destinationKeys
+                    .length,
+
+            cuisines:
+                keyContext
+                    .cuisineKeys
+                    .length,
+        },
+    );
 
     /* ---------------------------------------------------------------------- */
     /* Response                                                               */
@@ -985,7 +1354,8 @@ export async function generateAiItineraryService(
 
 export async function saveAiItineraryService(
     input: {
-        userId: string;
+        userId:
+            string;
 
         request:
             AiPlannerRequest;
@@ -1011,7 +1381,7 @@ export async function saveAiItineraryService(
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Verify generation proof                                                */
+    /* Verify proof                                                           */
     /* ---------------------------------------------------------------------- */
 
     let proofContext:
@@ -1047,15 +1417,11 @@ export async function saveAiItineraryService(
             );
         }
 
-        /**
-         * Ví dụ server chưa cấu hình
-         * AI_ITINERARY_PROOF_SECRET.
-         */
         throw error;
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Revalidate against original RAG IDs                                    */
+    /* Canonical revalidation                                                 */
     /* ---------------------------------------------------------------------- */
 
     const planToSave =
@@ -1088,7 +1454,7 @@ export async function saveAiItineraryService(
     }
 
     /* ---------------------------------------------------------------------- */
-    /* Save DB                                                                */
+    /* Save                                                                   */
     /* ---------------------------------------------------------------------- */
 
     return createAiItinerary({

@@ -839,7 +839,7 @@ export function HomeHeader() {
                     )}
 
                     <Link
-                        href="/#hanh-trinh"
+                        href="/planner/ai/"
                         className="inline-flex items-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#20494a]"
                     >
                         <Route
@@ -1063,7 +1063,7 @@ export function HomeHeader() {
                         )}
 
                         <Link
-                            href="/#hanh-trinh"
+                            href="/planner/ai/"
                             onClick={
                                 closeMenu
                             }
