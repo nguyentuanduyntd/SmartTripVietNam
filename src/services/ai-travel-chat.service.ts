@@ -30,14 +30,7 @@ type AiExtraction = {
     patch?: StatePatch;
     intent?: TravelChatIntent;
     scope?: ConversationScope;
-
-    /**
-     * Điểm đến user thực sự nhắc tới.
-     *
-     * Khác với patch.locationName:
-     * - requestedLocationName có thể nằm ngoài phạm vi SmartTrip.
-     * - patch.locationName chỉ được phép là location có trong danh sách RAG.
-     */
+    removeLodgingRequirements?: string[];
     requestedLocationName?: string;
 };
 
@@ -121,6 +114,161 @@ const INTEREST_RULES: Array<{
         ],
     },
 ];
+
+const LODGING_REQUIREMENT_RULES = [
+    {
+        value: "Gần biển",
+        keywords: [
+            "gan bien",
+            "sat bien",
+            "gan bai bien",
+            "ven bien",
+            "beachfront",
+            "near beach",
+        ],
+    },
+    {
+        value: "Yên tĩnh",
+        keywords: [
+            "yen tinh",
+            "it on",
+            "khong on",
+            "quiet",
+        ],
+    },
+    {
+        value: "View đẹp",
+        keywords: [
+            "view dep",
+            "view bien",
+            "view nui",
+            "view thanh pho",
+            "scenic view",
+        ],
+    },
+    {
+        value: "Có chỗ đậu xe",
+        keywords: [
+            "cho dau xe",
+            "bai dau xe",
+            "dau o to",
+            "parking",
+        ],
+    },
+    {
+        value: "Có hồ bơi",
+        keywords: [
+            "ho boi",
+            "be boi",
+            "pool",
+            "swimming pool",
+        ],
+    },
+    {
+        value: "Có ăn sáng",
+        keywords: [
+            "an sang",
+            "bao gom an sang",
+            "breakfast",
+        ],
+    },
+    {
+        value: "Gần trung tâm",
+        keywords: [
+            "gan trung tam",
+            "trung tam thanh pho",
+            "city center",
+            "city centre",
+        ],
+    },
+    {
+        value: "Gần khu ẩm thực",
+        keywords: [
+            "gan quan an",
+            "gan khu an uong",
+            "gan am thuc",
+            "nhieu quan an",
+        ],
+    },
+    {
+        value: "Phù hợp gia đình",
+        keywords: [
+            "gia dinh",
+            "family friendly",
+            "phu hop tre em",
+        ],
+    },
+    {
+        value: "Có ban công",
+        keywords: [
+            "ban cong",
+            "balcony",
+        ],
+    },
+    {
+        value: "Cho phép thú cưng",
+        keywords: [
+            "thu cung",
+            "pet friendly",
+            "cho cho meo",
+        ],
+    },
+    {
+        value: "Gần sân bay",
+        keywords: [
+            "gan san bay",
+            "near airport",
+        ],
+    },
+];
+
+
+function canonicalizeLodgingRequirement(
+    value: string,
+) {
+    const normalized =
+        normalizeText(
+            value,
+        );
+
+    if (!normalized) {
+        return "";
+    }
+
+    for (
+        const rule of
+        LODGING_REQUIREMENT_RULES
+    ) {
+        if (
+            normalizeText(
+                rule.value,
+            ) ===
+                normalized ||
+            rule.keywords.some(
+                (keyword) =>
+                    normalized.includes(
+                        normalizeText(
+                            keyword,
+                        ),
+                    ) ||
+                    normalizeText(
+                        keyword,
+                    ).includes(
+                        normalized,
+                    ),
+            )
+        ) {
+            return rule.value;
+        }
+    }
+
+    return value
+        .trim()
+        .slice(
+            0,
+            100,
+        );
+}
 
 /* -------------------------------------------------------------------------- */
 /* Text helpers                                                               */
@@ -270,6 +418,265 @@ function addDaysToIso(
             0,
             10,
         );
+}
+
+function sanitizeChildAges(
+    values: unknown[],
+) {
+    return values
+        .filter(
+            (
+                value,
+            ): value is number =>
+                typeof value ===
+                    "number" &&
+                Number.isFinite(
+                    value,
+                ),
+        )
+        .map(
+            (value) =>
+                Math.trunc(
+                    value,
+                ),
+        )
+        .filter(
+            (value) =>
+                value >= 0 &&
+                value <= 17,
+        )
+        .slice(
+            0,
+            20,
+        );
+}
+
+function extractChildAgesFromMessage(
+    normalized: string,
+    knownChildCount: number,
+) {
+    const hasChildContext =
+        knownChildCount >
+            0 ||
+        /\b(con|be|tre|tre em)\b/.test(
+            normalized,
+        );
+
+    if (
+        !hasChildContext
+    ) {
+        return [];
+    }
+
+    /**
+     * Case:
+     *
+     * "5 và 8 tuổi"
+     * "5 8 tuổi"
+     *
+     * Dấu "," đã bị normalizeText bỏ đi,
+     * nên "5, 8 tuổi" có thể thành "5 8 tuoi".
+     */
+    const compactPair =
+        normalized.match(
+            /\b(\d{1,2})\s+(?:va\s+)?(\d{1,2})\s*tuoi\b/,
+        );
+
+    if (
+        compactPair
+    ) {
+        return sanitizeChildAges(
+            [
+                Number(
+                    compactPair[
+                        1
+                    ],
+                ),
+                Number(
+                    compactPair[
+                        2
+                    ],
+                ),
+            ],
+        );
+    }
+
+    /**
+     * Case:
+     *
+     * "5 tuổi"
+     * "bé 5 tuổi"
+     * "con tôi 5 tuổi"
+     * "bé 5 tuổi và bé 8 tuổi"
+     */
+    const explicitAges =
+        Array.from(
+            normalized.matchAll(
+                /\b(\d{1,2})\s*tuoi\b/g,
+            ),
+        ).map(
+            (match) =>
+                Number(
+                    match[1],
+                ),
+        );
+
+    if (
+        explicitAges.length >
+        0
+    ) {
+        return sanitizeChildAges(
+            explicitAges,
+        );
+    }
+
+    /**
+     * Hỗ trợ thêm dạng:
+     *
+     * "bé 5"
+     * "bé 5, bé 8"
+     *
+     * Chỉ chạy khi conversation đã có child context.
+     */
+    const shortAges =
+        Array.from(
+            normalized.matchAll(
+                /\b(?:be|con)\s+(\d{1,2})\b/g,
+            ),
+        ).map(
+            (match) =>
+                Number(
+                    match[1],
+                ),
+        );
+
+    return sanitizeChildAges(
+        shortAges,
+    );
+}
+
+function mergeChildAges(
+    currentAges: number[],
+    incomingAges: number[],
+    childCount: number,
+) {
+    if (
+        childCount <= 0
+    ) {
+        return [];
+    }
+
+    const current =
+        sanitizeChildAges(
+            currentAges,
+        ).slice(
+            0,
+            childCount,
+        );
+
+    const incoming =
+        sanitizeChildAges(
+            incomingAges,
+        );
+
+    if (
+        incoming.length ===
+        0
+    ) {
+        return current;
+    }
+
+    /**
+     * User vừa gửi đầy đủ tuổi tất cả trẻ
+     * -> lấy dữ liệu mới.
+     */
+    if (
+        incoming.length >=
+        childCount
+    ) {
+        return incoming.slice(
+            0,
+            childCount,
+        );
+    }
+
+    /**
+     * Chỉ có 1 trẻ và user nói lại tuổi
+     * -> hiểu là cập nhật/correction.
+     */
+    if (
+        childCount ===
+            1 &&
+        current.length ===
+            1
+    ) {
+        return [
+            incoming[0],
+        ];
+    }
+
+    /**
+     * Conversation đang thiếu tuổi.
+     *
+     * Ví dụ:
+     *
+     * childCount = 2
+     * current = [5]
+     *
+     * user: "8 tuổi"
+     *
+     * => [5, 8]
+     */
+    if (
+        current.length <
+        childCount
+    ) {
+        return [
+            ...current,
+            ...incoming,
+        ].slice(
+            0,
+            childCount,
+        );
+    }
+
+    return current;
+}
+
+function hasRecentLodgingContext(
+    input: AiTravelChatRequest,
+) {
+    if (
+        input.state
+            .lodgingBudgetPerNight
+    ) {
+        return true;
+    }
+
+    const recentText =
+        (
+            input.history ??
+            []
+        )
+            .slice(
+                -6,
+            )
+            .map(
+                (item) =>
+                    item.content,
+            )
+            .join(
+                " ",
+            );
+
+    const normalized =
+        normalizeText(
+            recentText,
+        );
+
+    return /\b(hotel|khach san|homestay|phong|cho o|luu tru|liteapi|gia phong)\b/.test(
+        normalized,
+    );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -555,35 +962,117 @@ function parseDeterministicPatch(
             );
     }
 
-    const childMatch =
+    /* ---------------------------------------------------------------------- */
+    /* Traveler composition                                                    */
+    /* ---------------------------------------------------------------------- */
+
+    /**
+     * Số trẻ được nói rõ:
+     *
+     * "1 bé"
+     * "2 trẻ"
+     * "2 con"
+     */
+    const explicitChildMatch =
         normalized.match(
-            /\b(\d{1,2})\s*(?:tre em|tre|be)\b/,
+            /\b(\d{1,2})\s*(?:tre em|tre|be|con)\b/,
         );
 
     if (
-        childMatch
+        explicitChildMatch
     ) {
         patch.childCount =
             Math.min(
                 Number(
-                    childMatch[1],
+                    explicitChildMatch[
+                        1
+                    ],
                 ),
                 20,
             );
     }
 
-    const peopleMatch =
-        normalized.match(
-            /\b(\d{1,2})\s*(?:nguoi|ng lon|nguoi lon)\b/,
+    /**
+     * Quan hệ gia đình dạng tự nhiên.
+     *
+     * Ví dụ:
+     *
+     * "tôi đi với vợ và con"
+     * "tôi đi với chồng và con"
+     * "con tôi 5 tuổi"
+     *
+     * Nếu không nói số lượng cụ thể,
+     * hiểu ít nhất có 1 trẻ.
+     */
+    const hasSingularChildRelation =
+        /\b(con toi|con minh|con nha toi|con nha minh|vo va con|chong va con|voi vo va con|voi chong va con|di voi con|cung con)\b/.test(
+            normalized,
         );
 
     if (
-        peopleMatch
+        patch.childCount ===
+            undefined &&
+        hasSingularChildRelation
+    ) {
+        patch.childCount =
+            Math.max(
+                input.state
+                    .childCount ??
+                    0,
+                1,
+            );
+    }
+
+    /**
+     * "2 người lớn" nghĩa là adultCount = 2 trực tiếp.
+     */
+    const explicitAdultMatch =
+        normalized.match(
+            /\b(\d{1,2})\s*(?:nguoi lon|ng lon)\b/,
+        );
+
+    if (
+        explicitAdultMatch
+    ) {
+        patch.adultCount =
+            Math.min(
+                Math.max(
+                    Number(
+                        explicitAdultMatch[
+                            1
+                        ],
+                    ),
+                    1,
+                ),
+                20,
+            );
+    }
+
+    /**
+     * "3 người" là TỔNG số khách.
+     *
+     * Ví dụ:
+     * "3 người, tôi đi với vợ và con"
+     *
+     * childCount = 1
+     * total = 3
+     * => adultCount = 2
+     */
+    const peopleMatch =
+        normalized.match(
+            /\b(\d{1,2})\s*nguoi\b/,
+        );
+
+    if (
+        peopleMatch &&
+        !explicitAdultMatch
     ) {
         const total =
             Math.min(
                 Number(
-                    peopleMatch[1],
+                    peopleMatch[
+                        1
+                    ],
                 ),
                 20,
             );
@@ -602,6 +1091,86 @@ function parseDeterministicPatch(
             );
     }
 
+    /**
+     * "tôi đi với vợ/chồng" => ít nhất 2 người lớn:
+     * user + spouse.
+     *
+     * Chỉ áp dụng khi message không nói số người lớn/tổng người rõ ràng.
+     */
+    const spouseContext =
+        /\btoi\b/.test(
+            normalized,
+        ) &&
+        /\b(vo|chong)\b/.test(
+            normalized,
+        );
+
+    if (
+        spouseContext &&
+        patch.adultCount ===
+            undefined
+    ) {
+        patch.adultCount =
+            Math.max(
+                input.state
+                    .adultCount ??
+                    0,
+                2,
+            );
+    }
+
+    /**
+     * Parse tuổi trẻ em.
+     *
+     * Nếu state đang có childCount > 0,
+     * một câu ngắn như "5 tuổi" vẫn phải được hiểu
+     * là tuổi của trẻ.
+     */
+    const knownChildCount =
+        patch.childCount ??
+        input.state
+            .childCount ??
+        0;
+
+    const childAges =
+        extractChildAgesFromMessage(
+            normalized,
+            knownChildCount,
+        );
+
+    if (
+        childAges.length >
+        0
+    ) {
+        patch.childAges =
+            childAges;
+    }
+
+    const lodgingContext =
+        /\b(hotel|khach san|homestay|phong|cho o|luu tru|nha nghi)\b/.test(
+            normalized,
+        );
+
+    const hasExistingLodgingContext =
+        input.state
+            .lodgingPreference !==
+            "any" ||
+        Boolean(
+            input.state
+                .lodgingBudgetPerNight,
+        ) ||
+        (
+            input.state
+                .lodgingRequirements
+                ?.length ??
+            0
+        ) > 0;
+
+    const perNightContext =
+        /\b(dem|moi dem|mot dem|night|per night)\b/.test(
+            normalized,
+        );
+
     const millionMatch =
         normalized.match(
             /(\d+(?:[.,]\d+)?)\s*(?:trieu|tr)\b/,
@@ -610,16 +1179,6 @@ function parseDeterministicPatch(
     const thousandMatch =
         normalized.match(
             /(\d+(?:[.,]\d+)?)\s*(?:nghin|ngan|k)\b/,
-        );
-
-    const lodgingContext =
-        /\b(hotel|khach san|homestay|phong|cho o|luu tru)\b/.test(
-            normalized,
-        );
-
-    const perNightContext =
-        /\b(dem|moi dem|mot dem|night|per night)\b/.test(
-            normalized,
         );
 
     const parsedMoney =
@@ -651,7 +1210,10 @@ function parseDeterministicPatch(
 
     if (parsedMoney) {
         if (
-            lodgingContext &&
+            (
+                lodgingContext ||
+                hasExistingLodgingContext
+            ) &&
             perNightContext
         ) {
             patch.lodgingBudgetPerNight =
@@ -678,14 +1240,89 @@ function parseDeterministicPatch(
             "hotel";
     }
 
+    /*
+     * Deterministic lodging extraction:
+     * - Bắt được ngay cả khi Gemini lỗi.
+     * - Nếu user đang có lodging context, câu nối tiếp như
+     *   "thêm hồ bơi và parking" vẫn được hiểu đúng.
+     *
+     * Việc XÓA requirement được Gemini trả qua
+     * removeLodgingRequirements và xử lý ở mergeState().
+     */
+    if (
+        lodgingContext ||
+        hasExistingLodgingContext
+    ) {
+        const requirements =
+            new Map<
+                string,
+                string
+            >();
+
+        for (
+            const requirement of
+            input.state
+                .lodgingRequirements ??
+                []
+        ) {
+            const canonical =
+                canonicalizeLodgingRequirement(
+                    requirement,
+                );
+
+            if (canonical) {
+                requirements.set(
+                    normalizeText(
+                        canonical,
+                    ),
+                    canonical,
+                );
+            }
+        }
+
+        for (
+            const rule of
+            LODGING_REQUIREMENT_RULES
+        ) {
+            if (
+                rule.keywords.some(
+                    (keyword) =>
+                        normalized.includes(
+                            normalizeText(
+                                keyword,
+                            ),
+                        ),
+                )
+            ) {
+                requirements.set(
+                    normalizeText(
+                        rule.value,
+                    ),
+                    rule.value,
+                );
+            }
+        }
+
+        if (
+            requirements.size >
+            0
+        ) {
+            patch.lodgingRequirements =
+                Array.from(
+                    requirements.values(),
+                ).slice(
+                    0,
+                    12,
+                );
+        }
+    }
+
     const dateMatch =
         normalized.match(
             /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?\b/,
         );
 
-    if (
-        dateMatch
-    ) {
+    if (dateMatch) {
         const today =
             getVietnamToday();
 
@@ -702,11 +1339,9 @@ function parseDeterministicPatch(
                 Number(
                     dateMatch[1],
                 ),
-
                 Number(
                     dateMatch[2],
                 ),
-
                 dateMatch[3]
                     ? Number(
                           dateMatch[3],
@@ -852,9 +1487,7 @@ function sanitizeAiPatch(
             ? rawPatch.locationName.trim()
             : "";
 
-    if (
-        locationName
-    ) {
+    if (locationName) {
         const match =
             findSupportedLocation(
                 locationName,
@@ -970,6 +1603,29 @@ function sanitizeAiPatch(
         }
     }
 
+    /**
+     * childAges là number[] nên không nằm trong
+     * numeric fields ở trên.
+     */
+    if (
+        Array.isArray(
+            rawPatch.childAges,
+        )
+    ) {
+        const childAges =
+            sanitizeChildAges(
+                rawPatch.childAges,
+            );
+
+        if (
+            childAges.length >
+            0
+        ) {
+            patch.childAges =
+                childAges;
+        }
+    }
+
     if (
         rawPatch.lodgingPreference ===
             "any" ||
@@ -980,6 +1636,63 @@ function sanitizeAiPatch(
     ) {
         patch.lodgingPreference =
             rawPatch.lodgingPreference;
+    }
+
+    if (
+        Array.isArray(
+            rawPatch.lodgingRequirements,
+        )
+    ) {
+        const requirementMap =
+            new Map<
+                string,
+                string
+            >();
+
+        for (
+            const value of
+            rawPatch.lodgingRequirements
+        ) {
+            if (
+                typeof value !==
+                "string"
+            ) {
+                continue;
+            }
+
+            const canonical =
+                canonicalizeLodgingRequirement(
+                    value,
+                );
+
+            if (!canonical) {
+                continue;
+            }
+
+            requirementMap.set(
+                normalizeText(
+                    canonical,
+                ),
+                canonical,
+            );
+
+            if (
+                requirementMap.size >=
+                12
+            ) {
+                break;
+            }
+        }
+
+        if (
+            requirementMap.size >
+            0
+        ) {
+            patch.lodgingRequirements =
+                Array.from(
+                    requirementMap.values(),
+                );
+        }
     }
 
     if (
@@ -1010,7 +1723,12 @@ function sanitizeAiPatch(
                 )
                 .map(
                     (value) =>
-                        value.trim(),
+                        value
+                            .trim()
+                            .slice(
+                                0,
+                                100,
+                            ),
                 )
                 .filter(
                     Boolean,
@@ -1057,11 +1775,62 @@ function sanitizeAiPatch(
             ? source.scope
             : undefined;
 
+    const removeRequirementMap =
+        new Map<
+            string,
+            string
+        >();
+
+    if (
+        Array.isArray(
+            source.removeLodgingRequirements,
+        )
+    ) {
+        for (
+            const value of
+            source.removeLodgingRequirements
+        ) {
+            if (
+                typeof value !==
+                "string"
+            ) {
+                continue;
+            }
+
+            const canonical =
+                canonicalizeLodgingRequirement(
+                    value,
+                );
+
+            if (!canonical) {
+                continue;
+            }
+
+            removeRequirementMap.set(
+                normalizeText(
+                    canonical,
+                ),
+                canonical,
+            );
+
+            if (
+                removeRequirementMap.size >=
+                12
+            ) {
+                break;
+            }
+        }
+    }
+
     return {
         patch,
         intent,
         scope,
         requestedLocationName,
+        removeLodgingRequirements:
+            Array.from(
+                removeRequirementMap.values(),
+            ),
     };
 }
 
@@ -1129,13 +1898,22 @@ Trả JSON duy nhất theo cấu trúc:
     "dayCount": 1-7,
     "adultCount": 1-20,
     "childCount": 0-20,
+    "childAges": [tuổi của từng trẻ mà user NÓI RÕ TRONG TIN NHẮN MỚI, mỗi tuổi 0-17],
     "roomCount": 1-10,
-    "budget": số VNĐ nguyên cho toàn chuyến,
-    "lodgingBudgetPerNight": số VNĐ nguyên nếu user nói rõ ngân sách phòng mỗi đêm,
+    "budget": "số VNĐ nguyên cho toàn chuyến",
+    "lodgingBudgetPerNight": "số VNĐ nguyên nếu user nói rõ ngân sách phòng mỗi đêm",
     "lodgingPreference": "any | hotel | homestay",
+    "lodgingRequirements": [
+      "các yêu cầu riêng cho hotel/homestay, tối đa 12 mục"
+    ],
     "pace": "relaxed | balanced | packed",
-    "interests": ["các sở thích ngắn gọn bằng tiếng Việt"]
-  }
+    "interests": [
+      "các sở thích du lịch ngắn gọn bằng tiếng Việt"
+    ]
+  },
+  "removeLodgingRequirements": [
+    "các yêu cầu lưu trú user nói rõ muốn bỏ"
+  ]
 }
 
 PHÂN LOẠI SCOPE:
@@ -1163,19 +1941,84 @@ PHÂN LOẠI SCOPE:
    - Nếu chỉ nói "tôi buồn ngủ" mà không gắn với lịch trình thì off_topic.
    - Nếu nói "tôi buồn ngủ nên buổi chiều cho tôi nghỉ" thì travel.
 
-QUY TẮC EXTRACT:
+QUY TẮC EXTRACT CHUNG:
 - Chỉ đưa field vào patch khi user nói rõ hoặc có thể suy ra chắc chắn.
 - "2 người" mặc định là 2 người lớn nếu user không nói trẻ em.
+- Nếu user nói tổng số người và thành phần gia đình thì phải tách adultCount/childCount đúng.
+- Ví dụ "3 người, tôi đi với vợ và con" => adultCount=2, childCount=1.
+- Ví dụ "tôi đi với chồng và 2 con" => adultCount=2, childCount=2.
+- childAges là tuổi trẻ em user nói RÕ TRONG TIN NHẮN MỚI.
+- Không copy lại childAges cũ từ STATE vào patch nếu tin nhắn mới không nhắc tuổi.
+- Nếu STATE đang có childCount > 0 và user chỉ trả lời "5 tuổi" thì patch.childAges=[5].
+- Nếu user nói "hai bé 5 và 8 tuổi" hoặc "2 bé 5 và 8 tuổi" thì childCount=2 và childAges=[5,8].
+- Nếu user đang trả lời câu hỏi tuổi trẻ trong luồng tìm hotel thì intent vẫn phải là "lodging".
 - "3 triệu" = 3000000 VNĐ.
 - Nếu user nói "hotel dưới 1 triệu/đêm" thì lodgingBudgetPerNight=1000000, không ghi đè budget toàn chuyến.
 - Nếu user nói rõ homestay/hotel thì ghi lodgingPreference tương ứng.
 - Có thể suy ra ngày tuyệt đối từ "mai", "thứ Sáu tuần sau" dựa trên ngày hôm nay.
 - locationName trong patch CHỈ được là một location có trong danh sách hỗ trợ.
 - Nếu user muốn thay/sửa lịch đã có thì intent=modify_plan.
-- Nếu user hỏi homestay/hotel/chỗ ở thì intent=lodging.
+- Nếu user hỏi homestay/hotel/chỗ ở hoặc bổ sung tiêu chí cho chỗ ở thì intent=lodging.
 - Nếu user hỏi mưa/nắng/dự báo cho chuyến đi thì intent=weather.
 - Nếu scope=off_topic thì intent=out_of_scope.
 - Nếu scope=unsupported_destination thì intent=unsupported_destination.
+
+QUY TẮC RIÊNG CHO LƯU TRÚ:
+- lodgingRequirements CHỈ chứa yêu cầu dành cho hotel/homestay/chỗ ở.
+- Không đưa các lodgingRequirements vào interests.
+- Không tự tạo requirement mà user không đề cập.
+
+Ví dụ:
+"homestay gần biển, yên tĩnh, view đẹp"
+→ lodgingPreference="homestay"
+→ lodgingRequirements=[
+  "Gần biển",
+  "Yên tĩnh",
+  "View đẹp"
+]
+→ intent="lodging"
+
+"hotel có hồ bơi và chỗ đậu xe"
+→ lodgingPreference="hotel"
+→ lodgingRequirements=[
+  "Có hồ bơi",
+  "Có chỗ đậu xe"
+]
+→ intent="lodging"
+
+"ưu tiên gần trung tâm, có ăn sáng"
+trong ngữ cảnh đang tìm chỗ ở
+→ lodgingRequirements=[
+  "Gần trung tâm",
+  "Có ăn sáng"
+]
+→ intent="lodging"
+
+Nếu STATE hiện tại đã có lodging context thì câu nối tiếp:
+"thêm yêu cầu yên tĩnh và có hồ bơi"
+→ lodgingRequirements=[
+  "Yên tĩnh",
+  "Có hồ bơi"
+]
+→ intent="lodging"
+
+Nếu user nói:
+"không cần gần biển nữa"
+→ KHÔNG thêm "Gần biển" vào patch.lodgingRequirements
+→ removeLodgingRequirements=[
+  "Gần biển"
+]
+→ intent="lodging"
+
+Nếu user nói:
+"bỏ hồ bơi và parking"
+→ removeLodgingRequirements=[
+  "Có hồ bơi",
+  "Có chỗ đậu xe"
+]
+→ intent="lodging"
+
+- removeLodgingRequirements chỉ chứa các tiêu chí user muốn bỏ, không chứa tiêu chí mới.
 - Không trả text ngoài JSON.
 `.trim();
 
@@ -1217,7 +2060,7 @@ function detectIntentFallback(
         );
 
     if (
-        /\b(hotel|khach san|homestay|nha nghi|cho o|luu tru)\b/.test(
+        /\b(hotel|khach san|homestay|nha nghi|cho o|luu tru|phong|ho boi|be boi|bai dau xe|cho dau xe|parking|an sang|breakfast|ban cong|balcony|gan bien|sat bien|yen tinh|view dep|gan trung tam|thu cung|pet friendly)\b/.test(
             normalized,
         )
     ) {
@@ -1252,6 +2095,8 @@ function mergeState(
     input: AiTravelChatRequest,
     aiPatch: StatePatch,
     deterministicPatch: StatePatch,
+    removeLodgingRequirements:
+        string[] = [],
 ): PlannerConversationStateInput {
     const effectiveAiPatch:
         StatePatch =
@@ -1259,6 +2104,11 @@ function mergeState(
             ...aiPatch,
         };
 
+    /**
+     * Nếu deterministic parser xác định đây là
+     * ngân sách lưu trú theo đêm thì không cho Gemini
+     * đồng thời ghi đè budget toàn chuyến.
+     */
     if (
         deterministicPatch.lodgingBudgetPerNight &&
         deterministicPatch.budget ===
@@ -1280,6 +2130,142 @@ function mergeState(
                 []),
         ]);
 
+    /*
+     * Merge lodging requirements từ:
+     * 1. state hiện tại
+     * 2. Gemini extraction
+     * 3. deterministic extraction
+     *
+     * Sau đó loại các requirement user yêu cầu bỏ.
+     */
+    const lodgingRequirementMap =
+        new Map<
+            string,
+            string
+        >();
+
+    const requirementSources =
+        [
+            ...(input.state
+                .lodgingRequirements ??
+                []),
+
+            ...(effectiveAiPatch
+                .lodgingRequirements ??
+                []),
+
+            ...(deterministicPatch
+                .lodgingRequirements ??
+                []),
+        ];
+
+    for (
+        const requirement of
+        requirementSources
+    ) {
+        const canonical =
+            canonicalizeLodgingRequirement(
+                requirement,
+            );
+
+        if (!canonical) {
+            continue;
+        }
+
+        lodgingRequirementMap.set(
+            normalizeText(
+                canonical,
+            ),
+            canonical,
+        );
+    }
+
+    for (
+        const requirement of
+        removeLodgingRequirements
+    ) {
+        const canonical =
+            canonicalizeLodgingRequirement(
+                requirement,
+            );
+
+        const target =
+            normalizeText(
+                canonical ||
+                    requirement,
+            );
+
+        if (!target) {
+            continue;
+        }
+
+        for (
+            const key of
+            Array.from(
+                lodgingRequirementMap.keys(),
+            )
+        ) {
+            if (
+                key ===
+                    target ||
+                key.includes(
+                    target,
+                ) ||
+                target.includes(
+                    key,
+                )
+            ) {
+                lodgingRequirementMap.delete(
+                    key,
+                );
+            }
+        }
+    }
+
+    /**
+     * Số trẻ:
+     * deterministic có độ tin cậy cao hơn khi
+     * message chứa số lượng rõ ràng.
+     */
+    const childCount =
+        deterministicPatch.childCount ??
+        effectiveAiPatch.childCount ??
+        input.state
+            .childCount ??
+        0;
+
+    /**
+     * Tuổi trẻ trong tin nhắn hiện tại:
+     * deterministic ưu tiên hơn Gemini.
+     *
+     * Gemini chỉ bổ trợ các cách diễn đạt tự nhiên
+     * mà regex chưa bắt được.
+     */
+    const deterministicChildAges =
+        deterministicPatch
+            .childAges ??
+        [];
+
+    const aiChildAges =
+        effectiveAiPatch
+            .childAges ??
+        [];
+
+    const incomingChildAges =
+        deterministicChildAges.length >
+        0
+            ? deterministicChildAges
+            : aiChildAges;
+
+    const childAges =
+        mergeChildAges(
+            input.state
+                .childAges ??
+                [],
+            incomingChildAges,
+            childCount,
+        );
+
     const next:
         PlannerConversationStateInput =
         {
@@ -1287,12 +2273,20 @@ function mergeState(
             ...effectiveAiPatch,
             ...deterministicPatch,
 
-            childCount:
-                deterministicPatch.childCount ??
-                effectiveAiPatch.childCount ??
+            /**
+             * Khai báo explicit để tránh một patch AI
+             * không chắc chắn vô tình ghi đè kết quả
+             * deterministic đã parse được.
+             */
+            adultCount:
+                deterministicPatch.adultCount ??
+                effectiveAiPatch.adultCount ??
                 input.state
-                    .childCount ??
-                0,
+                    .adultCount,
+
+            childCount,
+
+            childAges,
 
             roomCount:
                 deterministicPatch.roomCount ??
@@ -1308,6 +2302,14 @@ function mergeState(
                     .lodgingPreference ??
                 "any",
 
+            lodgingRequirements:
+                Array.from(
+                    lodgingRequirementMap.values(),
+                ).slice(
+                    0,
+                    12,
+                ),
+
             pace:
                 deterministicPatch.pace ??
                 effectiveAiPatch.pace ??
@@ -1320,6 +2322,32 @@ function mergeState(
                     combinedInterests,
                 ),
         };
+
+    /**
+     * Không còn trẻ em thì phải xóa tuổi cũ.
+     */
+    if (
+        next.childCount ===
+        0
+    ) {
+        next.childAges =
+            [];
+    }
+
+    /**
+     * Không cho số tuổi lưu trong state nhiều hơn
+     * số trẻ hiện tại.
+     */
+    if (
+        next.childAges.length >
+        next.childCount
+    ) {
+        next.childAges =
+            next.childAges.slice(
+                0,
+                next.childCount,
+            );
+    }
 
     const noteParts =
         [
@@ -1530,6 +2558,26 @@ function buildReadyReply(
     return `Mình đã đủ thông tin rồi ✨ Mình sẽ lên lịch ${state.dayCount} ngày tại ${state.locationName}, khởi hành ${state.startDate}, cho ${travelers} người, ${formatBudget(state.budget)}. Mình đang ưu tiên ${state.interests?.length ? state.interests.join(", ") : "trải nghiệm địa phương và lịch trình cân bằng"}.`;
 }
 
+function formatLodgingRequirements(
+    state:
+        PlannerConversationStateInput,
+) {
+    const requirements =
+        state.lodgingRequirements ??
+        [];
+
+    if (
+        requirements.length ===
+        0
+    ) {
+        return "";
+    }
+
+    return requirements.join(
+        ", ",
+    );
+}
+
 function buildIntentResponse(
     intent: TravelChatIntent,
     state: PlannerConversationStateInput,
@@ -1549,6 +2597,7 @@ function buildIntentResponse(
             return {
                 action:
                     "none",
+
                 reply:
                     "Được. Bạn muốn tìm hotel/homestay ở đâu?",
             };
@@ -1559,21 +2608,119 @@ function buildIntentResponse(
             !state.dayCount ||
             !state.adultCount
         ) {
+            const requirementLabel =
+                formatLodgingRequirements(
+                    state,
+                );
+
             return {
                 action:
                     "none",
+
                 reply:
-                    "Mình tìm giá phòng thật được, nhưng cần ngày đi, số ngày và số người trước. Bạn gửi các thông tin đó giúp mình nhé.",
+                    `Mình đã ghi nhận yêu cầu chỗ ở${
+                        requirementLabel
+                            ? `: ${requirementLabel}`
+                            : ""
+                    }. Để tìm giá phòng thật, mình cần ngày đi, số ngày và số người trước.`,
             };
         }
+
+        const childCount =
+            state.childCount ??
+            0;
+
+        const childAges =
+            state.childAges ??
+            [];
+
+        /**
+         * LiteAPI cần tuổi từng trẻ để tính đúng rate.
+         * Chỉ cho phép lodging_search khi đã đủ tuổi.
+         */
+        if (
+            childCount >
+            childAges.length
+        ) {
+            const missingCount =
+                childCount -
+                childAges.length;
+
+            if (
+                childAges.length ===
+                0
+            ) {
+                return {
+                    action:
+                        "none",
+
+                    reply:
+                        childCount ===
+                        1
+                            ? "Mình đã biết chuyến đi có 1 trẻ em. Bé bao nhiêu tuổi để mình lấy đúng giá phòng?"
+                            : `Mình đã biết có ${childCount} trẻ em. Bạn cho mình tuổi của từng bé để mình lấy đúng giá phòng nhé, ví dụ: “5 và 8 tuổi”.`,
+                };
+            }
+
+            const knownAges =
+                childAges
+                    .map(
+                        (age) =>
+                            `${age} tuổi`,
+                    )
+                    .join(
+                        ", ",
+                    );
+
+            return {
+                action:
+                    "none",
+
+                reply:
+                    missingCount ===
+                    1
+                        ? `Mình đã ghi nhận ${knownAges}. Còn 1 bé nữa bao nhiêu tuổi?`
+                        : `Mình đã ghi nhận ${knownAges}. Bạn cho mình tuổi của ${missingCount} bé còn lại nhé.`,
+            };
+        }
+
+        const requirementLabel =
+            formatLodgingRequirements(
+                state,
+            );
+
+        const travelerText =
+            childCount >
+            0
+                ? `${state.adultCount} người lớn + ${childCount} trẻ em (${childAges
+                      .map(
+                          (age) =>
+                              `${age} tuổi`,
+                      )
+                      .join(", ")})`
+                : `${state.adultCount} người lớn`;
+
+        const roomText =
+            `${state.roomCount ?? 1} phòng`;
 
         return {
             action:
                 "lodging_search",
+
             reply:
                 state.lodgingBudgetPerNight
-                    ? `Mình đang tìm chỗ ở tại ${state.locationName} với mức khoảng ${formatBudget(state.lodgingBudgetPerNight)}/đêm.`
-                    : `Mình đang tìm các chỗ ở có giá thật tại ${state.locationName}. Nếu muốn lọc chặt hơn, bạn có thể nói “hotel dưới 1 triệu/đêm”.`,
+                    ? `Mình đang tìm chỗ ở tại ${state.locationName} cho ${travelerText}, ${roomText}, với mức khoảng tối đa ${formatBudget(
+                          state.lodgingBudgetPerNight,
+                      )}/đêm${
+                          requirementLabel
+                              ? `, ưu tiên: ${requirementLabel}`
+                              : ""
+                      }.`
+                    : `Mình đang tìm các chỗ ở có giá thật tại ${state.locationName} cho ${travelerText}, ${roomText}${
+                          requirementLabel
+                              ? `, ưu tiên: ${requirementLabel}`
+                              : ""
+                      }. Nếu muốn giới hạn giá, bạn có thể nói “hotel dưới 1 triệu/đêm”.`,
         };
     }
 
@@ -1588,6 +2735,7 @@ function buildIntentResponse(
             return {
                 action:
                     "none",
+
                 reply:
                     "Được. Bạn cho mình điểm đến và ngày khởi hành để mình kiểm tra dự báo đúng thời điểm nhé.",
             };
@@ -1596,6 +2744,7 @@ function buildIntentResponse(
         return {
             action:
                 "weather_check",
+
             reply:
                 "Mình đang đối chiếu dự báo theo ngày đi. Nếu đã có lịch trình, mình sẽ cảnh báo riêng các hoạt động ngoài trời có nguy cơ mưa/gió/nắng nóng.",
         };
@@ -1609,6 +2758,7 @@ function buildIntentResponse(
         return {
             action:
                 "offer_regenerate",
+
             reply:
                 "Mình đã cập nhật yêu cầu mới. Bạn muốn mình dựng lại lịch trình theo thay đổi này ngay không?",
 
@@ -1616,8 +2766,10 @@ function buildIntentResponse(
                 {
                     label:
                         "✨ Cập nhật lịch trình",
+
                     value:
                         "",
+
                     action:
                         "generate",
                 },
@@ -1683,6 +2835,32 @@ export async function handleAiTravelChatService(
         );
 
     /**
+     * Nếu user đang trả lời tuổi trẻ trong flow tìm lodging
+     * (ví dụ chỉ nói "5 tuổi"), phải giữ ngữ cảnh lodging
+     * ngay cả khi Gemini phân loại câu ngắn này thành general
+     * hoặc off_topic.
+     */
+    const hasChildAgeUpdate =
+        (
+            deterministicPatch
+                .childAges
+                ?.length ??
+            0
+        ) > 0 ||
+        (
+            ai.patch
+                ?.childAges
+                ?.length ??
+            0
+        ) > 0;
+
+    const isLodgingChildAgeContinuation =
+        hasChildAgeUpdate &&
+        hasRecentLodgingContext(
+            input,
+        );
+
+    /**
      * Nếu user nhắc destination cụ thể:
      * kiểm tra lại bằng code, không chỉ tin Gemini.
      */
@@ -1729,10 +2907,13 @@ export async function handleAiTravelChatService(
     }
 
     if (
-        ai.scope ===
-            "off_topic" ||
-        ai.intent ===
-            "out_of_scope"
+        (
+            ai.scope ===
+                "off_topic" ||
+            ai.intent ===
+                "out_of_scope"
+        ) &&
+        !isLodgingChildAgeContinuation
     ) {
         console.info(
             "[AI TRAVEL CHAT SCOPE]",
@@ -1755,6 +2936,8 @@ export async function handleAiTravelChatService(
             input,
             ai.patch ?? {},
             deterministicPatch,
+            ai.removeLodgingRequirements ??
+                [],
         );
 
     /**
@@ -1764,7 +2947,7 @@ export async function handleAiTravelChatService(
      *
      * Vì vậy ở đây nếu Gemini không trả intent thì mới dùng fallback.
      */
-    const intent:
+    let intent:
         TravelChatIntent =
         ai.intent ??
         detectIntentFallback(
@@ -1772,6 +2955,17 @@ export async function handleAiTravelChatService(
             input.hasGeneratedPlan ??
                 false,
         );
+
+    /**
+     * Nếu user đang trả lời tuổi trẻ trong flow lodging,
+     * luôn tiếp tục lodging thay vì quay về planning/general.
+     */
+    if (
+        isLodgingChildAgeContinuation
+    ) {
+        intent =
+            "lodging";
+    }
 
     const readyToGenerate =
         isReady(
@@ -1866,7 +3060,7 @@ export async function handleAiTravelChatService(
                 : [
                       {
                           label:
-                              "✨ Lên lịch trình",
+                              "Lên lịch trình",
                           value:
                               "",
                           action:

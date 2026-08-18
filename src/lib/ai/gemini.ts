@@ -1,9 +1,6 @@
 import "server-only";
 
-import {
-    GoogleGenAI,
-    ThinkingLevel,
-} from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 let client: GoogleGenAI | null = null;
 
@@ -16,6 +13,10 @@ type GeminiThinkingLevel =
     | "low"
     | "medium"
     | "high";
+
+/* -------------------------------------------------------------------------- */
+/* Config                                                                      */
+/* -------------------------------------------------------------------------- */
 
 function getGeminiThinkingLevel(): GeminiThinkingLevel {
     const configured =
@@ -33,25 +34,6 @@ function getGeminiThinkingLevel(): GeminiThinkingLevel {
     return "low";
 }
 
-function toSdkThinkingLevel(
-    level: GeminiThinkingLevel,
-): ThinkingLevel {
-    switch (level) {
-        case "minimal":
-            return ThinkingLevel.MINIMAL;
-
-        case "medium":
-            return ThinkingLevel.MEDIUM;
-
-        case "high":
-            return ThinkingLevel.HIGH;
-
-        case "low":
-        default:
-            return ThinkingLevel.LOW;
-    }
-}
-
 function getGeminiClient() {
     if (client) {
         return client;
@@ -66,13 +48,16 @@ function getGeminiClient() {
         );
     }
 
-    client =
-        new GoogleGenAI({
-            apiKey,
-        });
+    client = new GoogleGenAI({
+        apiKey,
+    });
 
     return client;
 }
+
+/* -------------------------------------------------------------------------- */
+/* JSON helpers                                                                */
+/* -------------------------------------------------------------------------- */
 
 function cleanJsonText(
     value: string,
@@ -114,8 +99,8 @@ function cleanJsonText(
 /**
  * Chỉ dùng cho JSON nhỏ của Chat/NLU.
  *
- * Nếu model vô tình thêm text trước/sau JSON,
- * lấy object JSON đầu tiên có dấu ngoặc cân bằng.
+ * Nếu model thêm text trước/sau JSON
+ * thì lấy object JSON đầu tiên.
  */
 function extractFirstJsonObject(
     value: string,
@@ -247,6 +232,144 @@ function parseJsonOrThrow(
 }
 
 /* -------------------------------------------------------------------------- */
+/* Error helpers                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Gemini có thể reject Structured Output schema
+ * bằng HTTP 400 với message rất chung chung:
+ *
+ * - Request contains an invalid argument
+ * - invalid_request
+ *
+ * Chỉ fallback trong đúng trường hợp request schema
+ * bị API từ chối.
+ *
+ * Các lỗi khác vẫn throw để tránh che lỗi thật.
+ */
+function isInvalidStructuredOutputRequest(
+    error: unknown,
+) {
+    if (
+        error === null ||
+        typeof error !==
+            "object"
+    ) {
+        return false;
+    }
+
+    const candidate =
+        error as {
+            status?: unknown;
+            statusCode?: unknown;
+            message?: unknown;
+            body?: unknown;
+        };
+
+    const status =
+        typeof candidate.status ===
+        "number"
+            ? candidate.status
+            : typeof candidate.statusCode ===
+                "number"
+              ? candidate.statusCode
+              : undefined;
+
+    if (
+        status !==
+        400
+    ) {
+        return false;
+    }
+
+    const parts: string[] =
+        [];
+
+    if (
+        typeof candidate.message ===
+        "string"
+    ) {
+        parts.push(
+            candidate.message,
+        );
+    }
+
+    if (
+        typeof candidate.body ===
+        "string"
+    ) {
+        parts.push(
+            candidate.body,
+        );
+    }
+
+    const message =
+        parts
+            .join(" ")
+            .toLowerCase();
+
+    return (
+        message.includes(
+            "invalid argument",
+        ) ||
+        message.includes(
+            "invalid_request",
+        )
+    );
+}
+
+/**
+ * Nếu Structured Output bị Gemini API reject,
+ * schema vẫn được đưa trực tiếp vào prompt.
+ *
+ * Backend sau đó vẫn:
+ *
+ * Gemini JSON
+ * -> hydrate
+ * -> Zod
+ * -> business validation
+ *
+ * nên không bỏ validation.
+ */
+function buildItineraryFallbackPrompt(
+    prompt: string,
+    schema:
+        Record<
+            string,
+            unknown
+        >,
+) {
+    return `
+${prompt}
+
+YÊU CẦU OUTPUT BỔ SUNG
+
+Gemini API hiện không enforce schema ở request này,
+vì vậy bạn PHẢI tự tuân thủ chính xác JSON Schema bên dưới.
+
+QUY TẮC:
+1. Chỉ trả về duy nhất một JSON object.
+2. Không markdown.
+3. Không dùng \`\`\`.
+4. Không giải thích trước hoặc sau JSON.
+5. Không thêm field ngoài cấu trúc cần thiết.
+6. Giữ chính xác tên property trong schema.
+7. Các mã destinationKey và cuisineKey chỉ được lấy từ CONTEXT.
+8. days phải có đúng số ngày được yêu cầu.
+9. Nếu cuisines không phù hợp thì trả [].
+10. nightCount có thể là null nếu khoản chi không phải accommodation.
+
+JSON SCHEMA:
+
+${JSON.stringify(
+    schema,
+    null,
+    2,
+)}
+`.trim();
+}
+
+/* -------------------------------------------------------------------------- */
 /* CHAT / NLU                                                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -357,9 +480,28 @@ async function requestGeminiLooseJson(
 }
 
 /* -------------------------------------------------------------------------- */
-/* ITINERARY STRUCTURED OUTPUT                                                 */
+/* ITINERARY                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Strategy:
+ *
+ * Attempt 1:
+ * Gemini Interactions + response_format.schema
+ *
+ * Nếu API chấp nhận:
+ * -> dùng Structured Output chuẩn.
+ *
+ * Nếu API trả 400 invalid_request:
+ * -> tự động fallback sang JSON mode
+ * -> đưa toàn bộ JSON Schema vào prompt
+ * -> backend hydrate + Zod validation như cũ.
+ *
+ * Nhờ vậy:
+ * - không làm hỏng itinerary khi Gemini reject schema
+ * - vẫn ưu tiên Structured Output khi Google xử lý được
+ * - không bỏ backend validation
+ */
 export async function generateGeminiJson(
     input: {
         prompt: string;
@@ -373,11 +515,6 @@ export async function generateGeminiJson(
 ) {
     const thinkingLevel =
         getGeminiThinkingLevel();
-
-    const sdkThinkingLevel =
-        toSdkThinkingLevel(
-            thinkingLevel,
-        );
 
     const schemaChars =
         JSON.stringify(
@@ -404,47 +541,51 @@ export async function generateGeminiJson(
                 true,
 
             api:
-                "generateContent",
+                "interactions",
 
             schemaMode:
-                "responseJsonSchema",
+                "response_format.schema",
         },
     );
+
+    /* ---------------------------------------------------------------------- */
+    /* Attempt 1: Structured Output                                            */
+    /* ---------------------------------------------------------------------- */
 
     try {
         const response =
             await getGeminiClient()
-                .models
-                .generateContent({
+                .interactions
+                .create({
                     model:
                         GEMINI_MODEL,
 
-                    contents:
+                    input:
                         input.prompt,
 
-                    config: {
-                        /**
-                         * QUAN TRỌNG:
-                         *
-                         * Schema lần này được Gemini API enforce
-                         * thật sự, không còn chỉ nằm trong prompt.
-                         */
-                        responseMimeType:
+                    generation_config: {
+                        thinking_level:
+                            thinkingLevel,
+                    },
+
+                    response_format: {
+                        type:
+                            "text",
+
+                        mime_type:
                             "application/json",
 
-                        responseJsonSchema:
+                        schema:
                             input.schema,
-
-                        thinkingConfig: {
-                            thinkingLevel:
-                                sdkThinkingLevel,
-                        },
                     },
                 });
 
         console.info(
             "[GEMINI ITINERARY TIMING]",
             {
+                mode:
+                    "structured",
+
                 elapsedMs:
                     Math.round(
                         performance.now() -
@@ -454,7 +595,164 @@ export async function generateGeminiJson(
         );
 
         const text =
-            response.text;
+            response.output_text;
+
+        if (!text) {
+            throw new Error(
+                "Gemini không trả về nội dung itinerary.",
+            );
+        }
+
+        return parseJsonOrThrow(
+            text,
+            "ITINERARY",
+            false,
+        );
+    } catch (error) {
+        const elapsedMs =
+            Math.round(
+                performance.now() -
+                    startedAt,
+            );
+
+        /**
+         * Chỉ fallback nếu Gemini reject
+         * Structured Output request bằng HTTP 400.
+         */
+        if (
+            !isInvalidStructuredOutputRequest(
+                error,
+            )
+        ) {
+            console.error(
+                "[GEMINI ITINERARY ERROR]",
+                {
+                    model:
+                        GEMINI_MODEL,
+
+                    thinkingLevel,
+
+                    promptChars:
+                        input.prompt.length,
+
+                    schemaChars,
+
+                    structuredSchema:
+                        true,
+
+                    api:
+                        "interactions",
+
+                    schemaMode:
+                        "response_format.schema",
+
+                    elapsedMs,
+
+                    error,
+                },
+            );
+
+            throw error;
+        }
+
+        console.warn(
+            "[GEMINI ITINERARY STRUCTURED OUTPUT REJECTED]",
+            {
+                model:
+                    GEMINI_MODEL,
+
+                status:
+                    400,
+
+                elapsedMs,
+
+                action:
+                    "retry_json_mode_with_schema_in_prompt",
+            },
+        );
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Attempt 2: JSON mode fallback                                           */
+    /* ---------------------------------------------------------------------- */
+
+    const fallbackPrompt =
+        buildItineraryFallbackPrompt(
+            input.prompt,
+            input.schema,
+        );
+
+    const fallbackStartedAt =
+        performance.now();
+
+    console.info(
+        "[GEMINI ITINERARY FALLBACK REQUEST]",
+        {
+            model:
+                GEMINI_MODEL,
+
+            thinkingLevel,
+
+            promptChars:
+                fallbackPrompt.length,
+
+            schemaChars,
+
+            structuredSchema:
+                false,
+
+            api:
+                "interactions",
+
+            schemaMode:
+                "prompt_schema",
+        },
+    );
+
+    try {
+        const response =
+            await getGeminiClient()
+                .interactions
+                .create({
+                    model:
+                        GEMINI_MODEL,
+
+                    input:
+                        fallbackPrompt,
+
+                    generation_config: {
+                        thinking_level:
+                            thinkingLevel,
+                    },
+
+                    /**
+                     * Chỉ ép MIME JSON.
+                     *
+                     * Không gửi schema vào response_format
+                     * vì chính schema đang khiến API trả 400.
+                     */
+                    response_format: {
+                        type:
+                            "text",
+
+                        mime_type:
+                            "application/json",
+                    },
+                });
+
+        console.info(
+            "[GEMINI ITINERARY FALLBACK TIMING]",
+            {
+                elapsedMs:
+                    Math.round(
+                        performance.now() -
+                            fallbackStartedAt,
+                    ),
+            },
+        );
+
+        const text =
+            response.output_text;
 
         if (!text) {
             throw new Error(
@@ -463,25 +761,19 @@ export async function generateGeminiJson(
         }
 
         /**
-         * Không sử dụng extractFirstJsonObject ở đây.
+         * JSON mode đã yêu cầu application/json.
          *
-         * Vì itinerary bắt buộc phải có toàn bộ:
-         * - title
-         * - description
-         * - days
-         * - estimatedCosts
-         *
-         * Nếu JSON bị thiếu phần cuối thì phải fail,
-         * không được âm thầm chấp nhận.
+         * Không dùng extractFirstJsonObject để tránh
+         * âm thầm cắt mất itinerary bị truncate.
          */
         return parseJsonOrThrow(
             text,
-            "ITINERARY",
+            "ITINERARY_FALLBACK",
             false,
         );
-    } catch (error) {
+    } catch (fallbackError) {
         console.error(
-            "[GEMINI ITINERARY ERROR]",
+            "[GEMINI ITINERARY FALLBACK ERROR]",
             {
                 model:
                     GEMINI_MODEL,
@@ -489,27 +781,31 @@ export async function generateGeminiJson(
                 thinkingLevel,
 
                 promptChars:
-                    input.prompt.length,
+                    fallbackPrompt.length,
 
                 schemaChars,
 
                 structuredSchema:
-                    true,
+                    false,
 
                 api:
-                    "generateContent",
+                    "interactions",
+
+                schemaMode:
+                    "prompt_schema",
 
                 elapsedMs:
                     Math.round(
                         performance.now() -
-                            startedAt,
+                            fallbackStartedAt,
                     ),
 
-                error,
+                error:
+                    fallbackError,
             },
         );
 
-        throw error;
+        throw fallbackError;
     }
 }
 

@@ -31,8 +31,10 @@ export function createChatId(prefix = "msg") {
 export function createInitialConversationState(): PlannerConversationState {
     return {
         childCount: 0,
+        childAges: [],
         roomCount: 1,
         lodgingPreference: "any",
+        lodgingRequirements: [],
         pace: "balanced",
         interests: [],
     };

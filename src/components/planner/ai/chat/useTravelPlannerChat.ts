@@ -17,12 +17,12 @@ import type {
 } from "@/src/components/planner/ai/ai-planner.types";
 
 import type {
+    HotelSearchResult,
     PlannerConversationState,
     TravelChatHistoryItem,
     TravelChatMessage,
     TravelChatServerResponse,
     TravelQuickReply,
-    HotelSearchResult,
     TravelWeatherResult,
 } from "@/src/components/planner/ai/chat/ai-travel-chat.types";
 
@@ -57,15 +57,90 @@ function toHistory(
             ) => ({
                 role:
                     message.role,
-
                 content:
                     message.content,
             }),
         );
 }
 
+function addDaysToIso(
+    iso: string,
+    days: number,
+) {
+    const date =
+        new Date(
+            `${iso}T00:00:00Z`,
+        );
+
+    date.setUTCDate(
+        date.getUTCDate() +
+            days,
+    );
+
+    return date
+        .toISOString()
+        .slice(
+            0,
+            10,
+        );
+}
+
+function getHotelNightCount(
+    state:
+        PlannerConversationState,
+) {
+    /**
+     * Giữ cùng convention với itinerary:
+     *
+     * 3 ngày -> 2 đêm
+     * 2 ngày -> 1 đêm
+     * 1 ngày -> vẫn tìm tối thiểu 1 đêm
+     *
+     * Vì hotel availability bắt buộc check-out > check-in.
+     */
+    return Math.max(
+        (
+            state.dayCount ??
+            1
+        ) - 1,
+        1,
+    );
+}
+
+function buildWeatherActivities(
+    generated:
+        GeneratedItinerary | null,
+) {
+    if (!generated) {
+        return [];
+    }
+
+    return generated.plan.days.flatMap(
+        (
+            day,
+        ) =>
+            day.activities.map(
+                (
+                    activity,
+                ) => ({
+                    dayNumber:
+                        day.dayNumber,
+                    destinationName:
+                        activity.destinationName,
+                    title:
+                        activity.title,
+                    description:
+                        activity.description,
+                    startTime:
+                        activity.startTime,
+                }),
+            ),
+    );
+}
+
 export function useTravelPlannerChat(
-    locations: LocationOption[],
+    locations:
+        LocationOption[],
 ) {
     const router =
         useRouter();
@@ -74,7 +149,9 @@ export function useTravelPlannerChat(
         messages,
         setMessages,
     ] =
-        useState<TravelChatMessage[]>(
+        useState<
+            TravelChatMessage[]
+        >(
             () =>
                 createWelcomeMessages(),
         );
@@ -83,7 +160,9 @@ export function useTravelPlannerChat(
         state,
         setState,
     ] =
-        useState<PlannerConversationState>(
+        useState<
+            PlannerConversationState
+        >(
             () =>
                 createInitialConversationState(),
         );
@@ -190,7 +269,6 @@ export function useTravelPlannerChat(
     function appendAssistantText(
         content:
             string,
-
         quickReplies?:
             TravelQuickReply[],
     ) {
@@ -199,46 +277,20 @@ export function useTravelPlannerChat(
                 createChatId(
                     "assistant",
                 ),
-
             role:
                 "assistant",
-
             type:
                 "text",
-
             createdAt:
                 Date.now(),
-
             content,
-
             quickReplies,
         });
     }
 
-    function addDays(
-        iso:
-            string,
-
-        days:
-            number,
-    ) {
-        const date =
-            new Date(
-                `${iso}T00:00:00Z`,
-            );
-
-        date.setUTCDate(
-            date.getUTCDate() +
-                days,
-        );
-
-        return date
-            .toISOString()
-            .slice(
-                0,
-                10,
-            );
-    }
+    /* ---------------------------------------------------------------------- */
+    /* Hotel search                                                           */
+    /* ---------------------------------------------------------------------- */
 
     async function searchLodging(
         nextState:
@@ -256,21 +308,59 @@ export function useTravelPlannerChat(
             !nextState.dayCount ||
             !nextState.adultCount
         ) {
+            appendAssistantText(
+                "Mình chưa đủ điểm đến, ngày đi, số ngày hoặc số người để lấy giá phòng thật.",
+            );
+
             return;
         }
+
+        const childCount =
+            nextState.childCount ??
+            0;
+
+        const childAges =
+            nextState.childAges ??
+            [];
+
+        /**
+         * Đây là guard phía client.
+         * Server schema và LiteAPI provider vẫn kiểm tra lại.
+         */
+        if (
+            childAges.length !==
+            childCount
+        ) {
+            appendAssistantText(
+                childCount >
+                0
+                    ? `Mình cần đủ tuổi của ${childCount} trẻ em trước khi gửi truy vấn giá phòng.`
+                    : "Thông tin tuổi trẻ em chưa đồng bộ, bạn thử gửi lại giúp mình nhé.",
+            );
+
+            return;
+        }
+
+        const nights =
+            getHotelNightCount(
+                nextState,
+            );
+
+        const checkOutDate =
+            addDaysToIso(
+                nextState.startDate,
+                nights,
+            );
 
         setIsSearchingLodging(
             true,
         );
 
-        try {
-            const nights =
-                Math.max(
-                    nextState.dayCount -
-                        1,
-                    1,
-                );
+        setError(
+            null,
+        );
 
+        try {
             const response =
                 await fetch(
                     "/api/ai/travel/hotels",
@@ -278,8 +368,7 @@ export function useTravelPlannerChat(
                         method:
                             "POST",
 
-                        headers:
-                        {
+                        headers: {
                             "Content-Type":
                                 "application/json",
                         },
@@ -293,17 +382,18 @@ export function useTravelPlannerChat(
                                     checkInDate:
                                         nextState.startDate,
 
-                                    checkOutDate:
-                                        addDays(
-                                            nextState.startDate,
-                                            nights,
-                                        ),
+                                    checkOutDate,
 
                                     adultCount:
                                         nextState.adultCount,
 
-                                    childCount:
-                                        nextState.childCount,
+                                    childCount,
+
+                                    /**
+                                     * Quan trọng:
+                                     * truyền tuổi trẻ em xuyên xuống LiteAPI.
+                                     */
+                                    childAges,
 
                                     roomCount:
                                         nextState.roomCount,
@@ -313,13 +403,18 @@ export function useTravelPlannerChat(
 
                                     preference:
                                         nextState.lodgingPreference,
+
+                                    requirements:
+                                        nextState.lodgingRequirements,
                                 },
                             ),
                     },
                 );
 
             const payload =
-                await readPlannerApiResponse<HotelSearchResult>(
+                await readPlannerApiResponse<
+                    HotelSearchResult
+                >(
                     response,
                 );
 
@@ -340,25 +435,8 @@ export function useTravelPlannerChat(
             ) {
                 throw new Error(
                     payload.message ??
-                        "Chưa thể tìm giá phòng.",
+                        "Chưa thể tìm chỗ ở lúc này.",
                 );
-            }
-
-            if (
-                !payload.data
-                    .configured ||
-                payload.data
-                    .items
-                    .length ===
-                    0
-            ) {
-                appendAssistantText(
-                    payload.data
-                        .message ??
-                        "Chưa có phòng phù hợp từ nguồn giá hiện tại.",
-                );
-
-                return;
             }
 
             appendMessage({
@@ -366,35 +444,44 @@ export function useTravelPlannerChat(
                     createChatId(
                         "hotels",
                     ),
-
                 role:
                     "assistant",
-
                 type:
                     "hotels",
-
                 createdAt:
                     Date.now(),
-
                 content:
-                    "Mình tìm được một số lựa chọn lưu trú có giá từ provider.",
-
+                    payload.data.message ??
+                    (
+                        payload.data.items
+                            .length >
+                        0
+                            ? `Mình đã tìm được ${payload.data.items.length} lựa chọn từ LiteAPI.`
+                            : "LiteAPI chưa trả về lựa chọn phù hợp."
+                    ),
                 result:
                     payload.data,
             });
         } catch (
-            hotelError
+            lodgingError
         ) {
             console.error(
-                "[TRAVEL CHAT HOTEL ERROR]",
-                hotelError,
+                "[TRAVEL CHAT LODGING ERROR]",
+                lodgingError,
+            );
+
+            const message =
+                lodgingError instanceof
+                Error
+                    ? lodgingError.message
+                    : "Chưa thể tìm chỗ ở lúc này.";
+
+            setError(
+                message,
             );
 
             appendAssistantText(
-                hotelError instanceof
-                    Error
-                    ? hotelError.message
-                    : "Chưa thể tìm giá phòng lúc này.",
+                `${message} Bạn có thể thử đổi ngày hoặc nới ngân sách.`,
             );
         } finally {
             setIsSearchingLodging(
@@ -403,12 +490,16 @@ export function useTravelPlannerChat(
         }
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* Weather                                                                */
+    /* ---------------------------------------------------------------------- */
+
     async function checkWeather(
         nextState:
             PlannerConversationState,
-
-        generated?:
-            GeneratedItinerary | null,
+        generated:
+            GeneratedItinerary | null =
+                latestGenerated,
     ) {
         if (
             isCheckingWeather
@@ -418,8 +509,13 @@ export function useTravelPlannerChat(
 
         if (
             !nextState.locationName ||
-            !nextState.startDate
+            !nextState.startDate ||
+            !nextState.dayCount
         ) {
+            appendAssistantText(
+                "Mình cần điểm đến, ngày khởi hành và số ngày trước khi kiểm tra thời tiết.",
+            );
+
             return;
         }
 
@@ -427,37 +523,11 @@ export function useTravelPlannerChat(
             true,
         );
 
+        setError(
+            null,
+        );
+
         try {
-            const activities =
-                generated
-                    ? generated.plan.days.flatMap(
-                          (
-                              day,
-                          ) =>
-                              day.activities.map(
-                                  (
-                                      activity,
-                                  ) => ({
-                                      dayNumber:
-                                          day.dayNumber,
-
-                                      destinationName:
-                                          activity.destinationName,
-
-                                      title:
-                                          activity.title,
-
-                                      description:
-                                          activity.description ??
-                                          "",
-
-                                      startTime:
-                                          activity.startTime,
-                                  }),
-                              ),
-                      )
-                    : [];
-
             const response =
                 await fetch(
                     "/api/ai/travel/weather",
@@ -465,8 +535,7 @@ export function useTravelPlannerChat(
                         method:
                             "POST",
 
-                        headers:
-                        {
+                        headers: {
                             "Content-Type":
                                 "application/json",
                         },
@@ -481,20 +550,21 @@ export function useTravelPlannerChat(
                                         nextState.startDate,
 
                                     dayCount:
-                                        generated
-                                            ?.request
-                                            .dayCount ??
-                                        nextState.dayCount ??
-                                        1,
+                                        nextState.dayCount,
 
-                                    activities,
+                                    activities:
+                                        buildWeatherActivities(
+                                            generated,
+                                        ),
                                 },
                             ),
                     },
                 );
 
             const payload =
-                await readPlannerApiResponse<TravelWeatherResult>(
+                await readPlannerApiResponse<
+                    TravelWeatherResult
+                >(
                     response,
                 );
 
@@ -519,37 +589,20 @@ export function useTravelPlannerChat(
                 );
             }
 
-            if (
-                !payload.data
-                    .available
-            ) {
-                appendAssistantText(
-                    payload.data
-                        .message ??
-                        "Chưa có dự báo phù hợp cho thời điểm này.",
-                );
-
-                return;
-            }
-
             appendMessage({
                 id:
                     createChatId(
                         "weather",
                     ),
-
                 role:
                     "assistant",
-
                 type:
                     "weather",
-
                 createdAt:
                     Date.now(),
-
                 content:
-                    "Mình đã đối chiếu thời tiết với lịch trình.",
-
+                    payload.data.message ??
+                    "Mình đã đối chiếu dự báo theo thời gian chuyến đi.",
                 result:
                     payload.data,
             });
@@ -561,11 +614,18 @@ export function useTravelPlannerChat(
                 weatherError,
             );
 
-            appendAssistantText(
+            const message =
                 weatherError instanceof
-                    Error
+                Error
                     ? weatherError.message
-                    : "Chưa thể kiểm tra thời tiết lúc này.",
+                    : "Chưa thể kiểm tra thời tiết.";
+
+            setError(
+                message,
+            );
+
+            appendAssistantText(
+                message,
             );
         } finally {
             setIsCheckingWeather(
@@ -574,10 +634,14 @@ export function useTravelPlannerChat(
         }
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* Generate itinerary                                                     */
+    /* ---------------------------------------------------------------------- */
+
     async function generatePlan(
         nextState:
             PlannerConversationState =
-            state,
+                state,
     ) {
         if (
             isGenerating
@@ -611,7 +675,6 @@ export function useTravelPlannerChat(
             window.setTimeout(
                 () =>
                     controller.abort(),
-
                 GENERATION_TIMEOUT_MS,
             );
 
@@ -635,8 +698,7 @@ export function useTravelPlannerChat(
                         method:
                             "POST",
 
-                        headers:
-                        {
+                        headers: {
                             "Content-Type":
                                 "application/json",
                         },
@@ -652,7 +714,9 @@ export function useTravelPlannerChat(
                 );
 
             const payload =
-                await readPlannerApiResponse<GeneratedItinerary>(
+                await readPlannerApiResponse<
+                    GeneratedItinerary
+                >(
                     response,
                 );
 
@@ -695,19 +759,14 @@ export function useTravelPlannerChat(
                     createChatId(
                         "itinerary",
                     ),
-
                 role:
                     "assistant",
-
                 type:
                     "itinerary",
-
                 createdAt:
                     Date.now(),
-
                 content:
                     "Mình đã lên xong một lịch trình để bạn xem.",
-
                 generated:
                     payload.data,
             });
@@ -716,21 +775,20 @@ export function useTravelPlannerChat(
                 "Bạn có thể chọn lịch trình này, hoặc cứ nhắn tiếp kiểu “ngày 2 nhẹ hơn”, “bỏ Bà Nà”, “ưu tiên chỗ mát về tối”… Mình sẽ cập nhật yêu cầu cho lần lên plan tiếp theo.",
             );
 
-            window.setTimeout(
-                () =>
-                    void checkWeather(
-                        nextState,
-                        payload.data,
-                    ),
-
-                200,
+            /**
+             * Weather là enrichment:
+             * itinerary đã thành công thì không để weather
+             * làm hỏng kết quả chính.
+             */
+            void checkWeather(
+                nextState,
+                payload.data,
             );
         } catch (
             generateError
         ) {
             const aborted =
-                controller
-                    .signal
+                controller.signal
                     .aborted;
 
             if (aborted) {
@@ -740,10 +798,8 @@ export function useTravelPlannerChat(
                         {
                             label:
                                 "Thử tạo lại",
-
                             value:
                                 "",
-
                             action:
                                 "generate",
                         },
@@ -760,7 +816,7 @@ export function useTravelPlannerChat(
 
             const message =
                 generateError instanceof
-                    Error
+                Error
                     ? generateError.message
                     : "Không thể tạo hành trình bằng AI.";
 
@@ -774,10 +830,8 @@ export function useTravelPlannerChat(
                     {
                         label:
                             "Thử tạo lại",
-
                         value:
                             "",
-
                         action:
                             "generate",
                     },
@@ -802,6 +856,10 @@ export function useTravelPlannerChat(
         }
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* Chat                                                                   */
+    /* ---------------------------------------------------------------------- */
+
     async function sendMessage(
         rawMessage?:
             string,
@@ -822,23 +880,19 @@ export function useTravelPlannerChat(
 
         const userMessage:
             TravelChatMessage =
-        {
-            id:
-                createChatId(
+            {
+                id:
+                    createChatId(
+                        "user",
+                    ),
+                role:
                     "user",
-                ),
-
-            role:
-                "user",
-
-            type:
-                "text",
-
-            createdAt:
-                Date.now(),
-
-            content,
-        };
+                type:
+                    "text",
+                createdAt:
+                    Date.now(),
+                content,
+            };
 
         const history =
             toHistory([
@@ -875,8 +929,7 @@ export function useTravelPlannerChat(
                         method:
                             "POST",
 
-                        headers:
-                        {
+                        headers: {
                             "Content-Type":
                                 "application/json",
                         },
@@ -903,7 +956,9 @@ export function useTravelPlannerChat(
                 );
 
             const payload =
-                await readPlannerApiResponse<TravelChatServerResponse>(
+                await readPlannerApiResponse<
+                    TravelChatServerResponse
+                >(
                     response,
                 );
 
@@ -942,16 +997,40 @@ export function useTravelPlannerChat(
 
             if (
                 result.action ===
+                    "generate" &&
+                result.readyToGenerate
+            ) {
+                window.setTimeout(
+                    () =>
+                        void generatePlan(
+                            result.state,
+                        ),
+                    150,
+                );
+
+                return;
+            }
+
+            if (
+                result.action ===
                 "lodging_search"
             ) {
+                /**
+                 * Không dùng `state` cũ.
+                 * Phải dùng `result.state` vì childAges có thể
+                 * vừa được cập nhật từ chính tin nhắn này.
+                 *
+                 * Ví dụ user chỉ nhắn: "5 tuổi".
+                 */
                 window.setTimeout(
                     () =>
                         void searchLodging(
                             result.state,
                         ),
-
-                    120,
+                    50,
                 );
+
+                return;
             }
 
             if (
@@ -964,23 +1043,7 @@ export function useTravelPlannerChat(
                             result.state,
                             latestGenerated,
                         ),
-
-                    120,
-                );
-            }
-
-            if (
-                result.action ===
-                    "generate" &&
-                result.readyToGenerate
-            ) {
-                window.setTimeout(
-                    () =>
-                        void generatePlan(
-                            result.state,
-                        ),
-
-                    150,
+                    50,
                 );
             }
         } catch (
@@ -993,7 +1056,7 @@ export function useTravelPlannerChat(
 
             const message =
                 chatError instanceof
-                    Error
+                Error
                     ? chatError.message
                     : "SmartTrip AI chưa thể xử lý tin nhắn.";
 
@@ -1031,6 +1094,10 @@ export function useTravelPlannerChat(
         );
     }
 
+    /* ---------------------------------------------------------------------- */
+    /* Save                                                                   */
+    /* ---------------------------------------------------------------------- */
+
     async function saveGenerated(
         generated:
             GeneratedItinerary,
@@ -1057,8 +1124,7 @@ export function useTravelPlannerChat(
                         method:
                             "POST",
 
-                        headers:
-                        {
+                        headers: {
                             "Content-Type":
                                 "application/json",
                         },
@@ -1080,7 +1146,9 @@ export function useTravelPlannerChat(
                 );
 
             const payload =
-                await readPlannerApiResponse<SavedItinerary>(
+                await readPlannerApiResponse<
+                    SavedItinerary
+                >(
                     response,
                 );
 
@@ -1119,7 +1187,7 @@ export function useTravelPlannerChat(
 
             const message =
                 saveError instanceof
-                    Error
+                Error
                     ? saveError.message
                     : "Không thể lưu hành trình.";
 
@@ -1172,6 +1240,10 @@ export function useTravelPlannerChat(
             false,
         );
 
+        setIsSaving(
+            false,
+        );
+
         setIsSearchingLodging(
             false,
         );
@@ -1185,19 +1257,21 @@ export function useTravelPlannerChat(
         messages,
         state,
         draft,
+
         isChatting,
         isGenerating,
         isSaving,
         isSearchingLodging,
         isCheckingWeather,
+
         error,
         latestGenerated,
+
         setDraft,
+
         sendMessage,
         handleQuickReply,
         generatePlan,
-        searchLodging,
-        checkWeather,
         saveGenerated,
         resetConversation,
     };

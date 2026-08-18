@@ -191,14 +191,38 @@ function resolveProviderCityName(
 function buildOccupancies(
     input: HotelSearchInput,
 ): Occupancy[] {
+    const childAges =
+        input.childAges ?? [];
+
     /**
-     * LiteAPI cần tuổi cụ thể của từng trẻ em.
-     * SmartTrip hiện mới chỉ có childCount nên không tự đoán tuổi.
+     * Không bao giờ tự đoán tuổi trẻ em.
+     * Hotel search chỉ chạy khi có đúng một tuổi
+     * cho mỗi trẻ đã khai báo.
      */
-    if (input.childCount > 0) {
+    if (
+        childAges.length !==
+        input.childCount
+    ) {
         return [];
     }
 
+    if (
+        childAges.some(
+            (age) =>
+                !Number.isInteger(
+                    age,
+                ) ||
+                age < 0 ||
+                age > 17,
+        )
+    ) {
+        return [];
+    }
+
+    /**
+     * LiteAPI occupancy là theo phòng.
+     * Mỗi phòng phải có ít nhất một người lớn.
+     */
     const roomCount = Math.max(
         1,
         Math.min(
@@ -207,28 +231,96 @@ function buildOccupancies(
         ),
     );
 
-    const baseAdults = Math.floor(
-        input.adultCount / roomCount,
-    );
+    const baseAdults =
+        Math.floor(
+            input.adultCount /
+                roomCount,
+        );
 
     let remainder =
-        input.adultCount % roomCount;
+        input.adultCount %
+        roomCount;
 
-    return Array.from(
-        { length: roomCount },
-        () => {
-            const adults =
-                baseAdults +
-                (remainder > 0 ? 1 : 0);
+    const occupancies =
+        Array.from(
+            {
+                length:
+                    roomCount,
+            },
+            (): Occupancy => {
+                const adults =
+                    baseAdults +
+                    (
+                        remainder >
+                        0
+                            ? 1
+                            : 0
+                    );
 
-            if (remainder > 0) {
-                remainder -= 1;
-            }
+                if (
+                    remainder >
+                    0
+                ) {
+                    remainder -=
+                        1;
+                }
 
-            return {
-                adults: Math.max(1, adults),
-            };
+                return {
+                    adults:
+                        Math.max(
+                            1,
+                            adults,
+                        ),
+                    children:
+                        [],
+                };
+            },
+        );
+
+    /**
+     * Phân trẻ lần lượt vào các phòng.
+     *
+     * Ví dụ:
+     * 2 adults + childAges [5], 1 room
+     * -> [{ adults: 2, children: [5] }]
+     *
+     * 4 adults + [5, 8], 2 rooms
+     * -> [
+     *      { adults: 2, children: [5] },
+     *      { adults: 2, children: [8] }
+     *    ]
+     *
+     * Đây chỉ là phân bổ occupancy để query availability.
+     * Không tự thêm/bớt khách hoặc tuổi.
+     */
+    childAges.forEach(
+        (
+            age,
+            index,
+        ) => {
+            const roomIndex =
+                index %
+                occupancies.length;
+
+            occupancies[
+                roomIndex
+            ].children!.push(
+                age,
+            );
         },
+    );
+
+    return occupancies.map(
+        (occupancy) =>
+            occupancy.children &&
+            occupancy.children
+                .length >
+                0
+                ? occupancy
+                : {
+                      adults:
+                          occupancy.adults,
+                  },
     );
 }
 
@@ -1067,21 +1159,34 @@ export class LiteApiHotelProvider
         }
 
         /**
-         * LiteAPI cần tuổi từng trẻ để tính giá chính xác.
-         * Không tự giả định tuổi trẻ em.
+         * Safety guard:
+         * route/schema bình thường đã validate childAges,
+         * nhưng provider vẫn tự bảo vệ nếu được gọi trực tiếp.
          */
-        if (input.childCount > 0) {
+        const childAges =
+            input.childAges ??
+            [];
+
+        if (
+            childAges.length !==
+            input.childCount
+        ) {
             return {
                 ...baseResult,
                 configured: true,
                 items: [],
                 message:
-                    "LiteAPI cần tuổi của từng trẻ em để tính giá chính xác. SmartTrip hiện mới biết số trẻ em nên chưa gửi truy vấn giá để tránh báo sai.",
+                    input.childCount >
+                    0
+                        ? `SmartTrip cần đủ tuổi của ${input.childCount} trẻ em trước khi gửi truy vấn LiteAPI.`
+                        : "Thông tin tuổi trẻ em không khớp với số trẻ em.",
             };
         }
 
         const occupancies =
-            buildOccupancies(input);
+            buildOccupancies(
+                input,
+            );
 
         if (occupancies.length === 0) {
             return {
@@ -1132,6 +1237,8 @@ export class LiteApiHotelProvider
                     input.adultCount,
                 childCount:
                     input.childCount,
+                childAges:
+                    input.childAges,
                 roomCount:
                     input.roomCount,
                 occupancies,
@@ -1203,6 +1310,30 @@ export class LiteApiHotelProvider
                 DISPLAY_LIMIT,
             );
 
+        /**
+         * Nếu không có kết quả nào đúng ngân sách, giữ lại tối đa
+         * 3 lựa chọn VND rẻ nhất nằm ngay phía trên ngân sách.
+         *
+         * Những item này KHÔNG được trộn vào `items`, để SmartTrip
+         * không vô tình hiển thị hotel vượt ngân sách như thể đã match.
+         * UI chỉ mở chúng khi user chủ động bấm "Xem lựa chọn gần ngân sách".
+         */
+        const nearBudgetItems =
+            input.maxPricePerNight &&
+            items.length === 0
+                ? parsedItems
+                      .filter(
+                          (item) =>
+                              item.currency ===
+                                  "VND" &&
+                              item.pricePerNight !==
+                                  undefined &&
+                              item.pricePerNight >
+                                  input.maxPricePerNight!,
+                      )
+                      .slice(0, 3)
+                : [];
+
         const cheapestParsed =
             parsedItems[0];
 
@@ -1218,6 +1349,8 @@ export class LiteApiHotelProvider
                     parsedItems.length,
                 afterBudgetFilter:
                     items.length,
+                nearBudgetCount:
+                    nearBudgetItems.length,
                 budgetPerNight:
                     input.maxPricePerNight,
                 nonVndCount:
@@ -1299,7 +1432,7 @@ export class LiteApiHotelProvider
                         },
                     ).format(
                         input.maxPricePerNight,
-                    )}/đêm. Giá thấp nhất hiện tại khoảng ${cheapestLabel}/đêm.`;
+                    )}/đêm. Giá thấp nhất hiện tại khoảng ${cheapestLabel}/đêm. Bạn có thể xem các lựa chọn gần ngân sách nếu muốn.`;
             } else {
                 message =
                     "LiteAPI chưa trả về chỗ ở phù hợp bộ lọc hiện tại. Bạn có thể đổi ngày hoặc nới điều kiện tìm kiếm.";
@@ -1311,6 +1444,11 @@ export class LiteApiHotelProvider
             configured: true,
             sandbox: response.sandbox,
             items,
+            ...(nearBudgetItems.length > 0
+                ? {
+                      nearBudgetItems,
+                  }
+                : {}),
             message,
         };
     }

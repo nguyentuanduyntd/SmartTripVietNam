@@ -1,3 +1,7 @@
+export type HotelProviderId =
+    | "liteapi"
+    | "amadeus";
+
 export type LodgingPreference =
     | "any"
     | "hotel"
@@ -5,126 +9,101 @@ export type LodgingPreference =
 
 export type HotelSearchInput = {
     locationName: string;
-
     checkInDate: string;
-
     checkOutDate: string;
 
     adultCount: number;
-
     childCount: number;
-
+    childAges: number[];
     roomCount: number;
 
     maxPricePerNight?: number;
+    preference: LodgingPreference;
 
-    preference?:
-        LodgingPreference;
+    /**
+     * Các yêu cầu tự nhiên như:
+     * - Gần biển
+     * - Yên tĩnh
+     * - Có hồ bơi
+     *
+     * Provider có thể chưa filter trực tiếp tất cả requirement;
+     * AI recommendation dùng chúng để xếp hạng các kết quả LiteAPI.
+     */
+    requirements?: string[];
 };
 
 export type HotelSearchItem = {
-    provider:
-        "liteapi";
+    provider: HotelProviderId;
 
-    hotelId:
-        string;
+    hotelId: string;
+    name: string;
 
-    name:
-        string;
+    address?: string;
+    cityCode?: string;
+    imageUrl?: string;
 
-    address?:
-        string;
+    latitude?: number;
+    longitude?: number;
 
-    imageUrl?:
-        string;
+    rating?: number;
 
-    latitude?:
-        number;
+    available: boolean;
 
-    longitude?:
-        number;
+    offerId?: string;
 
-    rating?:
-        number;
+    checkInDate: string;
+    checkOutDate: string;
 
-    available:
-        boolean;
+    roomDescription?: string;
+    bedType?: string;
+    boardName?: string;
 
-    offerId?:
-        string;
+    currency?: string;
 
-    checkInDate:
-        string;
+    totalPrice?: number;
+    pricePerNight?: number;
 
-    checkOutDate:
-        string;
-
-    roomDescription?:
-        string;
-
-    boardName?:
-        string;
-
-    currency?:
-        string;
-
-    totalPrice?:
-        number;
-
-    pricePerNight?:
-        number;
-
-    refundable?:
-        boolean | null;
-
-    taxesIncluded?:
-        boolean | null;
+    refundable?: boolean | null;
+    taxesIncluded?: boolean | null;
 };
 
 export type HotelSearchResult = {
-    configured:
-        boolean;
+    configured: boolean;
 
-    provider:
-        "liteapi";
+    provider: HotelProviderId;
 
-    sourceLabel:
-        string;
+    sourceLabel: string;
 
-    sandbox?:
-        boolean;
+    sandbox?: boolean;
 
-    locationName:
-        string;
+    locationName: string;
 
-    checkInDate:
-        string;
+    checkInDate: string;
+    checkOutDate: string;
 
-    checkOutDate:
-        string;
+    nights: number;
 
-    nights:
-        number;
+    maxPricePerNight?: number;
 
-    maxPricePerNight?:
-        number;
+    items: HotelSearchItem[];
 
-    items:
-        HotelSearchItem[];
+    /**
+     * Các lựa chọn có giá gần nhất nhưng cao hơn ngân sách người dùng.
+     *
+     * Chỉ dùng làm fallback UI khi `items` rỗng vì budget filter.
+     * Không được coi là kết quả thỏa điều kiện ngân sách.
+     */
+    nearBudgetItems?: HotelSearchItem[];
 
-    message?:
-        string;
+    message?: string;
 };
 
 export interface HotelProvider {
-    readonly id:
-        "liteapi";
+    readonly id: HotelProviderId;
 
-    isConfigured():
-        boolean;
+    isConfigured(): boolean;
 
     search(
-        input:
-            HotelSearchInput,
+        input: HotelSearchInput,
     ): Promise<HotelSearchResult>;
 }

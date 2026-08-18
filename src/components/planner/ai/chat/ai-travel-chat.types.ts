@@ -8,7 +8,6 @@ export type LodgingPreference =
     | "any"
     | "hotel"
     | "homestay";
-
 export type PlannerConversationState = {
     locationId?: string;
     locationName?: string;
@@ -16,15 +15,16 @@ export type PlannerConversationState = {
     dayCount?: number;
     adultCount?: number;
     childCount: number;
+    childAges: number[];
     roomCount: number;
     budget?: number;
     lodgingBudgetPerNight?: number;
     lodgingPreference: LodgingPreference;
+    lodgingRequirements: string[];
     pace: Pace;
     interests: string[];
     note?: string;
 };
-
 export type TravelChatIntent =
     | "planning"
     | "modify_plan"
@@ -46,7 +46,6 @@ export type TravelQuickReply = {
     value: string;
     action: "send" | "generate";
 };
-
 export type TravelChatServerResponse = {
     state: PlannerConversationState;
     reply: string;
@@ -60,7 +59,6 @@ export type TravelChatHistoryItem = {
     role: "user" | "assistant";
     content: string;
 };
-
 export type HotelSearchItem = {
     provider: "liteapi";
     hotelId: string;
@@ -81,8 +79,14 @@ export type HotelSearchItem = {
     pricePerNight?: number;
     refundable?: boolean | null;
     taxesIncluded?: boolean | null;
-};
 
+    // SmartTrip enrichment. These fields never replace LiteAPI source data.
+    googleMapsUrl?: string;
+    aiRecommended?: boolean;
+    recommendationRank?: number;
+    aiReason?: string;
+    aiTags?: string[];
+};
 export type HotelSearchResult = {
     configured: boolean;
     provider: "liteapi";
@@ -94,9 +98,20 @@ export type HotelSearchResult = {
     nights: number;
     maxPricePerNight?: number;
     items: HotelSearchItem[];
-    message?: string;
-};
 
+    /**
+     * Các lựa chọn có giá gần ngân sách nhất nhưng vẫn cao hơn mức user yêu cầu.
+     * UI chỉ hiển thị khi người dùng chủ động mở phần fallback.
+     */
+    nearBudgetItems?: HotelSearchItem[];
+
+    message?: string;
+    aiRecommendation?: {
+        generatedBy: "gemini" | "fallback";
+        summary: string;
+        recommendedCount: number;
+    };
+};
 export type TravelWeatherActivityWarning = {
     dayNumber: number;
     destinationName: string;
@@ -112,7 +127,6 @@ export type TravelWeatherActivityWarning = {
     precipitationProbability?: number;
     windSpeed?: number;
 };
-
 export type TravelWeatherDay = {
     date: string;
     weatherCode?: number;
@@ -121,7 +135,6 @@ export type TravelWeatherDay = {
     precipitationProbabilityMax?: number;
     precipitationSum?: number;
 };
-
 export type TravelWeatherResult = {
     source: "open-meteo";
     sourceLabel: "Open-Meteo";
@@ -135,7 +148,6 @@ export type TravelWeatherResult = {
     activityWarnings: TravelWeatherActivityWarning[];
     message?: string;
 };
-
 export type TravelChatRequestBody = {
     message: string;
     state: PlannerConversationState;
@@ -155,7 +167,6 @@ export type UserChatMessage =
         type: "text";
         content: string;
     };
-
 export type AssistantChatMessage =
     ChatMessageBase & {
         role: "assistant";
@@ -171,7 +182,6 @@ export type ItineraryChatMessage =
         content: string;
         generated: GeneratedItinerary;
     };
-
 export type HotelChatMessage =
     ChatMessageBase & {
         role: "assistant";

@@ -1262,7 +1262,7 @@ export function ExperienceSection() {
 
                 <div className="mt-10 flex justify-center">
                     <Link
-                        href="/stories"
+                        href="/community"
                         className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white"
                     >
                         {t(
