@@ -242,6 +242,15 @@ export function useTravelPlannerChat(
             null,
         );
 
+    /**
+     * Food Discovery có thể handoff một prompt sang Planner AI qua
+     * /planner/ai?foodPrompt=...
+     *
+     * Ref này bảo đảm prompt chỉ được consume đúng một lần.
+     */
+    const foodHandoffConsumedRef =
+        useRef(false);
+
     useEffect(
         () => {
             return () => {
@@ -251,6 +260,62 @@ export function useTravelPlannerChat(
         },
         [],
     );
+
+    useEffect(() => {
+        if (
+            foodHandoffConsumedRef.current ||
+            typeof window === "undefined"
+        ) {
+            return;
+        }
+
+        const url = new URL(
+            window.location.href,
+        );
+        const foodPrompt =
+            url.searchParams
+                .get("foodPrompt")
+                ?.trim();
+
+        if (!foodPrompt) {
+            return;
+        }
+
+        foodHandoffConsumedRef.current =
+            true;
+
+        /**
+         * Xóa param khỏi URL ngay để refresh/back không gửi lại prompt.
+         */
+        url.searchParams.delete(
+            "foodPrompt",
+        );
+        window.history.replaceState(
+            {},
+            "",
+            `${url.pathname}${url.search}${url.hash}`,
+        );
+
+        setDraft(foodPrompt);
+
+        const timer =
+            window.setTimeout(
+                () => {
+                    void sendMessage(
+                        foodPrompt,
+                    );
+                },
+                450,
+            );
+
+        return () => {
+            window.clearTimeout(
+                timer,
+            );
+        };
+        // Handoff chỉ được consume một lần lúc mount.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     function appendMessage(
         message:
