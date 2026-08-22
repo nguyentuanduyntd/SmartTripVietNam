@@ -65,13 +65,6 @@ function isRecord(
     );
 }
 
-/**
- * Lấy đường dẫn nội bộ mà người dùng muốn quay lại sau
- * khi đăng nhập.
- *
- * Ví dụ:
- * /auth/login?next=/tours/hue-da-nang-hoi-an
- */
 function getRequestedReturnPath(): string {
     if (typeof window === "undefined") {
         return "";

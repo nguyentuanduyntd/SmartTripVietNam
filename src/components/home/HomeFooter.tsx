@@ -61,7 +61,7 @@ export function HomeFooter() {
                 ),
             },
             {
-                href: "/#am-thuc",
+                href: "/food",
                 label: t(
                     "navigation.cuisine",
                 ),

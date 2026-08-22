@@ -1,5 +1,4 @@
 "use client";
-
 import {
     ChevronDown,
     Crosshair,
@@ -29,9 +28,8 @@ import {
     type FoodDemoLocation,
 } from "@/src/constants/food-demo-locations";
 
-import {
-    FoodContextAiDialog,
-} from "@/src/components/home/FoodContextAiDialog";
+import { AddRestaurantToItineraryDialog } from "@/src/components/food/AddRestaurantToItineraryDialog";
+import { LocationMap } from "@/src/components/food/LocationMap";
 
 type RestaurantCuisine = {
     id: string;
@@ -289,11 +287,11 @@ function FilterChip({
 function RestaurantCard({
     restaurant,
     isDemo,
-    onAskAi,
+    onAddToItinerary,
 }: {
     restaurant: RestaurantDiscoveryItem;
     isDemo: boolean;
-    onAskAi: () => void;
+    onAddToItinerary: () => void;
 }) {
     const cuisineLabel =
         getCuisineLabel(
@@ -474,11 +472,11 @@ function RestaurantCard({
                     <div className="flex shrink-0 items-center gap-2">
                         <button
                             type="button"
-                            onClick={onAskAi}
+                            onClick={onAddToItinerary}
                             className="inline-flex items-center gap-2 rounded-xl bg-[#173a3b] px-3.5 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#214c4b]"
                         >
-                            <Sparkles size={12} />
-                            Hỏi AI
+                            <span className="text-base leading-none">+</span>
+                            Thêm lịch trình
                         </button>
 
                         <a
@@ -519,6 +517,11 @@ export function FoodDiscoveryPanel() {
                 DEFAULT_DEMO_LOCATION,
             ),
         );
+
+    const [gpsLocation, setGpsLocation] = useState<{
+        latitude: number;
+        longitude: number;
+    } | null>(null);
 
     const [manualLatitude, setManualLatitude] =
         useState(
@@ -582,8 +585,8 @@ export function FoodDiscoveryPanel() {
         );
 
     const [
-        selectedAiRestaurant,
-        setSelectedAiRestaurant,
+        selectedItineraryRestaurant,
+        setSelectedItineraryRestaurant,
     ] =
         useState<RestaurantDiscoveryItem | null>(
             null,
@@ -767,6 +770,13 @@ export function FoodDiscoveryPanel() {
         sort,
     ]);
 
+    function resetAiForLocationChange() {
+        aiRequestVersionRef.current += 1;
+        setIsAiSearching(false);
+        setAiResult(null);
+        setAiError(null);
+    }
+
     function switchToDemo(
         location: FoodDemoLocation =
             activeDemoLocation,
@@ -775,11 +785,21 @@ export function FoodDiscoveryPanel() {
         setDemoLocationId(
             location.id,
         );
+
         setActiveLocation(
             getLocationFromDemo(
                 location,
             ),
         );
+
+        setManualLatitude(
+            location.latitude.toFixed(6),
+        );
+        setManualLongitude(
+            location.longitude.toFixed(6),
+        );
+
+        resetAiForLocationChange();
     }
 
     function handleDemoChange(
@@ -810,6 +830,7 @@ export function FoodDiscoveryPanel() {
             setError(
                 "Trình duyệt này không hỗ trợ định vị GPS.",
             );
+
             return;
         }
 
@@ -817,16 +838,45 @@ export function FoodDiscoveryPanel() {
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
+                const latitude =
+                    position.coords.latitude;
+
+                const longitude =
+                    position.coords.longitude;
+
+                /*
+                 * GPS thật của thiết bị.
+                 * Marker xanh trên bản đồ sẽ dùng state này.
+                 */
+                setGpsLocation({
+                    latitude,
+                    longitude,
+                });
+
+                /*
+                 * Khi vừa bấm GPS,
+                 * vị trí tìm kiếm cũng chuyển về GPS.
+                 */
                 setActiveLocation({
-                    label: "Vị trí thiết bị của bạn",
-                    latitude:
-                        position.coords
-                            .latitude,
-                    longitude:
-                        position.coords
-                            .longitude,
+                    label:
+                        "Vị trí thiết bị của bạn",
+                    latitude,
+                    longitude,
                     source: "gps",
                 });
+
+                /*
+                 * Đồng bộ ô nhập tọa độ.
+                 */
+                setManualLatitude(
+                    latitude.toFixed(6),
+                );
+
+                setManualLongitude(
+                    longitude.toFixed(6),
+                );
+
+                resetAiForLocationChange();
                 setIsLocating(false);
             },
             (geoError) => {
@@ -834,18 +884,43 @@ export function FoodDiscoveryPanel() {
                     "[FOOD GEOLOCATION ERROR]",
                     geoError,
                 );
+
                 setError(
-                    "Không lấy được vị trí thiết bị. Bạn có thể dùng Demo Location để thử đầy đủ chức năng.",
+                    "Không lấy được vị trí thiết bị. Hãy kiểm tra quyền vị trí của trình duyệt hoặc chọn vị trí trực tiếp trên bản đồ.",
                 );
+
                 setIsLocating(false);
             },
             {
-                enableHighAccuracy:
-                    false,
+                enableHighAccuracy: true,
                 timeout: 10_000,
-                maximumAge: 60_000,
+                maximumAge: 30_000,
             },
         );
+    }
+
+    function handleMapLocationSelect(
+        latitude: number,
+        longitude: number,
+    ) {
+        setError(null);
+        setMode("manual");
+
+        setActiveLocation({
+            label: "Vị trí bạn đã chọn",
+            latitude,
+            longitude,
+            source: "manual",
+        });
+
+        setManualLatitude(
+            latitude.toFixed(6),
+        );
+        setManualLongitude(
+            longitude.toFixed(6),
+        );
+
+        resetAiForLocationChange();
     }
 
     function applyManualLocation() {
@@ -857,14 +932,10 @@ export function FoodDiscoveryPanel() {
         );
 
         if (
-            !Number.isFinite(
-                latitude,
-            ) ||
+            !Number.isFinite(latitude) ||
             latitude < -90 ||
             latitude > 90 ||
-            !Number.isFinite(
-                longitude,
-            ) ||
+            !Number.isFinite(longitude) ||
             longitude < -180 ||
             longitude > 180
         ) {
@@ -876,12 +947,22 @@ export function FoodDiscoveryPanel() {
 
         setError(null);
         setMode("manual");
+
         setActiveLocation({
             label: "Tọa độ tùy chỉnh",
             latitude,
             longitude,
             source: "manual",
         });
+
+        setManualLatitude(
+            latitude.toFixed(6),
+        );
+        setManualLongitude(
+            longitude.toFixed(6),
+        );
+
+        resetAiForLocationChange();
     }
 
     async function runAiFoodSearch(
@@ -1002,17 +1083,35 @@ export function FoodDiscoveryPanel() {
                     source:
                         data.location.source,
                 });
+
+                setManualLatitude(
+                    data.location.latitude.toFixed(6),
+                );
+                setManualLongitude(
+                    data.location.longitude.toFixed(6),
+                );
             }
 
             if (
                 data.location.source ===
-                    "demo" &&
-                data.location.demoLocationId
+                "demo"
             ) {
                 setMode("demo");
-                setDemoLocationId(
-                    data.location.demoLocationId,
-                );
+
+                if (
+                    data.location.demoLocationId
+                ) {
+                    setDemoLocationId(
+                        data.location.demoLocationId,
+                    );
+                }
+            } else if (
+                data.location.source ===
+                "gps"
+            ) {
+                setMode("gps");
+            } else {
+                setMode("manual");
             }
 
             /**
@@ -1063,16 +1162,13 @@ export function FoodDiscoveryPanel() {
     }
 
     function clearFilters() {
-        aiRequestVersionRef.current += 1;
-        setIsAiSearching(false);
         setSearch("");
         setMaxPrice(undefined);
         setOpenLate(false);
         setFamilyFriendly(false);
         setLocalOnly(false);
         setSort("best_match");
-        setAiResult(null);
-        setAiError(null);
+        resetAiForLocationChange();
     }
 
     const hasFilters = Boolean(
@@ -1138,12 +1234,15 @@ export function FoodDiscoveryPanel() {
                                     onClick={
                                         requestGps
                                     }
+                                    disabled={
+                                        isLocating
+                                    }
                                     className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition ${
                                         mode ===
                                         "gps"
                                             ? "bg-[#f3bd59] text-[#173a3b]"
                                             : "border border-white/16 bg-white/8 text-white/76 hover:bg-white/12"
-                                    }`}
+                                    } disabled:cursor-not-allowed disabled:opacity-60`}
                                 >
                                     {isLocating ? (
                                         <Loader2
@@ -1226,9 +1325,8 @@ export function FoodDiscoveryPanel() {
                                     <div className="max-w-xl rounded-2xl border border-white/12 bg-white/8 px-4 py-3.5 text-sm text-white/72">
                                         {isLocating
                                             ? "Đang xin quyền và lấy vị trí thiết bị..."
-                                            : activeLocation.source ===
-                                                "gps"
-                                              ? `Đã dùng GPS: ${activeLocation.latitude.toFixed(5)}, ${activeLocation.longitude.toFixed(5)}`
+                                            : gpsLocation
+                                              ? `GPS của bạn: ${gpsLocation.latitude.toFixed(5)}, ${gpsLocation.longitude.toFixed(5)}`
                                               : "Bấm “GPS thiết bị” để lấy vị trí hiện tại."}
                                     </div>
                                 ) : null}
@@ -1282,44 +1380,16 @@ export function FoodDiscoveryPanel() {
                             </div>
                         </div>
 
-                        <div className="relative flex min-h-[300px] items-center justify-center overflow-hidden rounded-[30px] border border-white/10 bg-[#102f30]/65">
-                            <div className="absolute h-72 w-72 rounded-full border border-white/8" />
-                            <div className="absolute h-52 w-52 rounded-full border border-white/10" />
-                            <div className="absolute h-32 w-32 rounded-full border border-[#f3bd59]/35" />
-                            <div className="absolute h-24 w-24 animate-ping rounded-full bg-[#f3bd59]/8" />
+                        <div className="min-h-[360px] lg:min-h-[390px]">
+                            <LocationMap
+                                latitude={activeLocation.latitude}
+                                longitude={activeLocation.longitude}
+                                label={activeLocation.label}
+                                gpsLatitude={gpsLocation?.latitude}
+                                gpsLongitude={gpsLocation?.longitude}
+                                onSelectLocation={handleMapLocationSelect}
+                            />
 
-                            <div className="relative z-10 max-w-[280px] text-center">
-                                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f3bd59] text-[#173a3b] shadow-[0_0_0_10px_rgba(243,189,89,.08)]">
-                                    <MapPin
-                                        size={24}
-                                    />
-                                </span>
-                                <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#f5ca75]">
-                                    Vị trí đang khám phá
-                                </p>
-                                <p className="mt-2 font-display text-2xl font-semibold">
-                                    {
-                                        activeLocation.label
-                                    }
-                                </p>
-                                <p className="mt-2 text-xs leading-5 text-white/50">
-                                    {activeLocation.latitude.toFixed(
-                                        5,
-                                    )}
-                                    ,{" "}
-                                    {activeLocation.longitude.toFixed(
-                                        5,
-                                    )}
-                                </p>
-                                <div className="mt-4 flex justify-center gap-2">
-                                    <span className="rounded-full bg-white/8 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white/65">
-                                        Bán kính 5 km
-                                    </span>
-                                    <span className="rounded-full bg-white/8 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white/65">
-                                        {activeLocation.source}
-                                    </span>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -1518,8 +1588,8 @@ export function FoodDiscoveryPanel() {
                                                 aiResult.meta
                                                     .isDemoData
                                             }
-                                            onAskAi={() =>
-                                                setSelectedAiRestaurant(
+                                            onAddToItinerary={() =>
+                                                setSelectedItineraryRestaurant(
                                                     restaurant,
                                                 )
                                             }
@@ -1727,8 +1797,8 @@ export function FoodDiscoveryPanel() {
                                             .isDemoData ??
                                         false
                                     }
-                                    onAskAi={() =>
-                                        setSelectedAiRestaurant(
+                                    onAddToItinerary={() =>
+                                        setSelectedItineraryRestaurant(
                                             restaurant,
                                         )
                                     }
@@ -1791,19 +1861,16 @@ export function FoodDiscoveryPanel() {
                 </div>
             </div>
 
-            <FoodContextAiDialog
+            <AddRestaurantToItineraryDialog
                 restaurant={
-                    selectedAiRestaurant
+                    selectedItineraryRestaurant
                         ? {
-                              id: selectedAiRestaurant.id,
-                              name: selectedAiRestaurant.name,
-                              address: selectedAiRestaurant.address,
-                              priceMin: selectedAiRestaurant.priceMin,
-                              priceMax: selectedAiRestaurant.priceMax,
-                              rating: selectedAiRestaurant.rating,
-                              source: selectedAiRestaurant.source,
-                              googleMapsUrl: selectedAiRestaurant.googleMapsUrl,
-                              cuisines: selectedAiRestaurant.cuisines.map(
+                              id: selectedItineraryRestaurant.id,
+                              name: selectedItineraryRestaurant.name,
+                              address: selectedItineraryRestaurant.address,
+                              priceMin: selectedItineraryRestaurant.priceMin,
+                              priceMax: selectedItineraryRestaurant.priceMax,
+                              cuisines: selectedItineraryRestaurant.cuisines.map(
                                   (cuisine) => ({
                                       id: cuisine.id,
                                       name: cuisine.name,
@@ -1814,7 +1881,7 @@ export function FoodDiscoveryPanel() {
                         : null
                 }
                 onClose={() =>
-                    setSelectedAiRestaurant(
+                    setSelectedItineraryRestaurant(
                         null,
                     )
                 }

@@ -190,7 +190,7 @@ export function HomeHeader() {
                     key:
                         "cuisine" as const,
                     href:
-                        "#am-thuc",
+                        "/food",
                 },
                 {
                     key:

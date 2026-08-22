@@ -2087,6 +2087,168 @@ function detectIntentFallback(
     return "planning";
 }
 
+
+function isExplicitGenerateRequest(
+    message: string,
+) {
+    const normalized =
+        normalizeText(
+            message,
+        );
+
+    return /^(?:hay\s+)?(?:len|lap|tao|lam)\s+(?:lich|lich trinh|plan|hanh trinh)(?:\s+(?:cho toi|cho minh))?$/.test(
+        normalized,
+    );
+}
+
+/**
+ * Chỉ bypass Gemini khi câu user đủ đơn giản để deterministic parser
+ * hiểu chắc chắn.
+ *
+ * Nguyên tắc bảo thủ:
+ * - Nếu message có location được support => deterministic có thể xử lý.
+ * - Nếu location đã có trong state => cho phép một số câu trả lời ngắn
+ *   như "3 ngày", "2 người", "5 triệu", "mai", "thư thả", "Biển".
+ * - Lodging / weather / remove requirement / đổi destination vẫn đi Gemini.
+ * - Destination ngoài phạm vi vẫn đi Gemini để trả unsupported_destination.
+ */
+function canUseDeterministicOnly(
+    input: AiTravelChatRequest,
+    patch: StatePatch,
+) {
+    const normalized =
+        normalizeText(
+            input.message,
+        );
+
+    if (!normalized) {
+        return false;
+    }
+
+    const requiresSemanticAi =
+        /\b(hotel|khach san|homestay|nha nghi|cho o|luu tru|phong|ho boi|be boi|bai dau xe|cho dau xe|parking|an sang|breakfast|ban cong|balcony|gan bien|sat bien|yen tinh|view dep|gan trung tam|thu cung|pet friendly|thoi tiet|du bao|nhiet do|mua|bao|khong can|bo|xoa|doi sang|chuyen sang|sua|thay)\b/.test(
+            normalized,
+        );
+
+    if (requiresSemanticAi) {
+        return false;
+    }
+
+    /**
+     * Nếu parser nhận ra một location được support ngay trong message
+     * thì không cần Gemini xác nhận lại.
+     */
+    if (patch.locationId) {
+        return true;
+    }
+
+    /**
+     * Khi chưa có destination và parser cũng không nhận ra destination,
+     * không bypass Gemini.
+     *
+     * Điều này giữ đúng case:
+     * "Quảng Ngãi 3 ngày"
+     * -> Gemini nhận biết unsupported_destination.
+     */
+    if (!input.state.locationId) {
+        return false;
+    }
+
+    if (
+        isExplicitGenerateRequest(
+            input.message,
+        )
+    ) {
+        return true;
+    }
+
+    const simplePatterns = [
+        /^(?:toi|minh)?\s*(?:di\s*)?\d{1,2}\s*ngay$/,
+        /^\d{1,2}\s*(?:nguoi|nguoi lon|tre em|tre|be|con)$/,
+        /^(?:toi|minh)\s+di\s+voi\s+(?:vo|chong|con)(?:\s+va\s+(?:vo|chong|con))*$/,
+        /^(?:con|be|tre|tre em)?\s*\d{1,2}\s*tuoi$/,
+        /^(?:ngan sach|budget)?\s*(?:khoang|tam|duoi|toi da)?\s*\d+(?:[.,]\d+)?\s*(?:trieu|tr|nghin|ngan|k)(?:\s*(?:vnd|dong))?$/,
+        /^(?:ngay\s*)?\d{1,2}[/-]\d{1,2}(?:[/-]\d{4})?$/,
+        /^(?:hom nay|ngay mai|mai)$/,
+        /^(?:thu tha|nghi duong|cham rai|nhe nhang|di nhieu|kham pha nhieu|lich day|that nhieu diem|can bang|vua phai)$/,
+    ];
+
+    if (
+        simplePatterns.some(
+            (pattern) =>
+                pattern.test(
+                    normalized,
+                ),
+        )
+    ) {
+        return true;
+    }
+
+    /**
+     * Quick reply sở thích thường chỉ là:
+     * "Biển", "Ẩm thực", "Thiên nhiên"...
+     * hoặc "thích biển".
+     */
+    const interestOnly =
+        INTEREST_RULES.some(
+            (rule) =>
+                rule.keywords.some(
+                    (keyword) => {
+                        const normalizedKeyword =
+                            normalizeText(
+                                keyword,
+                            );
+
+                        return (
+                            normalized ===
+                                normalizedKeyword ||
+                            normalized ===
+                                `thich ${normalizedKeyword}` ||
+                            normalized ===
+                                `toi thich ${normalizedKeyword}` ||
+                            normalized ===
+                                `minh thich ${normalizedKeyword}`
+                        );
+                    },
+                ),
+        );
+
+    return interestOnly;
+}
+
+function buildDeterministicAiExtraction(
+    input: AiTravelChatRequest,
+): AiExtraction {
+    const fallbackIntent =
+        detectIntentFallback(
+            input.message,
+            input.hasGeneratedPlan ??
+                false,
+        );
+
+    /**
+     * Nếu plan đã tồn tại, một thay đổi deterministic đơn giản
+     * như "3 ngày", "5 triệu", "Biển" nên được hiểu là modify_plan
+     * để UI có thể đề nghị dựng lại plan.
+     */
+    const intent =
+        input.hasGeneratedPlan &&
+        fallbackIntent ===
+            "planning" &&
+        !isExplicitGenerateRequest(
+            input.message,
+        )
+            ? "modify_plan"
+            : fallbackIntent;
+
+    return {
+        patch: {},
+        scope:
+            "travel",
+        intent,
+    };
+}
+
 /* -------------------------------------------------------------------------- */
 /* State                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -2829,10 +2991,44 @@ export async function handleAiTravelChatService(
             input,
         );
 
-    const ai =
-        await extractWithAi(
+    const deterministicOnly =
+        canUseDeterministicOnly(
             input,
+            deterministicPatch,
         );
+
+    const ai =
+        deterministicOnly
+            ? buildDeterministicAiExtraction(
+                  input,
+              )
+            : await extractWithAi(
+                  input,
+              );
+
+    if (deterministicOnly) {
+        console.info(
+            "[AI TRAVEL CHAT FAST PATH]",
+            {
+                mode:
+                    "deterministic",
+
+                patchKeys:
+                    Object.keys(
+                        deterministicPatch,
+                    ),
+
+                intent:
+                    ai.intent,
+
+                message:
+                    input.message.slice(
+                        0,
+                        120,
+                    ),
+            },
+        );
+    }
 
     /**
      * Nếu user đang trả lời tuổi trẻ trong flow tìm lodging

@@ -5,13 +5,11 @@ import { useState } from "react";
 import type { CityId } from "@/src/constants/home-data";
 import { useHomeData } from "@/src/hooks/useHomeData";
 
-import { FoodDiscoveryPanel } from "./FoodDiscoveryPanel";
 import { HeroSection } from "./HeroSection";
 import { HomeFooter } from "./HomeFooter";
 import { HomeHeader } from "./HomeHeader";
 import {
     CityEditorialSection,
-    CuisineSection,
     ExperienceSection,
     FeaturedDestinationsSection,
     JourneySection,
@@ -28,7 +26,6 @@ export function HomePage() {
         cities,
         cityEditorial,
         featuredDestinations,
-        cuisines,
         journeys,
         error,
         reload,
@@ -37,6 +34,7 @@ export function HomePage() {
     return (
         <main className="overflow-x-hidden bg-[#fffaf1] text-[#173a3b]">
             <HomeHeader />
+
             <HeroSection
                 cities={cities}
                 activeCityId={activeCityId}
@@ -51,22 +49,12 @@ export function HomePage() {
                 items={featuredDestinations}
             />
 
-            <CuisineSection items={cuisines} />
-
-            {/*
-             * Food Discovery Phase 2
-             *
-             * - GPS thật
-             * - Demo location để test khi đang ở TP.HCM
-             * - Nhập tọa độ thủ công
-             * - Filter ngân sách / ăn đêm / gia đình / local
-             * - Restaurant API đã có từ Food Phase 1
-             */}
-            <FoodDiscoveryPanel />
-
-            <JourneySection items={journeys} />
+            <JourneySection
+                items={journeys}
+            />
 
             <ExperienceSection />
+
             <PlannerSection />
 
             <HomeFooter />
@@ -81,6 +69,7 @@ export function HomePage() {
                         Trang đang hiển thị dữ liệu
                         mẫu.
                     </span>
+
                     <button
                         type="button"
                         onClick={() => {

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
     --background: #fffaf1;
@@ -24,7 +25,6 @@
     --color-foreground: var(--foreground);
     --font-sans: var(--font-body);
     --font-display: var(--font-display);
-
     --color-admin-ink: var(--admin-ink);
     --color-admin-paper: var(--admin-paper);
     --color-admin-paper-card: var(--admin-paper-card);
@@ -85,6 +85,31 @@ button {
         opacity: 1;
         transform: scale(1);
     }
+}
+
+/*
+ * Leaflet phải nằm dưới overlay UI của SmartTrip.
+ */
+.leaflet-container {
+    width: 100%;
+    height: 100%;
+    font-family: inherit;
+    background: #dce8df;
+}
+
+.leaflet-control-attribution {
+    font-size: 9px !important;
+    opacity: 0.78;
+}
+
+.leaflet-control-zoom a {
+    color: #173a3b !important;
+}
+
+.smarttrip-selected-marker,
+.smarttrip-gps-marker {
+    background: transparent !important;
+    border: 0 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

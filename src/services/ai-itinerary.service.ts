@@ -872,6 +872,12 @@ function buildAiPlannerPrompt(
 
         cuisineKeysAvailable:
             boolean;
+
+        outputSchema:
+            Record<
+                string,
+                unknown
+            >;
     },
 ) {
     const {
@@ -879,6 +885,7 @@ function buildAiPlannerPrompt(
         locationName,
         ragContext,
         cuisineKeysAvailable,
+        outputSchema,
     } = input;
 
     const nightCount =
@@ -888,13 +895,25 @@ function buildAiPlannerPrompt(
             1,
         );
 
+    /**
+     * Schema được minify thay vì pretty-print.
+     *
+     * Mục tiêu:
+     * - Gemini vẫn biết chính xác field/enum/key hợp lệ.
+     * - Không làm prompt phình gần gấp đôi như fallback cũ.
+     */
+    const compactOutputSchema =
+        JSON.stringify(
+            outputSchema,
+        );
+
     return `
 Bạn là hệ thống lập lịch trình du lịch SmartTripVietNam.
 
 NHIỆM VỤ
 Tạo lịch trình ${request.dayCount} ngày tại ${locationName}.
 
-NGƯỜI DÙNG
+THÔNG TIN CHUYẾN ĐI
 - Ngày khởi hành: ${request.startDate}
 - Người lớn: ${request.adultCount}
 - Trẻ em: ${request.childCount}
@@ -914,44 +933,51 @@ NGƯỜI DÙNG
         "không có"
     }
 
-QUY TẮC BẮT BUỘC
+QUY TẮC RAG
 1. destinationKey chỉ được chọn từ mã Dxx trong CONTEXT.
-2. Không tự tạo destinationKey mới.
-3. Không dùng địa điểm ngoài ${locationName}.
-4. cuisineKey chỉ được chọn từ mã Cxx trong CONTEXT.
-5. ${
+2. Không tự tạo destinationKey mới và không dùng địa điểm ngoài ${locationName}.
+3. cuisineKey chỉ được chọn từ mã Cxx trong CONTEXT.
+4. ${
         cuisineKeysAvailable
             ? "Nếu bữa ăn không cần gắn món cụ thể thì cuisines có thể là []."
             : "Không có cuisine trong context, vì vậy mọi cuisines phải là []."
     }
-6. days phải có chính xác ${request.dayCount} phần tử.
-7. Mỗi ngày có ít nhất 1 activity; ưu tiên 2-4 activity tùy nhịp độ.
-8. Không xếp hai activity trùng thời gian.
-9. startTime phải nhỏ hơn endTime và dùng định dạng HH:mm.
-10. Hạn chế lặp destination giữa nhiều ngày nếu không cần thiết.
-11. Không bịa nhà hàng, khách sạn hoặc địa chỉ cụ thể ngoài CONTEXT.
+5. Không bịa nhà hàng, khách sạn hoặc địa chỉ cụ thể ngoài CONTEXT.
+6. Hạn chế lặp destination giữa nhiều ngày nếu không cần thiết.
+
+QUY TẮC LỊCH TRÌNH
+1. days phải có chính xác ${request.dayCount} phần tử.
+2. Mỗi ngày có ít nhất 1 activity; ưu tiên 2-4 activity tùy nhịp độ.
+3. Không xếp hai activity trùng thời gian.
+4. startTime phải nhỏ hơn endTime và dùng định dạng HH:mm.
+5. Lịch phải thực tế, có thời gian nghỉ và di chuyển hợp lý.
+6. Không chép dài nội dung CONTEXT vào description.
 
 CHI PHÍ
-- estimatedCosts phải có ít nhất 1 phần tử.
-- Đây là dự toán, không khẳng định là giá thực tế.
-- Với món ăn có AVG_PRICE trong CONTEXT thì ưu tiên dùng AVG_PRICE.
-- Food: calculationUnit="per_person", travelerScope="all" khi phù hợp.
-- Transport có thể dùng calculationUnit="per_group".
-- Nếu chuyến đi từ 2 ngày trở lên, nên có accommodation.
-- Accommodation: calculationUnit="per_room", nightCount=${nightCount}.
-- quantity thông thường bằng 1.
-- Nếu phải tự ước tính giá, note phải ghi rõ "AI ước tính".
+1. estimatedCosts phải có ít nhất 1 phần tử và chỉ là dự toán tham khảo.
+2. Với món ăn có AVG_PRICE trong CONTEXT thì ưu tiên dùng AVG_PRICE.
+3. Food: calculationUnit="per_person", travelerScope="all" khi phù hợp.
+4. Transport có thể dùng calculationUnit="per_group".
+5. Nếu chuyến đi từ 2 ngày trở lên, nên có accommodation.
+6. Accommodation: calculationUnit="per_room", nightCount=${nightCount}.
+7. quantity thông thường bằng 1.
+8. Nếu phải tự ước tính giá, note phải ghi rõ "AI ước tính".
 
-CÁCH TÍNH
-- per_person: unitPrice × quantity × số hành khách theo travelerScope
-- per_group: unitPrice × quantity
-- fixed: unitPrice × quantity
-- per_room: unitPrice × số phòng × nightCount
+GIỚI HẠN OUTPUT ĐỂ PHẢN HỒI NHANH
+- title toàn plan: ngắn gọn, khoảng tối đa 80 ký tự.
+- description toàn plan: khoảng tối đa 180 ký tự.
+- title mỗi ngày: khoảng tối đa 70 ký tự.
+- description mỗi ngày: khoảng tối đa 140 ký tự.
+- activity title: khoảng tối đa 60 ký tự.
+- activity description: khoảng tối đa 120 ký tự.
+- meal note: khoảng tối đa 80 ký tự.
+- cost note: khoảng tối đa 80 ký tự.
+- estimatedCosts chỉ nên có khoảng 4-8 khoản tổng hợp.
+- Không thêm prose, markdown hoặc code fence ngoài JSON.
 
 OUTPUT
-- Chỉ trả JSON đúng schema.
-- Không markdown.
-- Không giải thích ngoài JSON.
+Trả DUY NHẤT một JSON object hợp lệ và tuân thủ chính xác JSON Schema compact sau:
+${compactOutputSchema}
 
 CONTEXT
 ${ragContext}
@@ -1131,6 +1157,20 @@ export async function generateAiItineraryService(
     /* Prompt/schema                                                          */
     /* ---------------------------------------------------------------------- */
 
+    const generationSchema =
+        buildAiItineraryJsonSchema({
+            dayCount:
+                request.dayCount,
+
+            destinationKeys:
+                keyContext
+                    .destinationKeys,
+
+            cuisineKeys:
+                keyContext
+                    .cuisineKeys,
+        });
+
     const prompt =
         buildAiPlannerPrompt({
             request,
@@ -1146,20 +1186,9 @@ export async function generateAiItineraryService(
                     .cuisineKeys
                     .length >
                 0,
-        });
 
-    const generationSchema =
-        buildAiItineraryJsonSchema({
-            dayCount:
-                request.dayCount,
-
-            destinationKeys:
-                keyContext
-                    .destinationKeys,
-
-            cuisineKeys:
-                keyContext
-                    .cuisineKeys,
+            outputSchema:
+                generationSchema,
         });
 
     /* ---------------------------------------------------------------------- */
