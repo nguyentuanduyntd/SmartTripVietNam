@@ -35,6 +35,7 @@ import {
     type CommunityModerationListStatus,
     type CommunityModerationReport,
 } from "@/src/lib/api-client/community-moderation";
+import { formatVietnameseDateTime } from "@/src/lib/formatters";
 
 const PAGE_SIZE = 12;
 
@@ -64,22 +65,7 @@ const STATUS_LABELS: Record<
 function formatDateTime(
     value: string | null,
 ) {
-    if (!value) {
-        return "—";
-    }
-
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone:
-                "Asia/Ho_Chi_Minh",
-        },
-    ).format(new Date(value));
+    return formatVietnameseDateTime(value);
 }
 
 function getInitials(
@@ -231,7 +217,11 @@ export function CommunityModerationPage() {
         );
 
     useEffect(() => {
-        void loadReports();
+        const timeoutId = window.setTimeout(() => {
+            void loadReports();
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, [loadReports]);
 
     const totalAll =

@@ -7,6 +7,7 @@ import type {
     PlannerConversationState,
     TravelChatMessage,
 } from "@/src/components/planner/ai/chat/ai-travel-chat.types";
+import { formatOptionalVnd } from "@/src/lib/formatters";
 
 export type PlannerApiPayload<T> = {
     success: boolean;
@@ -133,11 +134,7 @@ export function formatCurrency(value?: number) {
         return null;
     }
 
-    return new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0,
-    }).format(value);
+    return formatOptionalVnd(value);
 }
 
 export async function readPlannerApiResponse<T>(

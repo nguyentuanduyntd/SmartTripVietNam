@@ -3,7 +3,16 @@ import Link from "next/link";
 import {ArrowLeft,BedDouble,CalendarDays,CheckCircle2,Clock3,Route,UsersRound,Utensils,WalletCards,} from "lucide-react";
 import {notFound,redirect,} from "next/navigation";
 import { itineraryIdParamsSchema } from "@/src/db/schema/itinerary.schema";
+import {
+    COST_CATEGORY_DISPLAY_ORDER,
+    COST_CATEGORY_LABELS,
+} from "@/src/constants/itinerary";
 import { getCurrentUser } from "@/src/lib/auth/get-current-user";
+import {
+    formatTime,
+    formatVietnameseDate,
+    formatVnd,
+} from "@/src/lib/formatters";
 import { CostBreakdownDialog } from "@/src/components/planner/CostBreakdownDialog";
 import {PlannerGoogleMapsPlace} from "@/src/components/planner/PlannerGoogleMapsPlace";
 import {getUserItineraryPlannerDetailService,ItineraryServiceError,} from "@/src/services/itinerary.service";
@@ -32,71 +41,17 @@ const STATUS_STYLES = {
         "border-[#d5d5d5] bg-[#f3f3f3] text-[#686868]",
 } as const;
 
-const COST_OVERVIEW_ITEMS = [
-    {
-        key: "accommodation",
-        label: "Lưu trú",
-    },
-    {
-        key: "transport",
-        label: "Di chuyển",
-    },
-    {
-        key: "ticket",
-        label: "Vé & tham quan",
-    },
-    {
-        key: "food",
-        label: "Ăn uống",
-    },
-    {
-        key: "activity",
-        label: "Hoạt động",
-    },
-    {
-        key: "shopping",
-        label: "Mua sắm",
-    },
-    {
-        key: "other",
-        label: "Chi phí khác",
-    },
-] as const;
+const COST_OVERVIEW_ITEMS = COST_CATEGORY_DISPLAY_ORDER.map((key) => ({
+    key,
+    label: COST_CATEGORY_LABELS[key],
+}));
 
 function formatCurrency(value: number) {
-    return new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0,
-    }).format(value);
+    return formatVnd(value, "0 ₫");
 }
 
 function formatDate(value: string | null) {
-    if (!value) {
-        return "Chưa thiết lập";
-    }
-
-    const [year, month, day] = value
-        .split("-")
-        .map(Number);
-
-    return new Intl.DateTimeFormat("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    }).format(
-        new Date(
-            Date.UTC(year, month - 1, day),
-        ),
-    );
-}
-
-function formatTime(value: string | null) {
-    if (!value) {
-        return null;
-    }
-
-    return value.slice(0, 5);
+    return formatVietnameseDate(value, "Chưa thiết lập");
 }
 
 export async function generateMetadata({

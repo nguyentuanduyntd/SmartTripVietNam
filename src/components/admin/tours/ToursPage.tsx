@@ -1,16 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus,ReceiptText, Search, Trash2 } from "lucide-react";
-import {TourFormDialog,type TourFormSubmitData,} from "@/src/components/admin/tours/TourFormDialog";
+import { Pencil, ReceiptText, Trash2 } from "lucide-react";
+
+import {
+  AdminCreateButton,
+  AdminListPanel,
+} from "@/src/components/admin/shared/AdminListPanel";
+import { saveEntityWithCover } from "@/src/components/admin/shared/saveEntityWithCover";
+import { useAdminList } from "@/src/components/admin/shared/useAdminList";
+import {
+  TourFormDialog,
+  type TourFormSubmitData,
+} from "@/src/components/admin/tours/TourFormDialog";
 import { TourCostsDialog } from "./TourCostsDialog";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import {DataTable,type DataTableColumn,type SortDirection,} from "@/src/components/ui/DataTable";
-import {toursApi,type Tour,type TourInput,type TourListParams,type TourStatus,} from "@/src/lib/api-client/tours";
+import {
+  DataTable,
+  type DataTableColumn,
+  type SortDirection,
+} from "@/src/components/ui/DataTable";
 import { ApiRequestError } from "@/src/lib/api-client/http";
 import { locationsApi, type Location } from "@/src/lib/api-client/locations";
-import { uploadsApi, type UploadedImage } from "@/src/lib/api-client/uploads";
+import {
+  toursApi,
+  type Tour,
+  type TourListParams,
+  type TourStatus,
+} from "@/src/lib/api-client/tours";
 
 type SortKey = "name" | "durationDays" | "estimatedPrice" | "updatedAt";
 
@@ -52,12 +70,7 @@ function formatPrice(value: string | null) {
 }
 
 export function ToursPage() {
-  const [rows, setRows] = useState<Tour[]>([]);
-  const [total, setTotal] = useState(0);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
@@ -79,9 +92,9 @@ export function ToursPage() {
   const sortByParam: TourListParams["sortBy"] =
     sortKey && sortDirection ? sortKey : undefined;
 
-  const loadTours = useCallback(async () => {
-    try {
-      const { data, meta } = await toursApi.list({
+  const fetchTours = useCallback(
+    () =>
+      toursApi.list({
         page: 1,
         limit: 50,
         search: nameFilter || undefined,
@@ -89,58 +102,22 @@ export function ToursPage() {
         status: statusFilter || undefined,
         sortBy: sortByParam,
         sortOrder: sortByParam ? (sortDirection ?? undefined) : undefined,
-      });
+      }),
+    [nameFilter, locationFilter, statusFilter, sortByParam, sortDirection],
+  );
 
-      setRows(data);
-      setTotal(meta.total);
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.message
-          : "Không tải được danh sách tour",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [nameFilter, locationFilter, statusFilter, sortByParam, sortDirection]);
-
-  useEffect(() => {
-    let active = true;
-
-    toursApi
-      .list({
-        page: 1,
-        limit: 50,
-        search: nameFilter || undefined,
-        startLocationId: locationFilter || undefined,
-        status: statusFilter || undefined,
-        sortBy: sortByParam,
-        sortOrder: sortByParam ? (sortDirection ?? undefined) : undefined,
-      })
-      .then(({ data, meta }) => {
-        if (!active) return;
-
-        setRows(data);
-        setTotal(meta.total);
-        setErrorMessage(null);
-        setLoading(false);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        setErrorMessage(
-          error instanceof ApiRequestError
-            ? error.message
-            : "Không tải được danh sách tour",
-        );
-        setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [nameFilter, locationFilter, statusFilter, sortByParam, sortDirection]);
+  const {
+    rows,
+    total,
+    loading,
+    errorMessage,
+    setErrorMessage,
+    reload: reloadTours,
+    beginReload,
+  } = useAdminList({
+    load: fetchTours,
+    fallbackError: "Không tải được danh sách tour",
+  });
 
   useEffect(() => {
     let active = true;
@@ -162,8 +139,7 @@ export function ToursPage() {
   function handleSortChange(key: string) {
     const nextKey = key as SortKey;
 
-    setLoading(true);
-    setErrorMessage(null);
+    beginReload();
 
     if (sortKey !== nextKey) {
       setSortKey(nextKey);
@@ -186,8 +162,7 @@ export function ToursPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
-    setLoading(true);
-    setErrorMessage(null);
+    beginReload();
 
     setFilterValues((current) => ({
       ...current,
@@ -219,7 +194,6 @@ export function ToursPage() {
   function openCostsDialog(tour: Tour) {
     setCostsTarget(tour);
     setErrorMessage(null);
-
   }
 
   function closeCostsDialog() {
@@ -227,8 +201,8 @@ export function ToursPage() {
     setErrorMessage(null);
   }
 
-  async function handleCostsChanged(){
-    await loadTours();
+  async function handleCostsChanged() {
+    await reloadTours();
   }
 
   async function handleSubmitForm({
@@ -240,41 +214,21 @@ export function ToursPage() {
     setFieldErrors(undefined);
     setErrorMessage(null);
 
-    let uploadedImage: UploadedImage | null = null;
-    let tourSaved = false;
-
     try {
-      const payload: TourInput = { ...input };
+      await saveEntityWithCover({
+        input,
+        coverFile,
+        removeCover,
+        uploadFolder: "tour-cover",
+        save: (payload) =>
+          editingTour
+            ? toursApi.update(editingTour.id, payload)
+            : toursApi.create(payload),
+      });
 
-      if (coverFile) {
-        uploadedImage = await uploadsApi.upload(coverFile, "tour-cover");
-
-        payload.coverImageUrl = uploadedImage.url;
-        payload.coverImagePublicId = uploadedImage.publicId;
-      } else if (removeCover) {
-        payload.coverImageUrl = null;
-        payload.coverImagePublicId = null;
-      }
-
-      if (editingTour) {
-        await toursApi.update(editingTour.id, payload);
-      } else {
-        await toursApi.create(payload);
-      }
-
-      tourSaved = true;
       closeForm();
-      setLoading(true);
-      await loadTours();
+      await reloadTours();
     } catch (error) {
-      // Upload thành công nhưng lưu database thất bại:
-      // xóa ảnh vừa upload để tránh ảnh rác trên Cloudinary.
-      if (uploadedImage && !tourSaved) {
-        await uploadsApi.remove(uploadedImage.publicId).catch((cleanupError) => {
-          console.error("Không thể rollback ảnh Cloudinary:", cleanupError);
-        });
-      }
-
       if (error instanceof ApiRequestError) {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
@@ -299,7 +253,7 @@ export function ToursPage() {
     try {
       await toursApi.remove(deleteTarget.id);
       setDeleteTarget(null);
-      await loadTours();
+      await reloadTours();
     } catch (error) {
       setErrorMessage(
         error instanceof ApiRequestError
@@ -468,44 +422,28 @@ export function ToursPage() {
         title="Tour mẫu"
         subtitle={`Huế · Đà Nẵng · Hội An — ${total} tour đang quản lý`}
         action={
-          <button
-            type="button"
+          <AdminCreateButton
             onClick={openCreateForm}
             disabled={submitting || deleting}
-            className="flex items-center gap-1.5 rounded-md border border-admin-gold bg-admin-gold px-3 py-2 text-sm font-medium text-admin-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus size={16} strokeWidth={2} />
             Thêm tour
-          </button>
+          </AdminCreateButton>
         }
       />
 
-      {errorMessage && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-admin-seal bg-admin-seal-light px-3 py-2 text-sm text-admin-seal">
-          <Search size={14} />
-          {errorMessage}
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-lg border border-admin-line bg-admin-paper-card">
-        {loading ? (
-          <div className="px-4 py-10 text-center text-sm text-admin-muted">
-            Đang tải…
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={rows}
-            rowKey={(row) => row.id}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            onSortChange={handleSortChange}
-            filterValues={filterValues}
-            onFilterChange={handleFilterChange}
-            emptyLabel="Không tìm thấy tour phù hợp"
-          />
-        )}
-      </div>
+      <AdminListPanel loading={loading} errorMessage={errorMessage}>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(row) => row.id}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          emptyLabel="Không tìm thấy tour phù hợp"
+        />
+      </AdminListPanel>
 
       {formOpen ? (
         <TourFormDialog

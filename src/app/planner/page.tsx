@@ -4,6 +4,10 @@ import {ArrowRight,BedDouble,CalendarDays,Clock3,MapPin,Plus,Route,UsersRound,} 
 import { redirect } from "next/navigation";
 import { HomeHeader } from "@/src/components/home/HomeHeader";
 import { getCurrentUser } from "@/src/lib/auth/get-current-user";
+import {
+    formatVietnameseDate,
+    formatVietnameseDateTime,
+} from "@/src/lib/formatters";
 import { findUserItineraryList } from "@/src/repositories/itinerary-list.repository";
 import { DeleteItineraryButton } from "@/src/components/planner/DeleteItineraryButton";
 
@@ -43,50 +47,14 @@ const STATUS_STYLES = {
 function formatDate(
     value: string | null,
 ) {
-    if (!value) {
-        return "Chưa thiết lập";
-    }
-
-    const [year, month, day] = value
-        .split("-")
-        .map(Number);
-
-    if (!year || !month || !day) {
-        return "Chưa thiết lập";
-    }
-
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            timeZone: "UTC",
-        },
-    ).format(
-        new Date(
-            Date.UTC(
-                year,
-                month - 1,
-                day,
-            ),
-        ),
+    return formatVietnameseDate(
+        value,
+        "Chưa thiết lập",
     );
 }
 
 function formatUpdatedAt(value: Date) {
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone:
-                "Asia/Ho_Chi_Minh",
-        },
-    ).format(value);
+    return formatVietnameseDateTime(value);
 }
 
 export default async function MyItinerariesPage() {

@@ -14,14 +14,13 @@ import {
 } from "lucide-react";
 
 import type {
-    AiEstimatedCost,
-    AiPlannerRequest,
     GeneratedItinerary,
 } from "@/src/components/planner/ai/ai-planner.types";
 
 import {
     formatCurrency,
 } from "@/src/components/planner/ai/chat/travel-chat.utils";
+import { calculateCostsTotal } from "@/src/lib/costs/cost-calculator";
 
 type ItineraryChatCardProps = {
     generated: GeneratedItinerary;
@@ -44,69 +43,24 @@ const TRANSPORT_LABELS: Record<string, string> = {
     other: "Khác",
 };
 
-function getTravelerCountForCost(
-    cost: AiEstimatedCost,
-    request: AiPlannerRequest,
-) {
-    if (cost.travelerScope === "adult") {
-        return request.adultCount;
-    }
-
-    if (cost.travelerScope === "child") {
-        return request.childCount;
-    }
-
-    return (
-        request.adultCount +
-        request.childCount
-    );
-}
-
-function calculateCost(
-    cost: AiEstimatedCost,
-    request: AiPlannerRequest,
-) {
-    const unitPrice = Number(cost.unitPrice) || 0;
-    const quantity = Number(cost.quantity) || 1;
-
-    if (cost.calculationUnit === "per_person") {
-        return (
-            unitPrice *
-            quantity *
-            getTravelerCountForCost(
-                cost,
-                request,
-            )
-        );
-    }
-
-    if (cost.calculationUnit === "per_room") {
-        return (
-            unitPrice *
-            quantity *
-            request.roomCount *
-            (cost.nightCount ??
-                Math.max(
-                    request.dayCount - 1,
-                    1,
-                ))
-        );
-    }
-
-    return unitPrice * quantity;
-}
-
 function calculateTotal(
     generated: GeneratedItinerary,
 ) {
-    return generated.plan.estimatedCosts.reduce(
-        (sum, cost) =>
-            sum +
-            calculateCost(
-                cost,
-                generated.request,
-            ),
-        0,
+    return calculateCostsTotal(
+        generated.plan.estimatedCosts,
+        {
+            adultCount:
+                generated.request.adultCount,
+            childCount:
+                generated.request.childCount,
+            roomCount:
+                generated.request.roomCount,
+            defaultNightCount:
+                Math.max(
+                    generated.request.dayCount - 1,
+                    1,
+                ),
+        },
     );
 }
 

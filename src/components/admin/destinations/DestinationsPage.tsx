@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useCallback,
@@ -6,12 +6,18 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import {
   DestinationFormDialog,
   type DestinationFormSubmitData,
 } from "@/src/components/admin/destinations/DestinationFormDialog";
+import {
+  AdminCreateButton,
+  AdminListPanel,
+} from "@/src/components/admin/shared/AdminListPanel";
+import { saveEntityWithCover } from "@/src/components/admin/shared/saveEntityWithCover";
+import { useAdminList } from "@/src/components/admin/shared/useAdminList";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
 import {
@@ -22,27 +28,17 @@ import {
 import {
   destinationsApi,
   type Destination,
-  type DestinationInput,
 } from "@/src/lib/api-client/destinations";
 import { ApiRequestError } from "@/src/lib/api-client/http";
 import {
   locationsApi,
   type Location,
 } from "@/src/lib/api-client/locations";
-import {
-  uploadsApi,
-  type UploadedImage,
-} from "@/src/lib/api-client/uploads";
 
 type SortKey = "name" | "updatedAt";
 
 export function DestinationsPage() {
-  const [rows, setRows] = useState<Destination[]>([]);
-  const [total, setTotal] = useState(0);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] =
     useState<SortDirection>(null);
@@ -64,70 +60,28 @@ export function DestinationsPage() {
 
   const locationFilter = filterValues.locationId;
 
-  const loadDestinations =
-    useCallback(async () => {
-        try {
-            const { data, meta } =
-                await destinationsApi.list({
-                    page: 1,
-                    limit: 50,
-                    locationId:
-                        locationFilter ||
-                        undefined,
-                });
-
-            setRows(data);
-            setTotal(meta.total);
-            setErrorMessage(null);
-        } catch (error) {
-            setErrorMessage(
-                error instanceof
-                    ApiRequestError
-                    ? error.message
-                    : "Không tải được danh sách địa danh",
-            );
-        } finally {
-            setLoading(false);
-        }
-    }, [locationFilter]);
-
-  useEffect(() => {
-    let active = true;
-
-    destinationsApi
-      .list({
+  const fetchDestinations = useCallback(
+    () =>
+      destinationsApi.list({
         page: 1,
         limit: 50,
         locationId: locationFilter || undefined,
-      })
-      .then(({ data, meta }) => {
-        if (!active) {
-          return;
-        }
+      }),
+    [locationFilter],
+  );
 
-        setRows(data);
-        setTotal(meta.total);
-        setErrorMessage(null);
-        setLoading(false);
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        setErrorMessage(
-          error instanceof ApiRequestError
-            ? error.message
-            : "Không tải được danh sách địa danh",
-        );
-
-        setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [locationFilter]);
+  const {
+    rows,
+    total,
+    loading,
+    errorMessage,
+    setErrorMessage,
+    reload: reloadDestinations,
+    beginReload,
+  } = useAdminList({
+    load: fetchDestinations,
+    fallbackError: "Không tải được danh sách địa danh",
+  });
 
   useEffect(() => {
     let active = true;
@@ -220,10 +174,10 @@ export function DestinationsPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
-    if(key === "locationId"){
-      setLoading(true);
-      setErrorMessage(null);
+    if (key === "locationId") {
+      beginReload();
     }
+
     setFilterValues((current) => ({
       ...current,
       [key]: value,
@@ -260,54 +214,21 @@ export function DestinationsPage() {
     setFieldErrors(undefined);
     setErrorMessage(null);
 
-    let uploadedImage: UploadedImage | null = null;
-    let destinationSaved = false;
-
     try {
-      const payload: DestinationInput = {
-        ...input,
-      };
+      await saveEntityWithCover({
+        input,
+        coverFile,
+        removeCover,
+        uploadFolder: "destination-cover",
+        save: (payload) =>
+          editingDestination
+            ? destinationsApi.update(editingDestination.id, payload)
+            : destinationsApi.create(payload),
+      });
 
-      if (coverFile) {
-        uploadedImage = await uploadsApi.upload(
-          coverFile,
-          "destination-cover",
-        );
-
-        payload.coverImageUrl = uploadedImage.url;
-        payload.coverImagePublicId = uploadedImage.publicId;
-      } else if (removeCover) {
-        payload.coverImageUrl = null;
-        payload.coverImagePublicId = null;
-      }
-
-      if (editingDestination) {
-        await destinationsApi.update(
-          editingDestination.id,
-          payload,
-        );
-      } else {
-        await destinationsApi.create(payload);
-      }
-
-      destinationSaved = true;
       closeForm();
-      setLoading(true);
-      await loadDestinations();
+      await reloadDestinations();
     } catch (error) {
-      // Upload thành công nhưng lưu database thất bại:
-      // xóa ảnh vừa upload để tránh ảnh rác trên Cloudinary.
-      if (uploadedImage && !destinationSaved) {
-        await uploadsApi
-          .remove(uploadedImage.publicId)
-          .catch((cleanupError) => {
-            console.error(
-              "Không thể rollback ảnh Cloudinary:",
-              cleanupError,
-            );
-          });
-      }
-
       if (error instanceof ApiRequestError) {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
@@ -332,7 +253,7 @@ export function DestinationsPage() {
     try {
       await destinationsApi.remove(deleteTarget.id);
       setDeleteTarget(null);
-      await loadDestinations();
+      await reloadDestinations();
     } catch (error) {
       setErrorMessage(
         error instanceof ApiRequestError
@@ -447,57 +368,39 @@ export function DestinationsPage() {
         title="Địa danh"
         subtitle={`Huế · Đà Nẵng · Hội An — ${total} địa danh đang quản lý`}
         action={
-          <button
-            type="button"
+          <AdminCreateButton
             onClick={openCreateForm}
             disabled={submitting || deleting}
-            className="flex items-center gap-1.5 rounded-md border border-admin-gold bg-admin-gold px-3 py-2 text-sm font-medium text-admin-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus size={16} strokeWidth={2} />
             Thêm địa danh
-          </button>
+          </AdminCreateButton>
         }
       />
 
-      {errorMessage && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-admin-seal bg-admin-seal-light px-3 py-2 text-sm text-admin-seal">
-          <Search size={14} />
-          {errorMessage}
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-lg border border-admin-line bg-admin-paper-card">
-        {loading ? (
-          <div className="px-4 py-10 text-center text-sm text-admin-muted">
-            Đang tải…
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={visibleRows}
-            rowKey={(row) => row.id}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            onSortChange={handleSortChange}
-            filterValues={filterValues}
-            onFilterChange={handleFilterChange}
-            emptyLabel="Không tìm thấy địa danh phù hợp"
-          />
-        )}
-      </div>
+      <AdminListPanel loading={loading} errorMessage={errorMessage}>
+        <DataTable
+          columns={columns}
+          rows={visibleRows}
+          rowKey={(row) => row.id}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          emptyLabel="Không tìm thấy địa danh phù hợp"
+        />
+      </AdminListPanel>
 
       {formOpen ? (
-          <DestinationFormDialog
-              open
-              locations={locations}
-              initialValue={
-                  editingDestination
-              }
-              submitting={submitting}
-              fieldErrors={fieldErrors}
-              onSubmit={handleSubmitForm}
-              onClose={closeForm}
-          />
+        <DestinationFormDialog
+          open
+          locations={locations}
+          initialValue={editingDestination}
+          submitting={submitting}
+          fieldErrors={fieldErrors}
+          onSubmit={handleSubmitForm}
+          onClose={closeForm}
+        />
       ) : null}
 
       <ConfirmDialog

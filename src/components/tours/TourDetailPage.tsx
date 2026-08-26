@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {ArrowLeft,Bike,BusFront,CalendarDays,CarFront,Check,Clock3,Coffee,Footprints,
-    MapPin,Plane,Route,ShipWheel,Sparkles,TrainFront,Utensils,WalletCards,} from "lucide-react";
+    MapPin,Plane,Route,ShipWheel,Sparkles,TrainFront,Utensils,} from "lucide-react";
 import { CloudinaryVisual } from "@/src/components/home/CloudinaryVisual";
 import { HomeFooter } from "@/src/components/home/HomeFooter";
 import { HomeHeader } from "@/src/components/home/HomeHeader";
+import { formatDuration, formatTime, formatVnd } from "@/src/lib/formatters";
 import type {PublicTourDetail,RelatedPublishedTour,} from "@/src/lib/tours/public-tour";
 import { TourActions } from "./TourActions";
 import { TourCommunity } from "./TourCommunity";
@@ -54,32 +55,8 @@ const mealLabels: Record<string, string> = {
     snack: "Bữa nhẹ",
 };
 
-function formatDuration(days: number, nights: number) {
-    return nights > 0
-        ? `${days} ngày ${nights} đêm`
-        : `${days} ngày`;
-}
-
 function formatPrice(price: string | null) {
-    if (!price) {
-        return "Đang cập nhật";
-    }
-
-    const value = Number(price);
-
-    if (!Number.isFinite(value)) {
-        return "Đang cập nhật";
-    }
-
-    return new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0,
-    }).format(value);
-}
-
-function formatTime(value: string | null) {
-    return value ? value.slice(0, 5) : null;
+    return formatVnd(price, "Đang cập nhật");
 }
 
 function getTransportIcon(method: string | null): ReactNode {

@@ -49,3 +49,39 @@ export type CostCalculationUnit =
 
 export type TravelerScope =
     (typeof TRAVELER_SCOPES)[number];
+
+export const COST_CATEGORY_DISPLAY_ORDER: CostCategory[] = [
+    "accommodation",
+    "transport",
+    "ticket",
+    "food",
+    "activity",
+    "shopping",
+    "other",
+];
+
+export const COST_CATEGORY_LABELS: Record<CostCategory, string> = {
+    accommodation: "Lưu trú",
+    transport: "Di chuyển",
+    ticket: "Vé & tham quan",
+    food: "Ăn uống",
+    activity: "Hoạt động",
+    shopping: "Mua sắm",
+    other: "Chi phí khác",
+};
+
+export const COST_CALCULATION_UNIT_LABELS: Record<
+    CostCalculationUnit,
+    string
+> = {
+    per_person: "Theo người",
+    per_group: "Theo nhóm / chuyến",
+    per_room: "Theo phòng / đêm",
+    fixed: "Chi phí cố định",
+};
+
+export const TRAVELER_SCOPE_LABELS: Record<TravelerScope, string> = {
+    all: "Tất cả hành khách",
+    adult: "Người lớn",
+    child: "Trẻ em",
+};

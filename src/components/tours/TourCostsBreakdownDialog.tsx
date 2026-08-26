@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useEffect,
@@ -18,11 +18,17 @@ import type {
   CostCategory,
   TravelerScope,
 } from "@/src/constants/itinerary";
+import {
+  COST_CATEGORY_DISPLAY_ORDER as CATEGORY_ORDER,
+  COST_CATEGORY_LABELS as CATEGORY_LABELS,
+} from "@/src/constants/itinerary";
 
 import {
   calculateCostAmount,
   calculateCostsTotal,
 } from "@/src/lib/costs/cost-calculator";
+import { formatCostFormula } from "@/src/lib/costs/cost-display";
+import { formatVnd } from "@/src/lib/formatters";
 
 type TourCost = {
   id: string;
@@ -63,29 +69,6 @@ type TourCostBreakdownDialogProps = {
   estimatedPrice: string | null;
 };
 
-const CATEGORY_ORDER: CostCategory[] = [
-  "accommodation",
-  "transport",
-  "ticket",
-  "food",
-  "activity",
-  "shopping",
-  "other",
-];
-
-const CATEGORY_LABELS: Record<
-  CostCategory,
-  string
-> = {
-  accommodation: "Lưu trú",
-  transport: "Di chuyển",
-  ticket: "Vé & tham quan",
-  food: "Ăn uống",
-  activity: "Hoạt động",
-  shopping: "Mua sắm",
-  other: "Chi phí khác",
-};
-
 function formatCurrency(
   value:
     | string
@@ -93,125 +76,7 @@ function formatCurrency(
     | null
     | undefined,
 ) {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return "Đang cập nhật";
-  }
-
-  const numberValue =
-    Number(value);
-
-  if (
-    !Number.isFinite(
-      numberValue,
-    )
-  ) {
-    return "Đang cập nhật";
-  }
-
-  return new Intl.NumberFormat(
-    "vi-VN",
-    {
-      style: "currency",
-      currency: "VND",
-      maximumFractionDigits: 0,
-    },
-  ).format(numberValue);
-}
-
-function formatQuantity(
-  value: string | number,
-) {
-  const numberValue =
-    Number(value);
-
-  if (
-    !Number.isFinite(
-      numberValue,
-    )
-  ) {
-    return "0";
-  }
-
-  return new Intl.NumberFormat(
-    "vi-VN",
-    {
-      maximumFractionDigits: 2,
-    },
-  ).format(numberValue);
-}
-
-function getCostFormula(
-  cost: TourCost,
-  durationNights: number,
-) {
-  const quantity =
-    Number(cost.quantity);
-
-  switch (
-    cost.calculationUnit
-  ) {
-    case "per_person":
-      return [
-        formatCurrency(
-          cost.unitPrice,
-        ),
-
-        quantity !== 1
-          ? `× ${formatQuantity(
-              cost.quantity,
-            )}`
-          : null,
-
-        "× 1 người",
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-    case "per_room": {
-      const nightCount =
-        cost.nightCount ??
-        Math.max(
-          durationNights,
-          1,
-        );
-
-      return [
-        formatCurrency(
-          cost.unitPrice,
-        ),
-
-        "× 1 phòng",
-
-        `× ${nightCount} đêm`,
-      ].join(" ");
-    }
-
-    case "per_group":
-      return quantity !== 1
-        ? `${formatCurrency(
-            cost.unitPrice,
-          )} × ${formatQuantity(
-            cost.quantity,
-          )} nhóm/lượt`
-        : `${formatCurrency(
-            cost.unitPrice,
-          )} / nhóm/lượt`;
-
-    case "fixed":
-    default:
-      return quantity !== 1
-        ? `${formatCurrency(
-            cost.unitPrice,
-          )} × ${formatQuantity(
-            cost.quantity,
-          )}`
-        : formatCurrency(
-            cost.unitPrice,
-          );
-  }
+  return formatVnd(value, "Đang cập nhật");
 }
 
 export function TourCostBreakdownDialog({
@@ -583,9 +448,9 @@ export function TourCostBreakdownDialog({
                                         </p>
 
                                         <p className="mt-1 font-mono text-xs leading-5 text-[#71807d]">
-                                          {getCostFormula(
+                                          {formatCostFormula(
                                             cost,
-                                            durationNights,
+                                            calculationContext,
                                           )}
                                         </p>
 

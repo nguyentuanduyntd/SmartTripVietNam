@@ -7,6 +7,11 @@ import { useRouter } from "next/navigation";
 import { CommunityImageCarousel } from "@/src/components/community/CommunityImageCarousel";
 import {readCommunityApi,type CommunityCommentThread,type CommunityPostDetailData,} from "@/src/components/community/community-types";
 import { CommunityReportDialog } from "@/src/components/community/CommunityReportDialog";
+import {
+    formatOptionalVnd,
+    formatVietnameseDate,
+    formatVietnameseDateTime,
+} from "@/src/lib/formatters";
 
 type CommunityPostDetailProps = {
     postId: string;
@@ -16,24 +21,7 @@ type CommunityPostDetailProps = {
 function formatCurrency(
     value: string | null,
 ) {
-    if (!value) {
-        return null;
-    }
-
-    const amount = Number(value);
-
-    if (!Number.isFinite(amount)) {
-        return null;
-    }
-
-    return new Intl.NumberFormat(
-        "vi-VN",
-        {
-            style: "currency",
-            currency: "VND",
-            maximumFractionDigits: 0,
-        },
-    ).format(amount);
+    return formatOptionalVnd(value);
 }
 
 function formatDate(
@@ -43,56 +31,16 @@ function formatDate(
         return null;
     }
 
-    const [
-        year,
-        month,
-        day,
-    ] = value
-        .split("-")
-        .map(Number);
-
-    if (
-        !year ||
-        !month ||
-        !day
-    ) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            timeZone: "UTC",
-        },
-    ).format(
-        new Date(
-            Date.UTC(
-                year,
-                month - 1,
-                day,
-            ),
-        ),
+    return formatVietnameseDate(
+        value,
+        value,
     );
 }
 
 function formatDateTime(
     value: string,
 ) {
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone:
-                "Asia/Ho_Chi_Minh",
-        },
-    ).format(new Date(value));
+    return formatVietnameseDateTime(value);
 }
 
 function getInitials(

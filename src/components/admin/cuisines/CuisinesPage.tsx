@@ -1,14 +1,31 @@
-"use client";
+
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {Pencil, Plus, Search, Trash2} from "lucide-react";
-import {CuisineFormDialog,type CuisineFormSubmitData,} from "@/src/components/admin/cuisines/CuisineFormDialog";
+import { Pencil, Trash2 } from "lucide-react";
+
+import {
+  CuisineFormDialog,
+  type CuisineFormSubmitData,
+} from "@/src/components/admin/cuisines/CuisineFormDialog";
+import {
+  AdminCreateButton,
+  AdminListPanel,
+} from "@/src/components/admin/shared/AdminListPanel";
+import { saveEntityWithCover } from "@/src/components/admin/shared/saveEntityWithCover";
+import { useAdminList } from "@/src/components/admin/shared/useAdminList";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import {DataTable,type DataTableColumn,type SortDirection,} from "@/src/components/ui/DataTable";
-import {cuisinesApi,type Cuisine,type CuisineInput,} from "@/src/lib/api-client/cuisines";
-import {destinationsApi,type Destination,} from "@/src/lib/api-client/destinations";
+import {
+  DataTable,
+  type DataTableColumn,
+  type SortDirection,
+} from "@/src/components/ui/DataTable";
+import { cuisinesApi, type Cuisine } from "@/src/lib/api-client/cuisines";
+import {
+  destinationsApi,
+  type Destination,
+} from "@/src/lib/api-client/destinations";
 import { ApiRequestError } from "@/src/lib/api-client/http";
-import {uploadsApi,type UploadedImage,} from "@/src/lib/api-client/uploads";
 
 type SortKey = "name" | "updatedAt";
 
@@ -19,12 +36,7 @@ function formatPrice(value: number | null) {
 }
 
 export function CuisinesPage() {
-  const [rows, setRows] = useState<Cuisine[]>([]);
-  const [total, setTotal] = useState(0);
   const [destinations, setDestinations] = useState<Destination[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [filterValues, setFilterValues] = useState<Record<string, string>>(
@@ -41,70 +53,28 @@ export function CuisinesPage() {
 
   const destinationFilter = filterValues.destinationId;
 
-  const loadCuisines =
-    useCallback(async () => {
-        try {
-            const { data, meta } =
-                await cuisinesApi.list({
-                    page: 1,
-                    limit: 50,
-                    destinationId:
-                        destinationFilter ||
-                        undefined,
-                });
-
-            setRows(data);
-            setTotal(meta.total);
-            setErrorMessage(null);
-        } catch (error) {
-            setErrorMessage(
-                error instanceof
-                    ApiRequestError
-                    ? error.message
-                    : "Không tải được danh sách món ăn",
-            );
-        } finally {
-            setLoading(false);
-        }
-    }, [destinationFilter]);
-
-  useEffect(() => {
-    let active = true;
-
-    cuisinesApi
-      .list({
+  const fetchCuisines = useCallback(
+    () =>
+      cuisinesApi.list({
         page: 1,
         limit: 50,
         destinationId: destinationFilter || undefined,
-      })
-      .then(({ data, meta }) => {
-        if (!active) {
-          return;
-        }
+      }),
+    [destinationFilter],
+  );
 
-        setRows(data);
-        setTotal(meta.total);
-        setErrorMessage(null);
-        setLoading(false);
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        setErrorMessage(
-          error instanceof ApiRequestError
-            ? error.message
-            : "Không tải được danh sách món ăn",
-        );
-
-        setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [destinationFilter]);
+  const {
+    rows,
+    total,
+    loading,
+    errorMessage,
+    setErrorMessage,
+    reload: reloadCuisines,
+    beginReload,
+  } = useAdminList({
+    load: fetchCuisines,
+    fallbackError: "Không tải được danh sách món ăn",
+  });
 
   useEffect(() => {
     let active = true;
@@ -171,10 +141,10 @@ export function CuisinesPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
-    if(key === "destinationId"){
-      setLoading(true);
-      setErrorMessage(null);
+    if (key === "destinationId") {
+      beginReload();
     }
+
     setFilterValues((current) => ({
       ...current,
       [key]: value,
@@ -211,48 +181,21 @@ export function CuisinesPage() {
     setFieldErrors(undefined);
     setErrorMessage(null);
 
-    let uploadedImage: UploadedImage | null = null;
-    let cuisineSaved = false;
-
     try {
-      const payload: CuisineInput = {
-        ...input,
-      };
+      await saveEntityWithCover({
+        input,
+        coverFile,
+        removeCover,
+        uploadFolder: "cuisine-cover",
+        save: (payload) =>
+          editingCuisine
+            ? cuisinesApi.update(editingCuisine.id, payload)
+            : cuisinesApi.create(payload),
+      });
 
-      if (coverFile) {
-        uploadedImage = await uploadsApi.upload(coverFile, "cuisine-cover");
-
-        payload.coverImageUrl = uploadedImage.url;
-        payload.coverImagePublicId = uploadedImage.publicId;
-      } else if (removeCover) {
-        payload.coverImageUrl = null;
-        payload.coverImagePublicId = null;
-      }
-
-      if (editingCuisine) {
-        await cuisinesApi.update(editingCuisine.id, payload);
-      } else {
-        await cuisinesApi.create(payload);
-      }
-
-      cuisineSaved = true;
       closeForm();
-      setLoading(true);
-      await loadCuisines();
+      await reloadCuisines();
     } catch (error) {
-      // Upload thành công nhưng lưu database thất bại:
-      // xóa ảnh vừa upload để tránh ảnh rác trên Cloudinary.
-      if (uploadedImage && !cuisineSaved) {
-        await uploadsApi
-          .remove(uploadedImage.publicId)
-          .catch((cleanupError) => {
-            console.error(
-              "Không thể rollback ảnh Cloudinary:",
-              cleanupError,
-            );
-          });
-      }
-
       if (error instanceof ApiRequestError) {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
@@ -277,7 +220,7 @@ export function CuisinesPage() {
     try {
       await cuisinesApi.remove(deleteTarget.id);
       setDeleteTarget(null);
-      await loadCuisines();
+      await reloadCuisines();
     } catch (error) {
       setErrorMessage(
         error instanceof ApiRequestError
@@ -389,55 +332,39 @@ export function CuisinesPage() {
         title="Ẩm thực"
         subtitle={`Huế · Đà Nẵng · Hội An — ${total} món ăn đang quản lý`}
         action={
-          <button
-            type="button"
+          <AdminCreateButton
             onClick={openCreateForm}
             disabled={submitting || deleting}
-            className="flex items-center gap-1.5 rounded-md border border-admin-gold bg-admin-gold px-3 py-2 text-sm font-medium text-admin-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus size={16} strokeWidth={2} />
             Thêm món ăn
-          </button>
+          </AdminCreateButton>
         }
       />
 
-      {errorMessage && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-admin-seal bg-admin-seal-light px-3 py-2 text-sm text-admin-seal">
-          <Search size={14} />
-          {errorMessage}
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-lg border border-admin-line bg-admin-paper-card">
-        {loading ? (
-          <div className="px-4 py-10 text-center text-sm text-admin-muted">
-            Đang tải…
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={visibleRows}
-            rowKey={(row) => row.id}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            onSortChange={handleSortChange}
-            filterValues={filterValues}
-            onFilterChange={handleFilterChange}
-            emptyLabel="Không tìm thấy món ăn phù hợp"
-          />
-        )}
-      </div>
+      <AdminListPanel loading={loading} errorMessage={errorMessage}>
+        <DataTable
+          columns={columns}
+          rows={visibleRows}
+          rowKey={(row) => row.id}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          emptyLabel="Không tìm thấy món ăn phù hợp"
+        />
+      </AdminListPanel>
 
       {formOpen ? (
-          <CuisineFormDialog
-              open
-              destinations={destinations}
-              initialValue={editingCuisine}
-              submitting={submitting}
-              fieldErrors={fieldErrors}
-              onSubmit={handleSubmitForm}
-              onClose={closeForm}
-          />
+        <CuisineFormDialog
+          open
+          destinations={destinations}
+          initialValue={editingCuisine}
+          submitting={submitting}
+          fieldErrors={fieldErrors}
+          onSubmit={handleSubmitForm}
+          onClose={closeForm}
+        />
       ) : null}
 
       <ConfirmDialog

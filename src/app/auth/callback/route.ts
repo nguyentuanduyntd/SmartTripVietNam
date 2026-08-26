@@ -5,20 +5,7 @@ import {
 import {
     createClient,
 } from "@/src/lib/supabase/server";
-
-function getSafeNextPath(
-    value: string | null,
-) {
-    if (
-        !value ||
-        !value.startsWith("/") ||
-        value.startsWith("//")
-    ) {
-        return "/";
-    }
-
-    return value;
-}
+import { normalizeReturnPath } from "@/src/lib/auth/return-path";
 
 export async function GET(
     request: Request,
@@ -36,7 +23,7 @@ export async function GET(
         );
 
     const next =
-        getSafeNextPath(
+        normalizeReturnPath(
             searchParams.get(
                 "next",
             ),

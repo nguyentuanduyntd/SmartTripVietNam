@@ -19,6 +19,7 @@ import {
     useMemo,
     useState,
 } from "react";
+import { formatVnd } from "@/src/lib/formatters";
 
 type RestaurantForItinerary = {
     id: string;
@@ -141,11 +142,7 @@ const MEAL_OPTIONS: Array<{
 ];
 
 function formatMoney(value: number) {
-    return new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-        maximumFractionDigits: 0,
-    }).format(value);
+    return formatVnd(value, "0 ₫");
 }
 
 function getSuggestedUnitPrice(
@@ -277,18 +274,6 @@ export function AddRestaurantToItineraryDialog({
             return;
         }
 
-        setMealType("lunch");
-        setStartTime("12:00");
-        setUnitPrice(
-            String(
-                getSuggestedUnitPrice(
-                    restaurant,
-                ),
-            ),
-        );
-        setError(null);
-        setSuccessResult(null);
-
         const controller =
             new AbortController();
 
@@ -365,9 +350,23 @@ export function AddRestaurantToItineraryDialog({
             }
         }
 
-        void loadTargets();
+        const timeoutId = window.setTimeout(() => {
+            setMealType("lunch");
+            setStartTime("12:00");
+            setUnitPrice(
+                String(
+                    getSuggestedUnitPrice(
+                        restaurant,
+                    ),
+                ),
+            );
+            setError(null);
+            setSuccessResult(null);
+            void loadTargets();
+        }, 0);
 
         return () => {
+            window.clearTimeout(timeoutId);
             controller.abort();
         };
     }, [restaurant]);

@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
     CalendarDays,
@@ -21,6 +21,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { readCommunityApi } from "@/src/components/community/community-types";
+import { formatVietnameseDate } from "@/src/lib/formatters";
 
 type ItineraryOption = {
     id: string;
@@ -70,42 +71,9 @@ const MAX_IMAGES = 10;
 function formatDate(
     value: string | null,
 ) {
-    if (!value) {
-        return "Chưa đặt ngày";
-    }
-
-    const [
-        year,
-        month,
-        day,
-    ] = value
-        .split("-")
-        .map(Number);
-
-    if (
-        !year ||
-        !month ||
-        !day
-    ) {
-        return value;
-    }
-
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            timeZone: "UTC",
-        },
-    ).format(
-        new Date(
-            Date.UTC(
-                year,
-                month - 1,
-                day,
-            ),
-        ),
+    return formatVietnameseDate(
+        value,
+        "Chưa đặt ngày",
     );
 }
 
@@ -171,6 +139,8 @@ export function CommunityCreateForm({
         setPreviewUrls,
     ] =
         useState<string[]>([]);
+    const previewUrlsRef =
+        useRef<string[]>([]);
 
     const [error, setError] =
         useState<string | null>(
@@ -196,23 +166,14 @@ export function CommunityCreateForm({
         );
 
     useEffect(() => {
-        const urls =
-            files.map((file) =>
-                URL.createObjectURL(
-                    file,
-                ),
-            );
-
-        setPreviewUrls(urls);
-
         return () => {
-            urls.forEach((url) =>
+            previewUrlsRef.current.forEach((url) =>
                 URL.revokeObjectURL(
                     url,
                 ),
             );
         };
-    }, [files]);
+    }, []);
 
     function selectMode(
         nextMode:
@@ -306,10 +267,24 @@ export function CommunityCreateForm({
             accepted.length >
             0
         ) {
+            const acceptedUrls =
+                accepted.map((file) =>
+                    URL.createObjectURL(file),
+                );
+
             setFiles((current) => [
                 ...current,
                 ...accepted,
             ]);
+            setPreviewUrls((current) => {
+                const next = [
+                    ...current,
+                    ...acceptedUrls,
+                ];
+
+                previewUrlsRef.current = next;
+                return next;
+            });
             setError(null);
         }
     }
@@ -317,6 +292,22 @@ export function CommunityCreateForm({
     function removeFile(
         index: number,
     ) {
+        setPreviewUrls((current) => {
+            const removedUrl = current[index];
+
+            if (removedUrl) {
+                URL.revokeObjectURL(removedUrl);
+            }
+
+            const next = current.filter(
+                (_, currentIndex) =>
+                    currentIndex !== index,
+            );
+
+            previewUrlsRef.current = next;
+            return next;
+        });
+
         setFiles((current) =>
             current.filter(
                 (_, currentIndex) =>

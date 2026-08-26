@@ -1,4 +1,4 @@
-"use client";
+
 
 import Link from "next/link";
 import {
@@ -25,6 +25,10 @@ import {
     type CommunityFeedData,
     type CommunityPostCardData,
 } from "@/src/components/community/community-types";
+import {
+    formatOptionalVnd as formatCurrency,
+    formatRelativeTime,
+} from "@/src/lib/formatters";
 
 type LocationOption = {
     id: string;
@@ -50,75 +54,6 @@ const SORT_OPTIONS: Array<{
     { value: "popular", label: "Nhiều tim" },
     { value: "saved", label: "Đã lưu" },
 ];
-
-function formatCurrency(
-    value: string | null,
-) {
-    if (!value) {
-        return null;
-    }
-
-    const amount = Number(value);
-
-    if (!Number.isFinite(amount)) {
-        return null;
-    }
-
-    return new Intl.NumberFormat(
-        "vi-VN",
-        {
-            style: "currency",
-            currency: "VND",
-            maximumFractionDigits: 0,
-        },
-    ).format(amount);
-}
-
-function formatRelativeTime(
-    value: string,
-) {
-    const date = new Date(value);
-    const difference =
-        Date.now() - date.getTime();
-
-    const minutes = Math.max(
-        0,
-        Math.floor(
-            difference / 60000,
-        ),
-    );
-
-    if (minutes < 1) {
-        return "Vừa xong";
-    }
-
-    if (minutes < 60) {
-        return `${minutes} phút trước`;
-    }
-
-    const hours =
-        Math.floor(minutes / 60);
-
-    if (hours < 24) {
-        return `${hours} giờ trước`;
-    }
-
-    const days =
-        Math.floor(hours / 24);
-
-    if (days < 7) {
-        return `${days} ngày trước`;
-    }
-
-    return new Intl.DateTimeFormat(
-        "vi-VN",
-        {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        },
-    ).format(date);
-}
 
 function getInitials(
     value: string | null,
@@ -337,7 +272,11 @@ export function CommunityFeed({
         );
 
     useEffect(() => {
-        void loadFeed(1, true);
+        const timeoutId = window.setTimeout(() => {
+            void loadFeed(1, true);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, [loadFeed]);
 
     function requireLogin() {
@@ -345,10 +284,11 @@ export function CommunityFeed({
             return true;
         }
 
-        window.location.href =
+        window.location.assign(
             `/auth/login?next=${encodeURIComponent(
                 "/community",
-            )}`;
+            )}`,
+        );
 
         return false;
     }

@@ -19,8 +19,11 @@ import {
 
 import {
   COST_CALCULATION_UNITS,
+  COST_CALCULATION_UNIT_LABELS as CALCULATION_UNIT_LABEL,
   COST_CATEGORIES,
+  COST_CATEGORY_LABELS as CATEGORY_LABEL,
   TRAVELER_SCOPES,
+  TRAVELER_SCOPE_LABELS as TRAVELER_SCOPE_LABEL,
   type CostCalculationUnit,
   type CostCategory,
   type TravelerScope,
@@ -30,6 +33,8 @@ import {
   calculateCostAmount,
   calculateCostsTotal,
 } from "@/src/lib/costs/cost-calculator";
+import { formatCostFormula } from "@/src/lib/costs/cost-display";
+import { formatVnd } from "@/src/lib/formatters";
 
 import {
   tourCostsApi,
@@ -72,38 +77,6 @@ type CostFormState = {
   note: string;
 };
 
-const CATEGORY_LABEL: Record<
-  CostCategory,
-  string
-> = {
-  ticket: "Vé / tham quan",
-  food: "Ăn uống",
-  transport: "Di chuyển",
-  accommodation: "Lưu trú",
-  activity: "Hoạt động",
-  shopping: "Mua sắm",
-  other: "Chi phí khác",
-};
-
-const CALCULATION_UNIT_LABEL: Record<
-  CostCalculationUnit,
-  string
-> = {
-  per_person: "Theo người",
-  per_group: "Theo nhóm / chuyến",
-  per_room: "Theo phòng / đêm",
-  fixed: "Chi phí cố định",
-};
-
-const TRAVELER_SCOPE_LABEL: Record<
-  TravelerScope,
-  string
-> = {
-  all: "Tất cả hành khách",
-  adult: "Người lớn",
-  child: "Trẻ em",
-};
-
 const emptyForm: CostFormState = {
   title: "",
   category: "ticket",
@@ -120,25 +93,7 @@ const emptyForm: CostFormState = {
 function formatMoney(
   value: string | number | null | undefined,
 ) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return "0 ₫";
-  }
-
-  const numeric = Number(value);
-
-  if (!Number.isFinite(numeric)) {
-    return "0 ₫";
-  }
-
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(numeric);
+  return formatVnd(value, "0 ₫");
 }
 
 function createFormFromCost(
@@ -168,66 +123,6 @@ function createFormFromCost(
     note:
       cost.note ?? "",
   };
-}
-
-function getCostFormula(
-  cost: {
-    calculationUnit: CostCalculationUnit;
-    travelerScope?: TravelerScope | null;
-    unitPrice: string | number;
-    quantity?: string | number | null;
-    nightCount?: number | null;
-  },
-  durationNights: number,
-) {
-  const unitPrice =
-    Number(cost.unitPrice) || 0;
-
-  const quantity =
-    cost.quantity === null ||
-    cost.quantity === undefined ||
-    cost.quantity === ""
-      ? 1
-      : Number(cost.quantity) || 0;
-
-  switch (cost.calculationUnit) {
-    case "per_person":
-      return `${formatMoney(
-        unitPrice,
-      )} × ${quantity} × 1 người`;
-
-    case "per_room": {
-      const nightCount =
-        cost.nightCount ??
-        Math.max(
-          durationNights,
-          1,
-        );
-
-      return `${formatMoney(
-        unitPrice,
-      )} × 1 phòng × ${nightCount} đêm`;
-    }
-
-    case "per_group":
-      return quantity === 1
-        ? `${formatMoney(
-            unitPrice,
-          )} / nhóm`
-        : `${formatMoney(
-            unitPrice,
-          )} × ${quantity}`;
-
-    case "fixed":
-    default:
-      return quantity === 1
-        ? formatMoney(
-            unitPrice,
-          )
-        : `${formatMoney(
-            unitPrice,
-          )} × ${quantity}`;
-  }
 }
 
 export function TourCostsDialog({
@@ -302,7 +197,11 @@ export function TourCostsDialog({
   useEffect(() => {
     if (!open) return;
 
-    void loadCosts();
+    const timeoutId = window.setTimeout(() => {
+      void loadCosts();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadCosts, open]);
 
   useEffect(() => {
@@ -829,9 +728,13 @@ export function TourCostsDialog({
                           </div>
 
                           <p className="mt-1 font-mono text-xs text-admin-muted">
-                            {getCostFormula(
+                            {formatCostFormula(
                               cost,
-                              tour.durationNights,
+                              calculationContext,
+                              {
+                                groupLabel: "nhóm",
+                                alwaysShowQuantity: true,
+                              },
                             )}
                           </p>
 
