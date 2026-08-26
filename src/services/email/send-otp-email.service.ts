@@ -20,10 +20,14 @@ function buildOtpEmailHtml(otp: string) {
 }
 
 export async function sendPasswordResetOtpEmail(email: string, otp: string) {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
         from: RESEND_FROM_EMAIL,
         to: email,
         subject: "Mã OTP đặt lại mật khẩu SmartTrip",
         html: buildOtpEmailHtml(otp),
     });
+
+    if (error) {
+        throw new Error(`Resend không thể gửi email OTP: ${error.message}`);
+    }
 }

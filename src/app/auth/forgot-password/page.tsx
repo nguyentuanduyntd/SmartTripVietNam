@@ -52,6 +52,9 @@ type ApiResponse = {
     success: boolean;
     message?: string;
     errors?: Record<string, string[]>;
+    data?: {
+        code?: string;
+    } | null;
 };
 
 async function callApi(path: string, body: unknown): Promise<ApiResponse> {
@@ -64,7 +67,7 @@ async function callApi(path: string, body: unknown): Promise<ApiResponse> {
     return (await res.json()) as ApiResponse;
 }
 
-type Step = "request" | "reset" | "done";
+type Step = "request" | "verify" | "password" | "done";
 
 export default function ForgotPasswordPage() {
     const [step, setStep] = useState<Step>("request");
@@ -122,7 +125,8 @@ export default function ForgotPasswordPage() {
             }
 
             setEmail(normalizedEmail);
-            setStep("reset");
+            setOtp("");
+            setStep("verify");
             startResendCooldown();
         } catch (caughtError) {
             console.error("[FORGOT PASSWORD ERROR]", caughtError);
@@ -146,10 +150,44 @@ export default function ForgotPasswordPage() {
                 return;
             }
 
+            setOtp("");
             startResendCooldown();
         } catch (caughtError) {
             console.error("[RESEND OTP ERROR]", caughtError);
             setError("Đã xảy ra lỗi khi gửi lại mã OTP.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function handleVerifyOtp(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (isSubmitting) return;
+
+        setError(null);
+
+        if (!/^\d{6}$/.test(otp)) {
+            setError("Mã OTP gồm 6 chữ số.");
+            return;
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            const result = await callApi("/api/auth/verify-otp", {
+                email,
+                otp,
+            });
+
+            if (!result.success) {
+                setError(result.message ?? "Mã OTP không đúng hoặc đã hết hạn.");
+                return;
+            }
+
+            setStep("password");
+        } catch (caughtError) {
+            console.error("[VERIFY OTP ERROR]", caughtError);
+            setError("Đã xảy ra lỗi khi xác thực OTP. Vui lòng thử lại.");
         } finally {
             setIsSubmitting(false);
         }
@@ -160,11 +198,6 @@ export default function ForgotPasswordPage() {
         if (isSubmitting) return;
 
         setError(null);
-
-        if (!/^\d{6}$/.test(otp)) {
-            setError("Mã OTP gồm 6 chữ số.");
-            return;
-        }
 
         if (!passwordValid) {
             setError("Mật khẩu cần có ít nhất 8 ký tự, bao gồm chữ và số.");
@@ -187,6 +220,12 @@ export default function ForgotPasswordPage() {
             });
 
             if (!result.success) {
+                if (result.data?.code === "INVALID_OTP") {
+                    setPassword("");
+                    setConfirmPassword("");
+                    setStep("verify");
+                }
+
                 setError(result.message ?? "Chưa thể đặt lại mật khẩu. Vui lòng thử lại.");
                 return;
             }
@@ -282,13 +321,13 @@ export default function ForgotPasswordPage() {
                         </>
                     ) : null}
 
-                    {step === "reset" ? (
+                    {step === "verify" ? (
                         <>
                             <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">
                                 Xác thực OTP
                             </p>
                             <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
-                                Nhập mã & mật khẩu mới
+                                Nhập mã OTP
                             </h1>
                             <p className="mt-4 leading-7 text-[#687572]">
                                 SmartTrip đã gửi mã OTP tới{" "}
@@ -296,7 +335,7 @@ export default function ForgotPasswordPage() {
                                 hiệu lực trong 10 phút.
                             </p>
 
-                            <form onSubmit={handleResetPassword} className="mt-8 space-y-5">
+                            <form onSubmit={handleVerifyOtp} className="mt-8 space-y-5">
                                 <div>
                                     <label htmlFor="otp" className="mb-2 block text-sm font-bold text-[#294748]">
                                         Mã OTP (6 chữ số)
@@ -334,6 +373,57 @@ export default function ForgotPasswordPage() {
                                     </button>
                                 </div>
 
+                                {error ? (
+                                    <div role="alert" className="rounded-2xl border border-[#efc5bd] bg-[#fff0eb] px-4 py-3 text-sm leading-6 text-[#a44436]">
+                                        {error}
+                                    </div>
+                                ) : null}
+
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="group flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#173a3b] px-6 font-bold text-white shadow-[0_16px_38px_rgba(23,58,59,0.2)] transition hover:-translate-y-0.5 hover:bg-[#21494a] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+                                >
+                                    {isSubmitting ? "Đang xác thực..." : "Xác nhận mã OTP"}
+                                    {!isSubmitting ? <ArrowRight size={19} /> : null}
+                                </button>
+                            </form>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setStep("request");
+                                    setError(null);
+                                    setOtp("");
+                                    setPassword("");
+                                    setConfirmPassword("");
+                                }}
+                                className="mt-7 flex w-full items-center justify-center gap-2 text-sm font-bold text-[#58706d] transition hover:text-[#d95643]"
+                            >
+                                <ArrowLeft size={16} />
+                                Dùng email khác
+                            </button>
+                        </>
+                    ) : null}
+
+                    {step === "password" ? (
+                        <>
+                            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">
+                                Tạo mật khẩu mới
+                            </p>
+                            <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
+                                Đặt mật khẩu mới
+                            </h1>
+
+                            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[#cce2d8] bg-[#edf7f2] px-4 py-3 text-sm leading-6 text-[#337363]">
+                                <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
+                                <p>
+                                    Mã OTP đã được xác thực cho{" "}
+                                    <span className="font-extrabold">{email}</span>.
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleResetPassword} className="mt-7 space-y-5">
                                 <div>
                                     <label htmlFor="password" className="mb-2 block text-sm font-bold text-[#294748]">
                                         Mật khẩu mới
@@ -350,11 +440,13 @@ export default function ForgotPasswordPage() {
                                             autoComplete="new-password"
                                             required
                                             disabled={isSubmitting}
+                                            autoFocus
                                             className="h-14 w-full rounded-2xl border border-[#d8cdbc] bg-white/75 px-4 pr-12 text-[#173a3b] outline-none transition focus:border-[#2f8f8b] focus:bg-white focus:ring-4 focus:ring-[#2f8f8b]/10 disabled:opacity-60"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword((value) => !value)}
+                                            aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-[#82908d]"
                                         >
                                             {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
@@ -389,6 +481,7 @@ export default function ForgotPasswordPage() {
                                         <button
                                             type="button"
                                             onClick={() => setShowConfirmPassword((value) => !value)}
+                                            aria-label={showConfirmPassword ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"}
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-[#82908d]"
                                         >
                                             {showConfirmPassword ? <EyeOff size={19} /> : <Eye size={19} />}
@@ -407,21 +500,22 @@ export default function ForgotPasswordPage() {
                                     disabled={isSubmitting}
                                     className="group flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#173a3b] px-6 font-bold text-white shadow-[0_16px_38px_rgba(23,58,59,0.2)] transition hover:-translate-y-0.5 hover:bg-[#21494a] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
                                 >
-                                    {isSubmitting ? "Đang xử lý..." : "Đặt lại mật khẩu"}
+                                    {isSubmitting ? "Đang cập nhật..." : "Đặt lại mật khẩu"}
                                 </button>
                             </form>
 
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setStep("request");
+                                    setStep("verify");
                                     setError(null);
-                                    setOtp("");
+                                    setPassword("");
+                                    setConfirmPassword("");
                                 }}
                                 className="mt-7 flex w-full items-center justify-center gap-2 text-sm font-bold text-[#58706d] transition hover:text-[#d95643]"
                             >
                                 <ArrowLeft size={16} />
-                                Dùng email khác
+                                Nhập lại mã OTP
                             </button>
                         </>
                     ) : null}

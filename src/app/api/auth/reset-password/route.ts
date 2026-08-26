@@ -14,7 +14,9 @@ export async function POST(request: Request) {
         await resetPasswordWithOtp(parsed.data.email, parsed.data.otp, parsed.data.newPassword);
     } catch (error) {
         if (error instanceof InvalidOtpError) {
-            return errorResponse(error.message, 400);
+            return errorResponse(error.message, 400, undefined, {
+                code: "INVALID_OTP",
+            });
         }
 
         throw error;

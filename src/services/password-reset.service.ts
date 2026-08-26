@@ -1,4 +1,4 @@
-import "server-only";
+
 import { findAuthUserIdByEmail } from "@/src/repositories/auth-user.repository";
 import {
     countRecentOtpRequests,
@@ -32,6 +32,34 @@ export class InvalidOtpError extends Error {
         super(message);
         this.name = "InvalidOtpError";
     }
+}
+
+async function requireValidPasswordResetOtp(email: string, otp: string) {
+    const activeOtp = await findActiveOtp(email);
+
+    if (!activeOtp) {
+        throw new InvalidOtpError();
+    }
+
+    if (activeOtp.attempts >= MAX_VERIFY_ATTEMPTS) {
+        throw new InvalidOtpError(
+            "Mã OTP đã bị khoá do nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới.",
+        );
+    }
+
+    if (!verifyOtpHash(otp, activeOtp.otpHash)) {
+        await incrementOtpAttempts(activeOtp.id);
+
+        const remaining = MAX_VERIFY_ATTEMPTS - (activeOtp.attempts + 1);
+
+        throw new InvalidOtpError(
+            remaining > 0
+                ? `Mã OTP không đúng. Bạn còn ${remaining} lần thử.`
+                : "Mã OTP đã bị khoá do nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới.",
+        );
+    }
+
+    return activeOtp;
 }
 
 /**
@@ -87,38 +115,27 @@ export async function requestPasswordResetOtp(email: string): Promise<void> {
 }
 
 /**
- * Bước 2: user nhập OTP + mật khẩu mới -> verify và đổi mật khẩu trong cùng
- * 1 bước (gộp "verify OTP" và "đặt mật khẩu mới" để giảm state cần quản lý
- * và giảm bề mặt tấn công so với việc tách thành 2 API + reset-token riêng).
+ * Bước 2: xác thực OTP trước khi UI cho phép nhập mật khẩu mới.
+ *
+ * Không consume OTP ở bước này. API đặt lại mật khẩu vẫn xác thực OTP thêm
+ * một lần để việc ẩn/hiện form trên client không trở thành cơ chế bảo mật.
+ */
+export async function verifyPasswordResetOtp(
+    email: string,
+    otp: string,
+): Promise<void> {
+    await requireValidPasswordResetOtp(email, otp);
+}
+
+/**
+ * Bước 3: kiểm tra lại OTP ở server, cập nhật mật khẩu rồi consume OTP.
  */
 export async function resetPasswordWithOtp(
     email: string,
     otp: string,
     newPassword: string,
 ): Promise<void> {
-    const activeOtp = await findActiveOtp(email);
-
-    if (!activeOtp) {
-        throw new InvalidOtpError();
-    }
-
-    if (activeOtp.attempts >= MAX_VERIFY_ATTEMPTS) {
-        throw new InvalidOtpError("Mã OTP đã bị khoá do nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới.");
-    }
-
-    const isOtpValid = verifyOtpHash(otp, activeOtp.otpHash);
-
-    if (!isOtpValid) {
-        await incrementOtpAttempts(activeOtp.id);
-
-        const remaining = MAX_VERIFY_ATTEMPTS - (activeOtp.attempts + 1);
-
-        throw new InvalidOtpError(
-            remaining > 0
-                ? `Mã OTP không đúng. Bạn còn ${remaining} lần thử.`
-                : "Mã OTP đã bị khoá do nhập sai quá nhiều lần. Vui lòng yêu cầu mã mới.",
-        );
-    }
+    const activeOtp = await requireValidPasswordResetOtp(email, otp);
 
     const userId = await findAuthUserIdByEmail(email);
 

@@ -14,6 +14,11 @@ const newPasswordSchema = z
     .regex(/[A-Za-zÀ-ỹ]/, "Mật khẩu phải có ít nhất 1 chữ cái")
     .regex(/\d/, "Mật khẩu phải có ít nhất 1 chữ số");
 
+const otpSchema = z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Mã OTP gồm 6 chữ số");
+
 export const forgotPasswordRequestSchema = z
     .object({
         email: emailSchema,
@@ -26,14 +31,26 @@ export const forgotPasswordRequestSchema = z
 
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
 
+export const verifyPasswordResetOtpRequestSchema = z
+    .object({
+        email: emailSchema,
+        otp: otpSchema,
+    })
+    .strict()
+    .meta({
+        id: "VerifyPasswordResetOtpRequest",
+        description: "Xác thực mã OTP trước khi hiển thị form mật khẩu mới",
+    });
+
+export type VerifyPasswordResetOtpRequest = z.infer<
+    typeof verifyPasswordResetOtpRequestSchema
+>;
+
 export const resetPasswordWithOtpRequestSchema = z
     .object({
         email: emailSchema,
 
-        otp: z
-            .string()
-            .trim()
-            .regex(/^\d{6}$/, "Mã OTP gồm 6 chữ số"),
+        otp: otpSchema,
 
         newPassword: newPasswordSchema,
 

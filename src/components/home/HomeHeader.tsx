@@ -2,6 +2,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import {
+    Bell,
     CalendarDays,
     ChevronDown,
     LayoutDashboard,
@@ -23,6 +24,7 @@ import {
 } from "react";
 
 import { LanguageSwitcher } from "@/src/components/common/LanguageSwitcher";
+import { notificationsApi } from "@/src/lib/api-client/notifications";
 import { createClient } from "@/src/lib/supabase/client";
 
 interface UserProfile {
@@ -171,6 +173,11 @@ export function HomeHeader() {
         setIsSigningOut,
     ] = useState(false);
 
+    const [
+        unreadNotificationCount,
+        setUnreadNotificationCount,
+    ] = useState(0);
+
     const navItems =
         useMemo(
             () => [
@@ -297,6 +304,10 @@ export function HomeHeader() {
                     if (
                         !nextUser
                     ) {
+                        setUnreadNotificationCount(
+                            0,
+                        );
+
                         setLoadedProfile(
                             null,
                         );
@@ -397,6 +408,32 @@ export function HomeHeader() {
         supabase,
         user?.id,
     ]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        if (!user?.id) {
+            return;
+        }
+
+        async function loadUnreadCount() {
+            try {
+                const data = await notificationsApi.list(1, 1);
+
+                if (isMounted) {
+                    setUnreadNotificationCount(data.unreadCount);
+                }
+            } catch (error) {
+                console.error("[HOME HEADER NOTIFICATION ERROR]", error);
+            }
+        }
+
+        void loadUnreadCount();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user?.id]);
 
     const profile =
         user &&
@@ -567,6 +604,9 @@ export function HomeHeader() {
             setUser(null);
             setLoadedProfile(
                 null,
+            );
+            setUnreadNotificationCount(
+                0,
             );
             setIsOpen(false);
             setIsUserMenuOpen(
@@ -766,6 +806,26 @@ export function HomeHeader() {
                                             {t(
                                                 "account.myItineraries",
                                             )}
+                                        </Link>
+
+                                        <Link
+                                            href="/notifications"
+                                            onClick={
+                                                closeMenu
+                                            }
+                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
+                                        >
+                                            <Bell
+                                                size={18}
+                                            />
+                                            <span className="flex-1">
+                                                Thông báo
+                                            </span>
+                                            {unreadNotificationCount > 0 ? (
+                                                <span className="grid min-w-5 place-items-center rounded-full bg-[#f25f4b] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                                                </span>
+                                            ) : null}
                                         </Link>
 
                                         {profile?.role ===
@@ -989,6 +1049,24 @@ export function HomeHeader() {
                                         {t(
                                             "account.myItineraries",
                                         )}
+                                    </Link>
+
+                                    <Link
+                                        href="/notifications"
+                                        onClick={
+                                            closeMenu
+                                        }
+                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                                    >
+                                        <Bell
+                                            size={17}
+                                        />
+                                        Thông báo
+                                        {unreadNotificationCount > 0 ? (
+                                            <span className="grid min-w-5 place-items-center rounded-full bg-[#f25f4b] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                                {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                                            </span>
+                                        ) : null}
                                     </Link>
 
                                     {profile?.role ===

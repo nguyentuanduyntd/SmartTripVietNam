@@ -14,3 +14,4 @@ export * from "./itinerary_relations";
 export * from "./itinerary_stays";
 export * from "./restaurants";
 export * from "./password_reset_otps";
+export * from "./notifications";
