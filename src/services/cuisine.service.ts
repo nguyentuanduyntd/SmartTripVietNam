@@ -1,21 +1,58 @@
 import "server-only";
-import {createCuisine,deleteCuisine,findCuisineById,findCuisineBySlug,findCuisines,findDestinationsByCuisineIds,
-  findExistingDestinationIds,updateCuisine,type CuisineFilters,} from "@/src/repositories/cuisine.repository";
-import type {CreateCuisineRequest,UpdateCuisineRequest,} from "@/src/schemas/cuisine.schema";
+
+import {
+  createCuisine,
+  deleteCuisine,
+  findCuisineById,
+  findCuisineBySlug,
+  findCuisines,
+  findDestinationsByCuisineIds,
+  findExistingDestinationIds,
+  updateCuisine,
+  type CuisineFilters,
+} from "@/src/repositories/cuisine.repository";
+
+import type {
+  CreateCuisineRequest,
+  UpdateCuisineRequest,
+} from "@/src/schemas/cuisine.schema";
+
 import { slugify } from "@/src/utils/slugify";
 import { deleteImage } from "./image.service";
 
-export class CuisineNotFoundError extends Error{
-    constructor() {
-        super("Không tìm thấy món ăn");
-        this.name = "CuisineNotFoundError";
-    }
+import {
+  buildCacheKey,
+  CACHE_TTL_SECONDS,
+  deleteCacheByPrefix,
+  rememberCachedValue,
+} from "@/src/lib/cache/redis-cache";
+
+const CUISINE_CACHE_PREFIX =
+  "smarttrip:v1:cuisines:";
+
+async function invalidateCuisineCache() {
+  await deleteCacheByPrefix(
+    CUISINE_CACHE_PREFIX,
+  );
+}
+
+export class CuisineNotFoundError extends Error {
+  constructor() {
+    super("Không tìm thấy món ăn");
+
+    this.name =
+      "CuisineNotFoundError";
+  }
 }
 
 export class CuisineSlugConflictError extends Error {
   constructor(slug: string) {
-    super(`Slug "${slug}" đã được sử dụng`);
-    this.name = "CuisineSlugConflictError";
+    super(
+      `Slug "${slug}" đã được sử dụng`,
+    );
+
+    this.name =
+      "CuisineSlugConflictError";
   }
 }
 
@@ -23,95 +60,192 @@ export class InvalidDestinationIdsError extends Error {
   invalidIds: string[];
 
   constructor(invalidIds: string[]) {
-    super(`Destination ID không tồn tại: ${invalidIds.join(", ")}`);
-    this.name = "InvalidDestinationIdsError";
+    super(
+      `Destination ID không tồn tại: ${invalidIds.join(", ")}`,
+    );
+
+    this.name =
+      "InvalidDestinationIdsError";
+
     this.invalidIds = invalidIds;
   }
 }
 
-async function ensureUniqueCuisineSlug(slug: string, ignoreId?: string) {
-  const existing = await findCuisineBySlug(slug);
+async function ensureUniqueCuisineSlug(
+  slug: string,
+  ignoreId?: string,
+) {
+  const existing =
+    await findCuisineBySlug(slug);
 
-  if (existing && existing.id !== ignoreId) {
-    throw new CuisineSlugConflictError(slug);
+  if (
+    existing &&
+    existing.id !== ignoreId
+  ) {
+    throw new CuisineSlugConflictError(
+      slug,
+    );
   }
 }
 
-async function ensureDestinationsExist(destinationIds: string[]) {
+async function ensureDestinationsExist(
+  destinationIds: string[],
+) {
   if (destinationIds.length === 0) {
     return;
   }
 
-  const existingIds = new Set(await findExistingDestinationIds(destinationIds));
-  const invalidIds = destinationIds.filter((id) => !existingIds.has(id));
+  const existingIds = new Set(
+    await findExistingDestinationIds(
+      destinationIds,
+    ),
+  );
+
+  const invalidIds =
+    destinationIds.filter(
+      (id) => !existingIds.has(id),
+    );
 
   if (invalidIds.length > 0) {
-    throw new InvalidDestinationIdsError(invalidIds);
+    throw new InvalidDestinationIdsError(
+      invalidIds,
+    );
   }
 }
 
-async function attachDestinations<T extends { id: string }>(rows: T[]) {
-  const destinationsMap = await findDestinationsByCuisineIds(
-    rows.map((row) => row.id),
-  );
+async function attachDestinations<
+  T extends { id: string },
+>(rows: T[]) {
+  const destinationsMap =
+    await findDestinationsByCuisineIds(
+      rows.map((row) => row.id),
+    );
 
   return rows.map((row) => ({
     ...row,
-    destinations: destinationsMap.get(row.id) ?? [],
+    destinations:
+      destinationsMap.get(row.id) ??
+      [],
   }));
 }
 
-async function deleteImageSafely(publicId: string | null | undefined) {
-  if (!publicId) return;
+async function deleteImageSafely(
+  publicId: string | null | undefined,
+) {
+  if (!publicId) {
+    return;
+  }
 
   try {
     await deleteImage(publicId);
   } catch (error) {
-    console.error(`Không thể xóa ảnh Cloudinary "${publicId}":`, error);
+    console.error(
+      `Không thể xóa ảnh Cloudinary "${publicId}":`,
+      error,
+    );
   }
 }
 
-export async function listCuisines(filters: CuisineFilters) {
-  const { rows, total } = await findCuisines(filters);
-  const data = await attachDestinations(rows);
+/**
+ * Cache danh sách cuisine theo filter
+ * trong 5 phút.
+ */
+export async function listCuisines(
+  filters: CuisineFilters,
+) {
+  const key =
+    `${CUISINE_CACHE_PREFIX}list:` +
+    buildCacheKey(filters);
 
-  return { data, total };
+  return rememberCachedValue(
+    key,
+    CACHE_TTL_SECONDS.short,
+    async () => {
+      const { rows, total } =
+        await findCuisines(filters);
+
+      const data =
+        await attachDestinations(rows);
+
+      return {
+        data,
+        total,
+      };
+    },
+  );
 }
 
-export async function getCuisineById(id: string) {
-  const cuisine = await findCuisineById(id);
+/**
+ * Cache chi tiết cuisine trong 15 phút.
+ */
+export async function getCuisineById(
+  id: string,
+) {
+  return rememberCachedValue(
+    `${CUISINE_CACHE_PREFIX}detail:${id}`,
+    CACHE_TTL_SECONDS.medium,
+    async () => {
+      const cuisine =
+        await findCuisineById(id);
 
-  if (!cuisine) {
-    throw new CuisineNotFoundError();
-  }
+      if (!cuisine) {
+        throw new CuisineNotFoundError();
+      }
 
-  const [withDestinations] = await attachDestinations([cuisine]);
+      const [withDestinations] =
+        await attachDestinations([
+          cuisine,
+        ]);
 
-  return withDestinations;
+      return withDestinations;
+    },
+  );
 }
 
-export async function createCuisineService(input: CreateCuisineRequest) {
-  const slug = input.slug?.trim() || slugify(input.name);
+export async function createCuisineService(
+  input: CreateCuisineRequest,
+) {
+  const slug =
+    input.slug?.trim() ||
+    slugify(input.name);
+
   await ensureUniqueCuisineSlug(slug);
 
-  const destinationIds = input.destinationIds ?? [];
-  await ensureDestinationsExist(destinationIds);
+  const destinationIds =
+    input.destinationIds ?? [];
 
-  const cuisine = await createCuisine(
-    {
-      name: input.name,
-      nameEn: input.nameEn ?? null,
-      slug,
-      description: input.description ?? null,
-      descriptionEn: input.descriptionEn ?? null,
-      avgPrice: input.avgPrice ?? null,
-      coverImageUrl: input.coverImageUrl ?? null,
-      coverImagePublicId: input.coverImagePublicId ?? null,
-    },
+  await ensureDestinationsExist(
     destinationIds,
   );
 
-  const [withDestinations] = await attachDestinations([cuisine]);
+  const cuisine =
+    await createCuisine(
+      {
+        name: input.name,
+        nameEn:
+          input.nameEn ?? null,
+        slug,
+        description:
+          input.description ?? null,
+        descriptionEn:
+          input.descriptionEn ?? null,
+        avgPrice:
+          input.avgPrice ?? null,
+        coverImageUrl:
+          input.coverImageUrl ?? null,
+        coverImagePublicId:
+          input.coverImagePublicId ??
+          null,
+      },
+      destinationIds,
+    );
+
+  const [withDestinations] =
+    await attachDestinations([
+      cuisine,
+    ]);
+
+  await invalidateCuisineCache();
 
   return withDestinations;
 }
@@ -120,61 +254,99 @@ export async function updateCuisineService(
   id: string,
   input: UpdateCuisineRequest,
 ) {
-  const existing = await findCuisineById(id);
+  const existing =
+    await findCuisineById(id);
 
   if (!existing) {
     throw new CuisineNotFoundError();
   }
 
-  if (input.slug && input.slug !== existing.slug) {
-    await ensureUniqueCuisineSlug(input.slug, id);
+  if (
+    input.slug &&
+    input.slug !== existing.slug
+  ) {
+    await ensureUniqueCuisineSlug(
+      input.slug,
+      id,
+    );
   }
 
   if (input.destinationIds) {
-    await ensureDestinationsExist(input.destinationIds);
+    await ensureDestinationsExist(
+      input.destinationIds,
+    );
   }
 
-  const oldCoverPublicId = existing.coverImagePublicId;
+  const oldCoverPublicId =
+    existing.coverImagePublicId;
 
   const coverWasChanged =
-    input.coverImagePublicId !== undefined &&
-    input.coverImagePublicId !== oldCoverPublicId;
+    input.coverImagePublicId !==
+      undefined &&
+    input.coverImagePublicId !==
+      oldCoverPublicId;
 
-  const { destinationIds, ...rest } = input;
+  const {
+    destinationIds,
+    ...rest
+  } = input;
 
-  const updated = await updateCuisine(id, rest, destinationIds);
+  const updated =
+    await updateCuisine(
+      id,
+      rest,
+      destinationIds,
+    );
 
   if (!updated) {
     throw new CuisineNotFoundError();
   }
 
   /*
-   * Database đã cập nhật thành công mới xóa ảnh cũ.
-   * Nếu xóa Cloudinary thất bại thì vẫn giữ kết quả update DB.
+   * Database đã cập nhật thành công mới xóa
+   * ảnh cũ trên Cloudinary.
    */
-  if (coverWasChanged && oldCoverPublicId) {
-    await deleteImageSafely(oldCoverPublicId);
+  if (
+    coverWasChanged &&
+    oldCoverPublicId
+  ) {
+    await deleteImageSafely(
+      oldCoverPublicId,
+    );
   }
 
-  const [withDestinations] = await attachDestinations([updated]);
+  const [withDestinations] =
+    await attachDestinations([
+      updated,
+    ]);
+
+  await invalidateCuisineCache();
 
   return withDestinations;
 }
 
-export async function deleteCuisineService(id: string) {
-  const existing = await findCuisineById(id);
+export async function deleteCuisineService(
+  id: string,
+) {
+  const existing =
+    await findCuisineById(id);
 
   if (!existing) {
     throw new CuisineNotFoundError();
   }
 
-  const deleted = await deleteCuisine(id);
+  const deleted =
+    await deleteCuisine(id);
 
   if (!deleted) {
     throw new CuisineNotFoundError();
   }
 
-  await deleteImageSafely(existing.coverImagePublicId);
+  await deleteImageSafely(
+    existing.coverImagePublicId,
+  );
+
+  await invalidateCuisineCache();
 
   return deleted;
 }

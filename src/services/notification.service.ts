@@ -1,9 +1,6 @@
 import "server-only";
 
-import {
-    listNotificationsForUser,
-    markNotificationsRead,
-} from "@/src/repositories/notification.repository";
+import {listNotificationsForUser,markNotificationsRead,} from "@/src/repositories/notification.repository";
 
 export async function getUserNotifications(
     userId: string,
@@ -13,9 +10,6 @@ export async function getUserNotifications(
     return listNotificationsForUser(userId, page, pageSize);
 }
 
-export async function readUserNotifications(
-    userId: string,
-    notificationId?: string,
-) {
+export async function readUserNotifications(userId: string,notificationId?: string) {
     return markNotificationsRead(userId, notificationId);
 }

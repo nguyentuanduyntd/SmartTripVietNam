@@ -1,0 +1,81 @@
+name: smarttrip-vietnam
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: smarttrip-redis
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory-policy
+      - noeviction
+
+    ports:
+      - "127.0.0.1:6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  app:
+    container_name: smarttrip-app
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+      secrets:
+        - app_env
+
+    env_file:
+      - .env.local
+
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+
+      # Trong mạng Docker phải dùng tên service "redis".
+      REDIS_URL: redis://redis:6379
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    ports:
+      - "3000:3000"
+
+    restart: unless-stopped
+    init: true
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+secrets:
+  app_env:
+    file: .env.local
+
+volumes:
+  redis_data:

@@ -25,6 +25,7 @@
     "@types/leaflet": "^1.9.22",
     "cloudinary": "^2.10.0",
     "drizzle-orm": "^0.45.2",
+    "ioredis": "^6.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
