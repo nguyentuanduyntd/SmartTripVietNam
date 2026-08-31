@@ -83,18 +83,6 @@
         },
         "viewAll": "View all destinations"
       },
-      "cuisine": {
-        "eyebrow": "Flavors of Central Vietnam",
-        "title": "A region you can remember through its aromas.",
-        "description": "The cuisine here is bold yet unhurried, humble yet layered with flavor. Start with familiar dishes and discover something new in every bite.",
-        "experiences": {
-          "cycling": "Cycle through villages",
-          "riversideCoffee": "Riverside coffee",
-          "moments": "Capture the moment",
-          "localFood": "Eat like a local"
-        },
-        "exploreMap": "Explore the food map"
-      },
       "journey": {
         "eyebrow": "Suggested journeys",
         "title": "Travel at just the right pace to leave you wanting to return.",

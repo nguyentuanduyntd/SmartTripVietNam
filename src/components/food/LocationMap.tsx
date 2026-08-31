@@ -406,7 +406,7 @@ export function LocationMap({
     ]);
 
     /*
-     * Khi GPS/demo/manual đổi vị trí từ bên ngoài map,
+     * Khi GPS, vị trí mẫu hoặc điểm chọn trên bản đồ thay đổi,
      * đưa camera về vị trí đó.
      *
      * Không recreate map.
@@ -490,7 +490,7 @@ export function LocationMap({
     }
 
     return (
-        <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[30px] border border-white/10 bg-[#102f30]">
+        <div className="relative h-full min-h-[420px] w-full overflow-hidden rounded-[30px] border border-white/10 bg-[#102f30] lg:min-h-[500px]">
             <div
                 ref={containerRef}
                 className="absolute inset-0 z-0"
@@ -501,31 +501,17 @@ export function LocationMap({
 
             {/* Thông tin vị trí đang chọn */}
             <div className="pointer-events-none absolute left-4 right-4 top-4 z-[500] flex items-start justify-between gap-3">
-                <div className="pointer-events-auto max-w-[72%] rounded-2xl border border-white/15 bg-[#102f30]/90 px-4 py-3 shadow-xl backdrop-blur-md">
-                    <div className="flex items-start gap-3">
-                        <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f3bd59] text-[#173a3b]">
+                <div className="pointer-events-auto max-w-[75%] rounded-2xl border border-white/15 bg-[#102f30]/90 px-3 py-2.5 shadow-xl backdrop-blur-md">
+                    <div className="flex items-center gap-3">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f3bd59] text-[#173a3b]">
                             <MapPin
                                 size={17}
                             />
                         </span>
 
                         <div className="min-w-0">
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#f5ca75]">
-                                Vị trí tìm kiếm
-                            </p>
-
-                            <p className="mt-1 truncate text-sm font-extrabold text-white">
+                            <p className="truncate text-sm font-extrabold text-white">
                                 {label}
-                            </p>
-
-                            <p className="mt-1 text-[11px] font-semibold text-white/55">
-                                {latitude.toFixed(
-                                    5,
-                                )}
-                                ,{" "}
-                                {longitude.toFixed(
-                                    5,
-                                )}
                             </p>
                         </div>
                     </div>
@@ -563,11 +549,6 @@ export function LocationMap({
                 </button>
             ) : null}
 
-            {/* Hướng dẫn */}
-            <div className="pointer-events-none absolute bottom-5 left-1/2 z-[500] hidden -translate-x-1/2 rounded-full border border-white/15 bg-[#102f30]/88 px-4 py-2 text-[10px] font-bold text-white/75 shadow-xl backdrop-blur-md sm:block">
-                Nhấn vào bản đồ để đặt
-                vị trí tìm kiếm
-            </div>
         </div>
     );
 }

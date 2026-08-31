@@ -1186,7 +1186,7 @@ export function FoodDiscoveryPanel() {
     return (
         <section
             id="food-discovery"
-            className="relative bg-[#fffaf1] px-5 pb-24 sm:px-8 lg:px-12 lg:pb-32"
+            className="relative bg-[#fffaf1] px-5 pb-24 pt-28 sm:px-8 sm:pt-32 lg:px-12 lg:pb-32 lg:pt-[150px]"
         >
             <div className="mx-auto max-w-[1440px]">
                 <div className="relative overflow-hidden rounded-[38px] bg-[#173a3b] text-white shadow-[0_24px_80px_rgba(23,58,59,0.14)]">

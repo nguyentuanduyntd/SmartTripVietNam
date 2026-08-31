@@ -1,5 +1,14 @@
 import type { LucideIcon } from "lucide-react";
-import {Bike, Camera,Coffee, Compass,Landmark,Map,Mountain,Palmtree,Sparkles,Sun,Utensils,Waves,} from "lucide-react";
+import {
+    Compass,
+    Landmark,
+    Map,
+    Mountain,
+    Palmtree,
+    Sparkles,
+    Sun,
+    Waves,
+} from "lucide-react";
 
 export type CityId = "hue" | "da-nang" | "hoi-an";
 
@@ -380,29 +389,6 @@ export const STORIES: StoryCardData[] = [
         size: "small",
     },
 ];
-
-export const EXPERIENCE_ITEMS = [
-    {
-        icon: Bike,
-        label: "Đạp xe làng quê",
-        detail: "Trà Quế · Cẩm Thanh",
-    },
-    {
-        icon: Coffee,
-        label: "Cà phê ven sông",
-        detail: "Hương Giang · sông Hàn",
-    },
-    {
-        icon: Camera,
-        label: "Săn khoảnh khắc",
-        detail: "Bình minh · phố đèn lồng",
-    },
-    {
-        icon: Utensils,
-        label: "Ăn như người bản địa",
-        detail: "Chợ · quán nhỏ · gánh hàng",
-    },
-] as const;
 
 export const NAV_ITEMS = [
     {

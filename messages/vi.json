@@ -83,18 +83,6 @@
         },
         "viewAll": "Xem tất cả địa danh"
       },
-      "cuisine": {
-        "eyebrow": "Hương vị miền Trung",
-        "title": "Một vùng đất có thể nhớ bằng hương thơm.",
-        "description": "Ẩm thực nơi đây đậm nhưng không vội, bình dị mà nhiều lớp vị. Hãy bắt đầu bằng những món ăn quen tên nhưng luôn có điều mới để khám phá.",
-        "experiences": {
-          "cycling": "Đạp xe làng quê",
-          "riversideCoffee": "Cà phê ven sông",
-          "moments": "Săn khoảnh khắc",
-          "localFood": "Ăn như người bản địa"
-        },
-        "exploreMap": "Khám phá bản đồ ẩm thực"
-      },
       "journey": {
         "eyebrow": "Hành trình gợi ý",
         "title": "Đi theo một lộ trình vừa đủ để còn muốn quay lại.",
