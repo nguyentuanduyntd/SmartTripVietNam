@@ -490,7 +490,7 @@ export function LocationMap({
     }
 
     return (
-        <div className="relative h-full min-h-[420px] w-full overflow-hidden rounded-[30px] border border-white/10 bg-[#102f30] lg:min-h-[500px]">
+        <div className="relative h-full min-h-[460px] w-full overflow-hidden rounded-[30px] border border-white/10 bg-[#102f30] lg:min-h-[560px]">
             <div
                 ref={containerRef}
                 className="absolute inset-0 z-0"

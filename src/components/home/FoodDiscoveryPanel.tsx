@@ -8,17 +8,14 @@ import {
     MapPin,
     Navigation,
     Search,
-    Sparkles,
     Star,
     UsersRound,
     UtensilsCrossed,
-    WalletCards,
     X,
 } from "lucide-react";
 import {
     useEffect,
     useMemo,
-    useRef,
     useState,
 } from "react";
 
@@ -63,10 +60,6 @@ type RestaurantDiscoveryItem = {
     distanceMeters: number;
     matchScore: number;
     cuisines: RestaurantCuisine[];
-    aiRecommended?: boolean;
-    recommendationRank?: number;
-    aiReason?: string;
-    aiTags?: string[];
 };
 
 type RestaurantDiscoveryResult = {
@@ -77,35 +70,6 @@ type RestaurantDiscoveryResult = {
         longitude: number;
         radiusKm: number;
         sort: "best_match" | "distance" | "rating";
-        totalMatched: number;
-        returned: number;
-        isDemoData: boolean;
-    };
-};
-
-type AiFoodSearchResult = {
-    query: string;
-    summary: string;
-    interpreted: {
-        maxPrice?: number;
-        openLate: boolean;
-        familyFriendly: boolean;
-        localOnly: boolean;
-        tags: string[];
-        sort: "best_match" | "distance" | "rating";
-        radiusKm: number;
-    };
-    location: {
-        label: string;
-        latitude: number;
-        longitude: number;
-        source: FoodDiscoveryLocationSource;
-        demoLocationId?: string;
-    };
-    items: RestaurantDiscoveryItem[];
-    meta: {
-        generatedBy: "gemini" | "fallback";
-        totalCandidates: number;
         totalMatched: number;
         returned: number;
         isDemoData: boolean;
@@ -141,25 +105,6 @@ const DEFAULT_DEMO_LOCATION: FoodDemoLocation =
             item.id ===
             "demo-da-nang-dragon-bridge",
     ) ?? FOOD_DEMO_LOCATIONS[0];
-
-const BUDGET_OPTIONS = [
-    {
-        label: "Không giới hạn",
-        value: undefined,
-    },
-    {
-        label: "≤ 100k",
-        value: 100_000,
-    },
-    {
-        label: "≤ 150k",
-        value: 150_000,
-    },
-    {
-        label: "≤ 250k",
-        value: 250_000,
-    },
-] as const;
 
 function formatMoney(
     value?: number | null,
@@ -260,30 +205,6 @@ function getLocationFromDemo(
     };
 }
 
-function FilterChip({
-    active,
-    label,
-    onClick,
-}: {
-    active: boolean;
-    label: string;
-    onClick: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`rounded-full border px-4 py-2 text-sm font-bold transition-all ${
-                active
-                    ? "border-[#173a3b] bg-[#173a3b] text-white shadow-[0_8px_22px_rgba(23,58,59,0.16)]"
-                    : "border-[#ded4c6] bg-white text-[#536863] hover:border-[#9eb8af] hover:bg-[#f7fbf9]"
-            }`}
-        >
-            {label}
-        </button>
-    );
-}
-
 function RestaurantCard({
     restaurant,
     isDemo,
@@ -357,23 +278,6 @@ function RestaurantCard({
             </div>
 
             <div className="flex flex-1 flex-col p-5 sm:p-6">
-                {restaurant.aiRecommended ? (
-                    <div className="mb-4 flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#173a3b] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                            <Sparkles size={11} />
-                            SmartTrip AI #{restaurant.recommendationRank ?? 1}
-                        </span>
-                        {restaurant.aiTags?.slice(0, 3).map((tag) => (
-                            <span
-                                key={tag}
-                                className="rounded-full bg-[#fff1e4] px-2.5 py-1 text-[10px] font-bold text-[#9a654f]"
-                            >
-                                {tag}
-                            </span>
-                        ))}
-                    </div>
-                ) : null}
-
                 <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                         <h3 className="font-display text-2xl font-semibold leading-tight text-[#173a3b]">
@@ -410,13 +314,6 @@ function RestaurantCard({
                         </div>
                     ) : null}
                 </div>
-
-                {restaurant.aiReason ? (
-                    <div className="mt-4 rounded-2xl border border-[#dbe8e2] bg-[#f3f8f5] px-4 py-3 text-xs leading-5 text-[#4f6962]">
-                        <span className="font-extrabold text-[#34706b]">Vì sao phù hợp: </span>
-                        {restaurant.aiReason}
-                    </div>
-                ) : null}
 
                 {restaurant.description ? (
                     <p className="mt-4 line-clamp-2 text-sm leading-6 text-[#64736f]">
@@ -523,34 +420,8 @@ export function FoodDiscoveryPanel() {
         longitude: number;
     } | null>(null);
 
-    const [manualLatitude, setManualLatitude] =
-        useState(
-            String(
-                DEFAULT_DEMO_LOCATION
-                    .latitude,
-            ),
-        );
-
-    const [manualLongitude, setManualLongitude] =
-        useState(
-            String(
-                DEFAULT_DEMO_LOCATION
-                    .longitude,
-            ),
-        );
-
     const [search, setSearch] =
         useState("");
-    const [maxPrice, setMaxPrice] =
-        useState<number | undefined>(
-            undefined,
-        );
-    const [openLate, setOpenLate] =
-        useState(false);
-    const [familyFriendly, setFamilyFriendly] =
-        useState(false);
-    const [localOnly, setLocalOnly] =
-        useState(false);
     const [sort, setSort] =
         useState<SortMode>(
             "best_match",
@@ -569,21 +440,6 @@ export function FoodDiscoveryPanel() {
             null,
         );
 
-    const [aiQuery, setAiQuery] =
-        useState(
-            "Tìm quán địa phương gần đây, dưới 150k, phù hợp gia đình và ít cay",
-        );
-    const [aiResult, setAiResult] =
-        useState<AiFoodSearchResult | null>(
-            null,
-        );
-    const [isAiSearching, setIsAiSearching] =
-        useState(false);
-    const [aiError, setAiError] =
-        useState<string | null>(
-            null,
-        );
-
     const [
         selectedItineraryRestaurant,
         setSelectedItineraryRestaurant,
@@ -591,23 +447,6 @@ export function FoodDiscoveryPanel() {
         useState<RestaurantDiscoveryItem | null>(
             null,
         );
-
-    /**
-     * Result anchor để sau khi API trả về, UI tự cuộn tới kết quả.
-     * Trước đây kết quả nằm sau cả khối filter nên user có cảm giác
-     * "AI không hiện gì" dù POST đã 200.
-     */
-    const aiResultRef =
-        useRef<HTMLDivElement | null>(
-            null,
-        );
-
-    /**
-     * Bỏ qua response cũ nếu user gửi một request AI mới trước khi
-     * request trước hoàn tất.
-     */
-    const aiRequestVersionRef =
-        useRef(0);
 
     const activeDemoLocation =
         useMemo(
@@ -655,38 +494,6 @@ export function FoodDiscoveryPanel() {
                             params.set(
                                 "search",
                                 search.trim(),
-                            );
-                        }
-
-                        if (maxPrice) {
-                            params.set(
-                                "maxPrice",
-                                String(
-                                    maxPrice,
-                                ),
-                            );
-                        }
-
-                        if (openLate) {
-                            params.set(
-                                "openLate",
-                                "true",
-                            );
-                        }
-
-                        if (
-                            familyFriendly
-                        ) {
-                            params.set(
-                                "familyFriendly",
-                                "true",
-                            );
-                        }
-
-                        if (localOnly) {
-                            params.set(
-                                "tags",
-                                "local",
                             );
                         }
 
@@ -762,20 +569,9 @@ export function FoodDiscoveryPanel() {
         };
     }, [
         activeLocation,
-        familyFriendly,
-        localOnly,
-        maxPrice,
-        openLate,
         search,
         sort,
     ]);
-
-    function resetAiForLocationChange() {
-        aiRequestVersionRef.current += 1;
-        setIsAiSearching(false);
-        setAiResult(null);
-        setAiError(null);
-    }
 
     function switchToDemo(
         location: FoodDemoLocation =
@@ -791,15 +587,6 @@ export function FoodDiscoveryPanel() {
                 location,
             ),
         );
-
-        setManualLatitude(
-            location.latitude.toFixed(6),
-        );
-        setManualLongitude(
-            location.longitude.toFixed(6),
-        );
-
-        resetAiForLocationChange();
     }
 
     function handleDemoChange(
@@ -865,18 +652,6 @@ export function FoodDiscoveryPanel() {
                     source: "gps",
                 });
 
-                /*
-                 * Đồng bộ ô nhập tọa độ.
-                 */
-                setManualLatitude(
-                    latitude.toFixed(6),
-                );
-
-                setManualLongitude(
-                    longitude.toFixed(6),
-                );
-
-                resetAiForLocationChange();
                 setIsLocating(false);
             },
             (geoError) => {
@@ -912,271 +687,15 @@ export function FoodDiscoveryPanel() {
             longitude,
             source: "manual",
         });
-
-        setManualLatitude(
-            latitude.toFixed(6),
-        );
-        setManualLongitude(
-            longitude.toFixed(6),
-        );
-
-        resetAiForLocationChange();
-    }
-
-    function applyManualLocation() {
-        const latitude = Number(
-            manualLatitude,
-        );
-        const longitude = Number(
-            manualLongitude,
-        );
-
-        if (
-            !Number.isFinite(latitude) ||
-            latitude < -90 ||
-            latitude > 90 ||
-            !Number.isFinite(longitude) ||
-            longitude < -180 ||
-            longitude > 180
-        ) {
-            setError(
-                "Tọa độ không hợp lệ. Latitude từ -90 đến 90, longitude từ -180 đến 180.",
-            );
-            return;
-        }
-
-        setError(null);
-        setMode("manual");
-
-        setActiveLocation({
-            label: "Tọa độ tùy chỉnh",
-            latitude,
-            longitude,
-            source: "manual",
-        });
-
-        setManualLatitude(
-            latitude.toFixed(6),
-        );
-        setManualLongitude(
-            longitude.toFixed(6),
-        );
-
-        resetAiForLocationChange();
-    }
-
-    async function runAiFoodSearch(
-        overrideMessage?: string,
-    ) {
-        const message =
-            (overrideMessage ?? aiQuery).trim();
-
-        if (!message) {
-            setAiError(
-                "Bạn hãy mô tả món/quán hoặc sở thích muốn tìm.",
-            );
-            return;
-        }
-
-        if (overrideMessage) {
-            setAiQuery(overrideMessage);
-        }
-
-        const requestVersion =
-            ++aiRequestVersionRef.current;
-
-        setIsAiSearching(true);
-        setAiError(null);
-
-        /**
-         * Ẩn kết quả cũ để user thấy rõ request mới đang chạy.
-         */
-        setAiResult(null);
-
-        try {
-            const response = await fetch(
-                "/api/ai/food/search",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        message,
-                        latitude:
-                            activeLocation.latitude,
-                        longitude:
-                            activeLocation.longitude,
-                        locationLabel:
-                            activeLocation.label,
-                        source:
-                            activeLocation.source,
-                        radiusKm: 5,
-                    }),
-                    cache: "no-store",
-                },
-            );
-
-            const payload =
-                (await response.json()) as ApiPayload<AiFoodSearchResult>;
-
-            if (
-                requestVersion !==
-                aiRequestVersionRef.current
-            ) {
-                return;
-            }
-
-            if (
-                !response.ok ||
-                !payload.success ||
-                !payload.data
-            ) {
-                throw new Error(
-                    payload.message ??
-                        "SmartTrip AI chưa thể tìm quán theo yêu cầu này.",
-                );
-            }
-
-            const data = payload.data;
-
-            console.info(
-                "[FOOD AI SEARCH UI] received",
-                {
-                    generatedBy:
-                        data.meta.generatedBy,
-                    location:
-                        data.location.label,
-                    returned:
-                        data.items.length,
-                    interpreted:
-                        data.interpreted,
-                },
-            );
-
-            setAiResult(data);
-
-            /**
-             * Chỉ update activeLocation nếu AI thực sự chuyển địa điểm.
-             * Bản cũ luôn set object mới, khiến nearby useEffect chạy lại
-             * dù user vẫn đang ở cùng Cầu Rồng.
-             */
-            const locationChanged =
-                activeLocation.label !==
-                    data.location.label ||
-                activeLocation.latitude !==
-                    data.location.latitude ||
-                activeLocation.longitude !==
-                    data.location.longitude ||
-                activeLocation.source !==
-                    data.location.source;
-
-            if (locationChanged) {
-                setActiveLocation({
-                    label:
-                        data.location.label,
-                    latitude:
-                        data.location.latitude,
-                    longitude:
-                        data.location.longitude,
-                    source:
-                        data.location.source,
-                });
-
-                setManualLatitude(
-                    data.location.latitude.toFixed(6),
-                );
-                setManualLongitude(
-                    data.location.longitude.toFixed(6),
-                );
-            }
-
-            if (
-                data.location.source ===
-                "demo"
-            ) {
-                setMode("demo");
-
-                if (
-                    data.location.demoLocationId
-                ) {
-                    setDemoLocationId(
-                        data.location.demoLocationId,
-                    );
-                }
-            } else if (
-                data.location.source ===
-                "gps"
-            ) {
-                setMode("gps");
-            } else {
-                setMode("manual");
-            }
-
-            /**
-             * Đợi React commit result rồi cuộn tới block AI.
-             * Dùng 2 RAF để chắc DOM đã render cả desktop/mobile.
-             */
-            window.requestAnimationFrame(
-                () => {
-                    window.requestAnimationFrame(
-                        () => {
-                            aiResultRef.current?.scrollIntoView(
-                                {
-                                    behavior:
-                                        "smooth",
-                                    block:
-                                        "start",
-                                },
-                            );
-                        },
-                    );
-                },
-            );
-        } catch (searchError) {
-            if (
-                requestVersion !==
-                aiRequestVersionRef.current
-            ) {
-                return;
-            }
-
-            console.error(
-                "[FOOD AI SEARCH ERROR]",
-                searchError,
-            );
-            setAiError(
-                searchError instanceof Error
-                    ? searchError.message
-                    : "SmartTrip AI chưa thể tìm quán lúc này.",
-            );
-        } finally {
-            if (
-                requestVersion ===
-                aiRequestVersionRef.current
-            ) {
-                setIsAiSearching(false);
-            }
-        }
     }
 
     function clearFilters() {
         setSearch("");
-        setMaxPrice(undefined);
-        setOpenLate(false);
-        setFamilyFriendly(false);
-        setLocalOnly(false);
         setSort("best_match");
-        resetAiForLocationChange();
     }
 
     const hasFilters = Boolean(
         search ||
-            maxPrice ||
-            openLate ||
-            familyFriendly ||
-            localOnly ||
             sort !== "best_match",
     );
 
@@ -1193,25 +712,14 @@ export function FoodDiscoveryPanel() {
                     <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-[#e8b44c]/20 blur-3xl" />
                     <div className="absolute -bottom-32 left-1/3 h-96 w-96 rounded-full bg-[#51a39c]/20 blur-3xl" />
 
-                    <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.08fr_0.92fr] lg:p-10 xl:p-12">
+                    <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:p-10 xl:p-12">
                         <div>
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.18em] text-[#f5c66d]">
-                                <Sparkles
-                                    size={15}
-                                />
-                                SmartTrip Food Discovery
-                            </div>
-
-                            <h2 className="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[1.02] tracking-[-0.035em] sm:text-5xl">
+                            <h2 className="max-w-3xl font-display text-4xl font-semibold leading-[1.02] tracking-[-0.035em] sm:text-5xl">
                                 Ăn gì gần bạn,
                                 <span className="block italic text-[#f5d99c]">
                                     ngay lúc này?
                                 </span>
                             </h2>
-
-                            <p className="mt-5 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-                                Chọn vị trí thật hoặc giả lập vị trí khi demo. SmartTrip sẽ tìm trong dữ liệu quán ăn, tính khoảng cách và xếp hạng theo sở thích của bạn.
-                            </p>
 
                             <div className="mt-7 flex flex-wrap gap-2">
                                 <button
@@ -1255,23 +763,6 @@ export function FoodDiscoveryPanel() {
                                         />
                                     )}
                                     GPS thiết bị
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setMode(
-                                            "manual",
-                                        )
-                                    }
-                                    className={`rounded-full px-4 py-2.5 text-sm font-bold transition ${
-                                        mode ===
-                                        "manual"
-                                            ? "bg-[#f3bd59] text-[#173a3b]"
-                                            : "border border-white/16 bg-white/8 text-white/76 hover:bg-white/12"
-                                    }`}
-                                >
-                                    Nhập tọa độ
                                 </button>
                             </div>
 
@@ -1331,56 +822,10 @@ export function FoodDiscoveryPanel() {
                                     </div>
                                 ) : null}
 
-                                {mode ===
-                                "manual" ? (
-                                    <div className="grid max-w-xl gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                                        <input
-                                            value={
-                                                manualLatitude
-                                            }
-                                            onChange={(
-                                                event,
-                                            ) =>
-                                                setManualLatitude(
-                                                    event.target
-                                                        .value,
-                                                )
-                                            }
-                                            placeholder="Latitude"
-                                            inputMode="decimal"
-                                            className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-[#f3bd59]"
-                                        />
-                                        <input
-                                            value={
-                                                manualLongitude
-                                            }
-                                            onChange={(
-                                                event,
-                                            ) =>
-                                                setManualLongitude(
-                                                    event.target
-                                                        .value,
-                                                )
-                                            }
-                                            placeholder="Longitude"
-                                            inputMode="decimal"
-                                            className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-[#f3bd59]"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={
-                                                applyManualLocation
-                                            }
-                                            className="rounded-2xl bg-[#f3bd59] px-4 py-3 text-sm font-extrabold text-[#173a3b]"
-                                        >
-                                            Áp dụng
-                                        </button>
-                                    </div>
-                                ) : null}
                             </div>
                         </div>
 
-                        <div className="min-h-[360px] lg:min-h-[390px]">
+                        <div className="min-h-[440px] lg:min-h-[520px]">
                             <LocationMap
                                 latitude={activeLocation.latitude}
                                 longitude={activeLocation.longitude}
@@ -1392,217 +837,6 @@ export function FoodDiscoveryPanel() {
 
                         </div>
                     </div>
-
-                    <div className="relative border-t border-white/10 px-6 pb-7 pt-6 sm:px-8 lg:px-10 xl:px-12">
-                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                            <div className="max-w-xl">
-                                <p className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-[#f5c66d]">
-                                    <Sparkles size={14} />
-                                    Tìm bằng SmartTrip AI
-                                </p>
-                                <p className="mt-2 text-sm leading-6 text-white/60">
-                                    Nói tự nhiên như: “gần Cầu Rồng, dưới 150k, món địa phương, đi với trẻ nhỏ”. AI chỉ xếp hạng các quán có trong dữ liệu SmartTrip.
-                                </p>
-                            </div>
-
-                            <form
-                                className="w-full xl:max-w-2xl"
-                                onSubmit={(event) => {
-                                    event.preventDefault();
-                                    void runAiFoodSearch();
-                                }}
-                            >
-                                <div className="flex gap-2 rounded-[22px] border border-white/14 bg-white/10 p-2 backdrop-blur">
-                                    <input
-                                        value={aiQuery}
-                                        onChange={(event) =>
-                                            setAiQuery(
-                                                event.target.value,
-                                            )
-                                        }
-                                        placeholder="Bạn muốn ăn gì, ngân sách bao nhiêu, đi cùng ai...?"
-                                        className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm font-semibold text-white outline-none placeholder:text-white/35"
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={isAiSearching}
-                                        className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-[#f3bd59] px-4 py-3 text-sm font-extrabold text-[#173a3b] transition hover:bg-[#f7cb76] disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isAiSearching ? (
-                                            <Loader2
-                                                size={15}
-                                                className="animate-spin"
-                                            />
-                                        ) : (
-                                            <Sparkles size={15} />
-                                        )}
-                                        Hỏi AI
-                                    </button>
-                                </div>
-
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    {[
-                                        "Gần Cầu Rồng, dưới 100k, món local",
-                                        "Đi với trẻ nhỏ, ít cay, dưới 150k",
-                                        "Ăn đêm ở Hội An, ưu tiên đi bộ",
-                                    ].map((example) => (
-                                        <button
-                                            key={example}
-                                            type="button"
-                                            onClick={() =>
-                                                void runAiFoodSearch(
-                                                    example,
-                                                )
-                                            }
-                                            disabled={isAiSearching}
-                                            className="rounded-full border border-white/12 bg-white/7 px-3 py-1.5 text-[11px] font-bold text-white/60 transition hover:bg-white/12 hover:text-white disabled:opacity-50"
-                                        >
-                                            {example}
-                                        </button>
-                                    ))}
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    ref={aiResultRef}
-                    className="scroll-mt-24"
-                >
-                    {isAiSearching ? (
-                        <div className="mt-7 overflow-hidden rounded-[30px] border border-[#cfe0d8] bg-[#f4faf7] shadow-[0_18px_50px_rgba(23,58,59,0.07)]">
-                            <div className="flex items-center gap-4 px-6 py-6">
-                                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#173a3b] text-[#f5c66d]">
-                                    <Loader2
-                                        size={19}
-                                        className="animate-spin"
-                                    />
-                                </span>
-                                <div>
-                                    <p className="font-extrabold text-[#173a3b]">
-                                        SmartTrip AI đang phân tích sở thích...
-                                    </p>
-                                    <p className="mt-1 text-sm leading-6 text-[#60736d]">
-                                        AI đang đọc yêu cầu và xếp hạng các quán có thật trong dữ liệu SmartTrip.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {aiError ? (
-                    <div className="mt-6 rounded-2xl border border-[#edc8be] bg-[#fff4ef] px-5 py-4 text-sm leading-6 text-[#9a4c3d]">
-                        {aiError}
-                    </div>
-                ) : null}
-
-                {aiResult ? (
-                    <div className="mt-8 overflow-hidden rounded-[32px] border border-[#cfe0d8] bg-[#f4faf7] shadow-[0_18px_50px_rgba(23,58,59,0.07)]">
-                        <div className="flex flex-col gap-4 border-b border-[#dbe8e2] px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#173a3b] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white">
-                                        <Sparkles size={11} />
-                                        SmartTrip AI
-                                    </span>
-                                    <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-[#52706a]">
-                                        {aiResult.meta.generatedBy ===
-                                        "gemini"
-                                            ? "Gemini ranking"
-                                            : "Fallback ranking"}
-                                    </span>
-                                    {aiResult.meta.isDemoData ? (
-                                        <span className="rounded-full bg-[#fff0c8] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide text-[#89691b]">
-                                            Demo data
-                                        </span>
-                                    ) : null}
-                                </div>
-
-                                <h3 className="mt-3 font-display text-2xl font-semibold text-[#173a3b]">
-                                    Gợi ý theo đúng sở thích của bạn
-                                </h3>
-                                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#60736d]">
-                                    {aiResult.summary}
-                                </p>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setAiResult(null);
-                                    setAiError(null);
-                                }}
-                                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#d0ddd7] bg-white px-3 py-2 text-xs font-bold text-[#61736e] hover:bg-[#edf6f2]"
-                            >
-                                <X size={13} />
-                                Đóng gợi ý AI
-                            </button>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 px-6 pt-5">
-                            {aiResult.interpreted.maxPrice ? (
-                                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#596d67]">
-                                    ≤ {formatMoney(
-                                        aiResult.interpreted
-                                            .maxPrice,
-                                    )}
-                                </span>
-                            ) : null}
-                            {aiResult.interpreted.localOnly ? (
-                                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#596d67]">
-                                    Đặc sản địa phương
-                                </span>
-                            ) : null}
-                            {aiResult.interpreted.familyFriendly ? (
-                                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#596d67]">
-                                    Gia đình
-                                </span>
-                            ) : null}
-                            {aiResult.interpreted.openLate ? (
-                                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#596d67]">
-                                    Ăn đêm
-                                </span>
-                            ) : null}
-                            {aiResult.interpreted.tags.map((tag) => (
-                                <span
-                                    key={tag}
-                                    className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#596d67]"
-                                >
-                                    {tag}
-                                </span>
-                            ))}
-                        </div>
-
-                        {aiResult.items.length > 0 ? (
-                            <div className="grid gap-5 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
-                                {aiResult.items
-                                    .slice(0, 3)
-                                    .map((restaurant) => (
-                                        <RestaurantCard
-                                            key={`ai-${restaurant.id}`}
-                                            restaurant={
-                                                restaurant
-                                            }
-                                            isDemo={
-                                                aiResult.meta
-                                                    .isDemoData
-                                            }
-                                            onAddToItinerary={() =>
-                                                setSelectedItineraryRestaurant(
-                                                    restaurant,
-                                                )
-                                            }
-                                        />
-                                    ))}
-                            </div>
-                        ) : (
-                            <div className="px-6 py-8 text-sm leading-6 text-[#60736d]">
-                                Không có quán nào đáp ứng đủ các điều kiện AI vừa hiểu. Hãy thử tăng ngân sách hoặc bỏ bớt một yêu cầu.
-                            </div>
-                        )}
-                    </div>
-                ) : null}
                 </div>
 
                 <div className="mt-7 rounded-[30px] border border-[#e3d8ca] bg-[#f8f3ea] p-5 sm:p-6">
@@ -1642,62 +876,6 @@ export function FoodDiscoveryPanel() {
                             ) : null}
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                            {BUDGET_OPTIONS.map(
-                                (option) => (
-                                    <FilterChip
-                                        key={
-                                            option.label
-                                        }
-                                        active={
-                                            maxPrice ===
-                                            option.value
-                                        }
-                                        label={
-                                            option.label
-                                        }
-                                        onClick={() =>
-                                            setMaxPrice(
-                                                option.value,
-                                            )
-                                        }
-                                    />
-                                ),
-                            )}
-
-                            <FilterChip
-                                active={openLate}
-                                label="Ăn đêm"
-                                onClick={() =>
-                                    setOpenLate(
-                                        (value) =>
-                                            !value,
-                                    )
-                                }
-                            />
-                            <FilterChip
-                                active={
-                                    familyFriendly
-                                }
-                                label="Gia đình"
-                                onClick={() =>
-                                    setFamilyFriendly(
-                                        (value) =>
-                                            !value,
-                                    )
-                                }
-                            />
-                            <FilterChip
-                                active={localOnly}
-                                label="Local only"
-                                onClick={() =>
-                                    setLocalOnly(
-                                        (value) =>
-                                            !value,
-                                    )
-                                }
-                            />
-                        </div>
                     </div>
 
                     <div className="mt-4 flex flex-col gap-3 border-t border-[#e5dccf] pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1844,21 +1022,6 @@ export function FoodDiscoveryPanel() {
                         ) : null}
                     </div>
                 ) : null}
-
-                <div className="mt-7 flex flex-col gap-3 rounded-[24px] border border-[#d8e4df] bg-[#f1f8f5] px-5 py-4 text-xs leading-5 text-[#5f726c] sm:flex-row sm:items-center sm:justify-between">
-                    <p>
-                        <strong className="text-[#315f5f]">
-                            Demo mode:
-                        </strong>{" "}
-                        tên quán, rating và giá trong dữ liệu seed chỉ phục vụ trình diễn chức năng. Khi có Google Places, UI này có thể giữ nguyên và chỉ đổi nguồn dữ liệu.
-                    </p>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 font-bold text-[#34706b]">
-                        <WalletCards
-                            size={13}
-                        />
-                        Không dùng giá giả ngoài seed
-                    </span>
-                </div>
             </div>
 
             <AddRestaurantToItineraryDialog
