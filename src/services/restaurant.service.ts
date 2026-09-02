@@ -13,8 +13,8 @@ function toRadians(value: number) {
 }
 
 /**
- * Haversine: đủ chính xác cho phạm vi tìm quán trong thành phố,
- * không cần PostGIS cho dataset demo 30-40 quán.
+ * Haversine: đủ chính xác cho phạm vi tìm quán trong thành phố
+ * mà không cần PostGIS.
  */
 function calculateDistanceKm(
     lat1: number,
@@ -242,7 +242,6 @@ export async function searchNearbyRestaurantsService(
     return {
         items,
         meta: {
-            source: input.source,
             latitude: input.latitude,
             longitude: input.longitude,
             radiusKm: input.radiusKm,
@@ -250,10 +249,6 @@ export async function searchNearbyRestaurantsService(
             totalMatched:
                 withDistance.length,
             returned: items.length,
-            isDemoData: items.some(
-                (item) =>
-                    item.source === "demo",
-            ),
         },
     };
 }

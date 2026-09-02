@@ -8,6 +8,7 @@ import {
 import {
     useEffect,
     useRef,
+    useState,
 } from "react";
 
 type LocationMapProps = {
@@ -41,6 +42,9 @@ export function LocationMap({
         useRef<
             import("leaflet").Map | null
         >(null);
+
+    const [isMapReady, setIsMapReady] =
+        useState(false);
 
     const leafletRef =
         useRef<
@@ -150,6 +154,7 @@ export function LocationMap({
             );
 
             mapRef.current = map;
+            setIsMapReady(true);
 
             /*
              * Khi component nằm trong grid/layout responsive,
@@ -194,7 +199,24 @@ export function LocationMap({
         const map =
             mapRef.current;
 
-        if (!L || !map) {
+        if (!isMapReady || !L || !map) {
+            return;
+        }
+
+        const overlapsGps =
+            gpsLatitude != null &&
+            gpsLongitude != null &&
+            Math.abs(
+                latitude - gpsLatitude,
+            ) < 0.000001 &&
+            Math.abs(
+                longitude - gpsLongitude,
+            ) < 0.000001;
+
+        if (overlapsGps) {
+            selectedMarkerRef.current?.remove();
+            selectedMarkerRef.current =
+                null;
             return;
         }
 
@@ -287,6 +309,9 @@ export function LocationMap({
     }, [
         latitude,
         longitude,
+        gpsLatitude,
+        gpsLongitude,
+        isMapReady,
     ]);
 
     /*
@@ -305,7 +330,7 @@ export function LocationMap({
         const map =
             mapRef.current;
 
-        if (!L || !map) {
+        if (!isMapReady || !L || !map) {
             return;
         }
 
@@ -403,10 +428,11 @@ export function LocationMap({
     }, [
         gpsLatitude,
         gpsLongitude,
+        isMapReady,
     ]);
 
     /*
-     * Khi GPS, vị trí mẫu hoặc điểm chọn trên bản đồ thay đổi,
+     * Khi GPS hoặc điểm chọn trên bản đồ thay đổi,
      * đưa camera về vị trí đó.
      *
      * Không recreate map.
@@ -415,7 +441,7 @@ export function LocationMap({
         const map =
             mapRef.current;
 
-        if (!map) {
+        if (!isMapReady || !map) {
             return;
         }
 
@@ -454,6 +480,7 @@ export function LocationMap({
     }, [
         latitude,
         longitude,
+        isMapReady,
     ]);
 
     function focusSelectedLocation() {
@@ -489,8 +516,18 @@ export function LocationMap({
         );
     }
 
+    const isSelectedGps =
+        gpsLatitude != null &&
+        gpsLongitude != null &&
+        Math.abs(
+            latitude - gpsLatitude,
+        ) < 0.000001 &&
+        Math.abs(
+            longitude - gpsLongitude,
+        ) < 0.000001;
+
     return (
-        <div className="relative h-full min-h-[460px] w-full overflow-hidden rounded-[30px] border border-white/10 bg-[#102f30] lg:min-h-[560px]">
+        <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[28px] border border-white/10 bg-[#102f30] sm:min-h-[420px] lg:min-h-[460px]">
             <div
                 ref={containerRef}
                 className="absolute inset-0 z-0"
@@ -522,8 +559,9 @@ export function LocationMap({
                     onClick={
                         focusSelectedLocation
                     }
+                    aria-label="Đưa bản đồ về vị trí đang chọn"
                     title="Về vị trí đang chọn"
-                    className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/15 bg-[#102f30]/90 text-[#f3bd59] shadow-xl backdrop-blur-md transition hover:bg-[#173f40]"
+                    className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/15 bg-[#102f30]/90 text-[#f3bd59] shadow-xl backdrop-blur-md transition hover:bg-[#173f40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
                     <Crosshair
                         size={18}
@@ -533,13 +571,15 @@ export function LocationMap({
 
             {/* Nút về GPS */}
             {gpsLatitude != null &&
-            gpsLongitude != null ? (
+            gpsLongitude != null &&
+            !isSelectedGps ? (
                 <button
                     type="button"
                     onClick={
                         focusGpsLocation
                     }
-                    className="absolute bottom-5 left-4 z-[500] inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#102f30]/90 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl backdrop-blur-md transition hover:bg-[#173f40]"
+                    aria-label="Đưa bản đồ về vị trí GPS của tôi"
+                    className="absolute bottom-5 left-4 z-[500] inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#102f30]/90 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl backdrop-blur-md transition hover:bg-[#173f40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
                     <Navigation
                         size={14}

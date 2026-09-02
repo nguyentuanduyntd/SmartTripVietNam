@@ -54,11 +54,7 @@ export const restaurantNearbyQuerySchema = z
             .max(120)
             .optional(),
 
-        /**
-         * Mức chi tiêu mong muốn tối đa / người / bữa.
-         * Với dữ liệu demo, restaurant được coi là phù hợp
-         * nếu priceMin <= maxPrice.
-         */
+        /** Mức chi tiêu mong muốn tối đa / người / bữa. */
         maxPrice: z.coerce
             .number()
             .int()
@@ -69,10 +65,6 @@ export const restaurantNearbyQuerySchema = z
         tags: tagsQuerySchema,
         openLate: booleanQuerySchema,
         familyFriendly: booleanQuerySchema,
-
-        source: z
-            .enum(["gps", "manual", "demo"])
-            .default("demo"),
 
         sort: z
             .enum([

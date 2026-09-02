@@ -38,6 +38,12 @@ interface LoadedUserProfile {
     profile: UserProfile | null;
 }
 
+interface ProfileUpdatedDetail {
+    fullName?: string;
+    avatarUrl?: string | null;
+    role?: "user" | "admin";
+}
+
 interface UserAvatarProps {
     avatarUrl: string | null;
     displayName: string;
@@ -408,6 +414,74 @@ export function HomeHeader() {
         supabase,
         user?.id,
     ]);
+
+    useEffect(() => {
+        const userId = user?.id;
+
+        if (!userId) {
+            return;
+        }
+
+        const authenticatedUserId: string = userId;
+
+        function handleProfileUpdated(
+            event: Event,
+        ) {
+            const detail =
+                (
+                    event as CustomEvent<ProfileUpdatedDetail>
+                ).detail;
+
+            if (!detail) {
+                return;
+            }
+
+            setLoadedProfile(
+                (current) => {
+                    const currentProfile =
+                        current &&
+                        current.userId ===
+                            authenticatedUserId
+                            ? current.profile
+                            : null;
+
+                    return {
+                        userId: authenticatedUserId,
+                        profile: {
+                            full_name:
+                                detail.fullName !==
+                                undefined
+                                    ? detail.fullName
+                                    : currentProfile?.full_name ??
+                                      null,
+                            avatar_url:
+                                detail.avatarUrl !==
+                                undefined
+                                    ? detail.avatarUrl
+                                    : currentProfile?.avatar_url ??
+                                      null,
+                            role:
+                                detail.role ??
+                                currentProfile?.role ??
+                                null,
+                        },
+                    };
+                },
+            );
+        }
+
+        window.addEventListener(
+            "smarttrip:profile-updated",
+            handleProfileUpdated,
+        );
+
+        return () => {
+            window.removeEventListener(
+                "smarttrip:profile-updated",
+                handleProfileUpdated,
+            );
+        };
+    }, [user?.id]);
 
     useEffect(() => {
         let isMounted = true;
@@ -828,6 +902,23 @@ export function HomeHeader() {
                                             ) : null}
                                         </Link>
 
+                                        <Link
+                                            href="/profile"
+                                            onClick={
+                                                closeMenu
+                                            }
+                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
+                                        >
+                                            <UserRound
+                                                size={
+                                                    18
+                                                }
+                                            />
+                                            {t(
+                                                "account.myAccount",
+                                            )}
+                                        </Link>
+
                                         {profile?.role ===
                                         "admin" ? (
                                             <Link
@@ -846,18 +937,7 @@ export function HomeHeader() {
                                                     "account.adminDashboard",
                                                 )}
                                             </Link>
-                                        ) : (
-                                            <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748]">
-                                                <UserRound
-                                                    size={
-                                                        18
-                                                    }
-                                                />
-                                                {t(
-                                                    "account.myAccount",
-                                                )}
-                                            </div>
-                                        )}
+                                        ) : null}
 
                                         <button
                                             type="button"
@@ -1069,6 +1149,23 @@ export function HomeHeader() {
                                         ) : null}
                                     </Link>
 
+                                    <Link
+                                        href="/profile"
+                                        onClick={
+                                            closeMenu
+                                        }
+                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                                    >
+                                        <UserRound
+                                            size={
+                                                17
+                                            }
+                                        />
+                                        {t(
+                                            "account.myAccount",
+                                        )}
+                                    </Link>
+
                                     {profile?.role ===
                                     "admin" ? (
                                         <Link
@@ -1087,18 +1184,7 @@ export function HomeHeader() {
                                                 "account.adminDashboard",
                                             )}
                                         </Link>
-                                    ) : (
-                                        <div className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]">
-                                            <UserRound
-                                                size={
-                                                    17
-                                                }
-                                            />
-                                            {t(
-                                                "account.myAccount",
-                                            )}
-                                        </div>
-                                    )}
+                                    ) : null}
 
                                     <button
                                         type="button"

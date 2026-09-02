@@ -9,8 +9,8 @@ import {
 /**
  * GET /api/restaurants/nearby
  *
- * Ví dụ demo:
- * /api/restaurants/nearby?latitude=16.0611042&longitude=108.2276926&radiusKm=5&source=demo
+ * Ví dụ:
+ * /api/restaurants/nearby?latitude=16.0611042&longitude=108.2276926&radiusKm=5
  */
 export async function GET(request: Request) {
     const { searchParams } = new URL(
@@ -50,9 +50,6 @@ export async function GET(request: Request) {
                 searchParams.get(
                     "familyFriendly",
                 ) ?? undefined,
-            source:
-                searchParams.get("source") ??
-                undefined,
             sort:
                 searchParams.get("sort") ??
                 undefined,
