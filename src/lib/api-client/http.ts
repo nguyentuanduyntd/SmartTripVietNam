@@ -1,14 +1,14 @@
 export type ApiSuccess<T> = {
-    success: true;
-    message?: string;
-    data: T;
-    meta?: { page: number; limit: number; total: number };
+  success: true;
+  message?: string;
+  data: T;
+  meta?: { page: number; limit: number; total: number };
 };
 
 export type ApiError = {
-    success: false;
-    message: string;
-    errors?: Record<string, string[]>;
+  success: false;
+  message: string;
+  errors?: Record<string, string[]>;
 };
 
 export class ApiRequestError extends Error {
@@ -23,10 +23,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function apiFetch<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: {
@@ -35,7 +32,7 @@ export async function apiFetch<T>(
     },
   });
 
-  const json = (await response.json().catch(() => null)) as| ApiSuccess<T>| ApiError| null;
+  const json = (await response.json().catch(() => null)) as ApiSuccess<T> | ApiError | null;
 
   if (!response.ok || !json || json.success === false) {
     const message = json?.message ?? "Có lỗi xảy ra, vui lòng thử lại";
@@ -55,7 +52,7 @@ export async function apiFetchPaginated<T>(
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
 
-  const json = (await response.json().catch(() => null)) as| ApiSuccess<T>| ApiError| null;
+  const json = (await response.json().catch(() => null)) as ApiSuccess<T> | ApiError | null;
 
   if (!response.ok || !json || json.success === false) {
     const message = json?.message ?? "Có lỗi xảy ra, vui lòng thử lại";
@@ -63,5 +60,8 @@ export async function apiFetchPaginated<T>(
     throw new ApiRequestError(message, response.status, errors);
   }
 
-  return { data: json.data, meta: json.meta ?? { page: 1, limit: 20, total: 0 } };
+  return {
+    data: json.data,
+    meta: json.meta ?? { page: 1, limit: 20, total: 0 },
+  };
 }

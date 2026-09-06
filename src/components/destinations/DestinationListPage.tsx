@@ -1,863 +1,435 @@
 "use client";
 
-import {
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 
-import {
-    Search as SearchIcon,
-} from "lucide-react";
+import { Search as SearchIcon } from "lucide-react";
 
-import {
-    useLocale,
-    useTranslations,
-} from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
-import {
-    useRouter,
-    useSearchParams,
-} from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import {
-    DestinationCard,
-    locationNameFor,
-} from "@/src/components/destinations/DestinationCard";
+import { DestinationCard, locationNameFor } from "@/src/components/destinations/DestinationCard";
 
-import {
-    HomeFooter,
-} from "@/src/components/home/HomeFooter";
+import { HomeFooter } from "@/src/components/home/HomeFooter";
 
-import {
-    HomeHeader,
-} from "@/src/components/home/HomeHeader";
+import { HomeHeader } from "@/src/components/home/HomeHeader";
 
-import {
-    localizedText,
-} from "@/src/i18n/localized-text";
+import { localizedText } from "@/src/i18n/localized-text";
 
-import {
-    destinationsApi,
-    type Destination,
-} from "@/src/lib/api-client/destinations";
+import { destinationsApi, type Destination } from "@/src/lib/api-client/destinations";
 
-import {
-    locationsApi,
-    type Location,
-} from "@/src/lib/api-client/locations";
+import { locationsApi, type Location } from "@/src/lib/api-client/locations";
 
-const PAGE_SIZE =
-    24;
+import { usePagination } from "@/src/hooks/usePagination";
+
+const PAGE_SIZE = 24;
 
 interface DestinationQueryUpdate {
-    location?: string;
-    q?: string;
+  location?: string;
+  q?: string;
 }
 
-type ErrorKey =
-    | "loadList"
-    | "loadMore";
+type ErrorKey = "loadList" | "loadMore";
 
 export function DestinationsListPage() {
-    const router =
-        useRouter();
+  const router = useRouter();
 
-    const searchParams =
-        useSearchParams();
+  const searchParams = useSearchParams();
 
-    const locale =
-        useLocale();
+  const locale = useLocale();
 
-    const t =
-        useTranslations(
-            "Destinations.list",
-        );
+  const t = useTranslations("Destinations.list");
 
-    const activeLocationId =
-        searchParams.get(
-            "location",
-        ) ?? "";
+  const activeLocationId = searchParams.get("location") ?? "";
 
-    const searchInUrl =
-        searchParams.get(
-            "q",
-        ) ?? "";
+  const searchInUrl = searchParams.get("q") ?? "";
 
-    const requestKey =
-        JSON.stringify([
-            activeLocationId,
-            searchInUrl,
-        ]);
+  const requestKey = JSON.stringify([activeLocationId, searchInUrl]);
 
-    const currentRequestKeyRef =
-        useRef(
-            requestKey,
-        );
+  const currentRequestKeyRef = useRef(requestKey);
 
-    const [
-        locations,
-        setLocations,
-    ] =
-        useState<
-            Location[]
-        >([]);
+  const [locations, setLocations] = useState<Location[]>([]);
 
-    const [
-        destinations,
-        setDestinations,
-    ] =
-        useState<
-            Destination[]
-        >([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
 
-    const [
-        total,
-        setTotal,
-    ] =
-        useState(0);
+  const [total, setTotal] = useState(0);
 
-    const [
-        page,
-        setPage,
-    ] =
-        useState(1);
+  const {
+    page,
+    hasNextPage,
+    nextPage: goToNextPage,
+    resetPage,
+  } = usePagination({
+    totalItems: total,
+    pageSize: PAGE_SIZE,
+  });
 
-    const [
-        loadingMore,
-        setLoadingMore,
-    ] =
-        useState(
-            false,
-        );
+  const [loadingMore, setLoadingMore] = useState(false);
 
-    const [
-        errorKey,
-        setErrorKey,
-    ] =
-        useState<
-            ErrorKey | null
-        >(null);
+  const [errorKey, setErrorKey] = useState<ErrorKey | null>(null);
 
-    const [
-        resolvedRequestKey,
-        setResolvedRequestKey,
-    ] =
-        useState<
-            string | null
-        >(null);
+  const [resolvedRequestKey, setResolvedRequestKey] = useState<string | null>(null);
 
-    const loading =
-        resolvedRequestKey !==
-        requestKey;
+  const loading = resolvedRequestKey !== requestKey;
 
-    useEffect(() => {
-        currentRequestKeyRef.current =
-            requestKey;
-    }, [requestKey]);
+  useEffect(() => {
+    currentRequestKeyRef.current = requestKey;
+  }, [requestKey]);
 
-    /*
-     * Locations chỉ cần fetch 1 lần.
-     * Dữ liệu chứa cả VI + EN.
-     */
-    useEffect(() => {
-        let active =
-            true;
+  useEffect(() => {
+    let active = true;
 
-        locationsApi
-            .list()
-            .then(
-                (data) => {
-                    if (
-                        !active
-                    ) {
-                        return;
-                    }
-
-                    setLocations(
-                        data,
-                    );
-                },
-            )
-            .catch(
-                (
-                    error: unknown,
-                ) => {
-                    console.error(
-                        "Failed to load locations:",
-                        error,
-                    );
-                },
-            );
-
-        return () => {
-            active =
-                false;
-        };
-    }, []);
-
-    useEffect(() => {
-        let active =
-            true;
-
-        destinationsApi
-            .list({
-                page: 1,
-
-                limit:
-                    PAGE_SIZE,
-
-                locationId:
-                    activeLocationId ||
-                    undefined,
-
-                search:
-                    searchInUrl ||
-                    undefined,
-            })
-            .then(
-                ({
-                    data,
-                    meta,
-                }) => {
-                    if (
-                        !active
-                    ) {
-                        return;
-                    }
-
-                    setDestinations(
-                        data,
-                    );
-
-                    setTotal(
-                        meta.total,
-                    );
-
-                    setPage(
-                        1,
-                    );
-
-                    setLoadingMore(
-                        false,
-                    );
-
-                    setErrorKey(
-                        null,
-                    );
-
-                    setResolvedRequestKey(
-                        requestKey,
-                    );
-                },
-            )
-            .catch(
-                (
-                    error: unknown,
-                ) => {
-                    if (
-                        !active
-                    ) {
-                        return;
-                    }
-
-                    console.error(
-                        "Failed to load destinations:",
-                        error,
-                    );
-
-                    setDestinations(
-                        [],
-                    );
-
-                    setTotal(
-                        0,
-                    );
-
-                    setPage(
-                        1,
-                    );
-
-                    setLoadingMore(
-                        false,
-                    );
-
-                    setErrorKey(
-                        "loadList",
-                    );
-
-                    setResolvedRequestKey(
-                        requestKey,
-                    );
-                },
-            );
-
-        return () => {
-            active =
-                false;
-        };
-    }, [
-        activeLocationId,
-        requestKey,
-        searchInUrl,
-    ]);
-
-    async function loadMore() {
-        if (
-            loadingMore ||
-            destinations.length >=
-                total
-        ) {
-            return;
+    locationsApi
+      .list()
+      .then((data) => {
+        if (!active) {
+          return;
         }
 
-        const requestKeyAtStart =
-            requestKey;
+        setLocations(data);
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load locations:", error);
+      });
 
-        const nextPage =
-            page + 1;
+    return () => {
+      active = false;
+    };
+  }, []);
 
-        setLoadingMore(
-            true,
-        );
+  useEffect(() => {
+    let active = true;
 
-        setErrorKey(
-            null,
-        );
+    destinationsApi
+      .list({
+        page: 1,
 
-        try {
-            const {
-                data,
-            } =
-                await destinationsApi.list(
-                    {
-                        page:
-                            nextPage,
+        limit: PAGE_SIZE,
 
-                        limit:
-                            PAGE_SIZE,
+        locationId: activeLocationId || undefined,
 
-                        locationId:
-                            activeLocationId ||
-                            undefined,
-
-                        search:
-                            searchInUrl ||
-                            undefined,
-                    },
-                );
-
-            /*
-             * Nếu user đổi filter khi request
-             * cũ chưa hoàn tất thì bỏ response cũ.
-             */
-            if (
-                currentRequestKeyRef.current !==
-                requestKeyAtStart
-            ) {
-                return;
-            }
-
-            setDestinations(
-                (
-                    current,
-                ) => {
-                    const existingIds =
-                        new Set(
-                            current.map(
-                                (
-                                    destination,
-                                ) =>
-                                    destination.id,
-                            ),
-                        );
-
-                    const newItems =
-                        data.filter(
-                            (
-                                destination,
-                            ) =>
-                                !existingIds.has(
-                                    destination.id,
-                                ),
-                        );
-
-                    return [
-                        ...current,
-                        ...newItems,
-                    ];
-                },
-            );
-
-            setPage(
-                nextPage,
-            );
-        } catch (
-            error
-        ) {
-            if (
-                currentRequestKeyRef.current !==
-                requestKeyAtStart
-            ) {
-                return;
-            }
-
-            console.error(
-                "Failed to load more destinations:",
-                error,
-            );
-
-            setErrorKey(
-                "loadMore",
-            );
-        } finally {
-            if (
-                currentRequestKeyRef.current ===
-                requestKeyAtStart
-            ) {
-                setLoadingMore(
-                    false,
-                );
-            }
+        search: searchInUrl || undefined,
+      })
+      .then(({ data, meta }) => {
+        if (!active) {
+          return;
         }
+
+        setDestinations(data);
+
+        setTotal(meta.total);
+
+        resetPage();
+
+        setLoadingMore(false);
+
+        setErrorKey(null);
+
+        setResolvedRequestKey(requestKey);
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        console.error("Failed to load destinations:", error);
+
+        setDestinations([]);
+
+        setTotal(0);
+
+        resetPage();
+
+        setLoadingMore(false);
+
+        setErrorKey("loadList");
+
+        setResolvedRequestKey(requestKey);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeLocationId, requestKey, resetPage, searchInUrl]);
+
+  async function loadMore() {
+    if (loadingMore || destinations.length >= total) {
+      return;
     }
 
-    function updateQuery(
-        next:
-            DestinationQueryUpdate,
-    ) {
-        const params =
-            new URLSearchParams(
-                searchParams.toString(),
-            );
+    const requestKeyAtStart = requestKey;
 
-        const nextLocation =
-            next.location !==
-            undefined
-                ? next.location
-                : activeLocationId;
+    const nextPageNumber = page + 1;
 
-        const nextSearch =
-            next.q !==
-            undefined
-                ? next.q
-                : searchInUrl;
+    setLoadingMore(true);
 
-        if (
-            nextLocation
-        ) {
-            params.set(
-                "location",
-                nextLocation,
-            );
-        } else {
-            params.delete(
-                "location",
-            );
-        }
+    setErrorKey(null);
 
-        if (
-            nextSearch
-        ) {
-            params.set(
-                "q",
-                nextSearch,
-            );
-        } else {
-            params.delete(
-                "q",
-            );
-        }
+    try {
+      const { data } = await destinationsApi.list({
+        page: nextPageNumber,
 
-        const query =
-            params.toString();
+        limit: PAGE_SIZE,
 
-        const nextUrl =
-            `/destinations${
-                query
-                    ? `?${query}`
-                    : ""
-            }`;
+        locationId: activeLocationId || undefined,
 
-        const currentQuery =
-            searchParams.toString();
+        search: searchInUrl || undefined,
+      });
 
-        const currentUrl =
-            `/destinations${
-                currentQuery
-                    ? `?${currentQuery}`
-                    : ""
-            }`;
+      if (currentRequestKeyRef.current !== requestKeyAtStart) {
+        return;
+      }
 
-        if (
-            nextUrl ===
-            currentUrl
-        ) {
-            return;
-        }
+      setDestinations((current) => {
+        const existingIds = new Set(current.map((destination) => destination.id));
 
-        setErrorKey(
-            null,
-        );
+        const newItems = data.filter((destination) => !existingIds.has(destination.id));
 
-        setPage(
-            1,
-        );
+        return [...current, ...newItems];
+      });
 
-        setLoadingMore(
-            false,
-        );
+      goToNextPage();
+    } catch (error) {
+      if (currentRequestKeyRef.current !== requestKeyAtStart) {
+        return;
+      }
 
-        router.push(
-            nextUrl,
-            {
-                scroll:
-                    false,
-            },
-        );
+      console.error("Failed to load more destinations:", error);
+
+      setErrorKey("loadMore");
+    } finally {
+      if (currentRequestKeyRef.current === requestKeyAtStart) {
+        setLoadingMore(false);
+      }
+    }
+  }
+
+  function updateQuery(next: DestinationQueryUpdate) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    const nextLocation = next.location !== undefined ? next.location : activeLocationId;
+
+    const nextSearch = next.q !== undefined ? next.q : searchInUrl;
+
+    if (nextLocation) {
+      params.set("location", nextLocation);
+    } else {
+      params.delete("location");
     }
 
-    const errorMessage =
-        errorKey ===
-        "loadMore"
-            ? t(
-                  "errors.loadMore",
-              )
-            : errorKey ===
-                "loadList"
-              ? t(
-                    "errors.loadList",
-                )
-              : null;
+    if (nextSearch) {
+      params.set("q", nextSearch);
+    } else {
+      params.delete("q");
+    }
 
-    return (
-        <main className="overflow-x-hidden bg-[#fffaf1] text-[#173a3b]">
-            <HomeHeader />
+    const query = params.toString();
 
-            <section className="bg-[#f7f0e4] px-5 pb-16 pt-32 sm:px-8 lg:px-12 lg:pt-40">
-                <div className="mx-auto max-w-[1440px]">
-                    <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.22em] text-[#e55c49]">
-                        {t(
-                            "eyebrow",
-                        )}
-                    </p>
+    const nextUrl = `/destinations${query ? `?${query}` : ""}`;
 
-                    <h1 className="font-display text-4xl font-semibold leading-[1.03] tracking-[-0.035em] text-[#173a3b] sm:text-5xl lg:text-6xl">
-                        {t(
-                            "title",
-                        )}
-                    </h1>
+    const currentQuery = searchParams.toString();
 
-                    <p className="mt-5 max-w-2xl text-base leading-8 text-[#60706d] sm:text-lg">
-                        {t(
-                            "description",
-                        )}
-                    </p>
+    const currentUrl = `/destinations${currentQuery ? `?${currentQuery}` : ""}`;
 
-                    <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                        <div
-                            className="flex flex-wrap gap-2"
-                            role="tablist"
-                            aria-label={t(
-                                "filterAria",
-                            )}
-                        >
-                            <button
-                                type="button"
-                                role="tab"
-                                aria-selected={
-                                    activeLocationId ===
-                                    ""
-                                }
-                                onClick={() =>
-                                    updateQuery(
-                                        {
-                                            location:
-                                                "",
-                                        },
-                                    )
-                                }
-                                className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                                    activeLocationId ===
-                                    ""
-                                        ? "bg-[#173a3b] text-white shadow-lg"
-                                        : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
-                                }`}
-                            >
-                                {t(
-                                    "all",
-                                )}
-                            </button>
+    if (nextUrl === currentUrl) {
+      return;
+    }
 
-                            {locations.map(
-                                (
-                                    location,
-                                ) => (
-                                    <button
-                                        key={
-                                            location.id
-                                        }
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={
-                                            activeLocationId ===
-                                            location.id
-                                        }
-                                        onClick={() =>
-                                            updateQuery(
-                                                {
-                                                    location:
-                                                        location.id,
-                                                },
-                                            )
-                                        }
-                                        className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                                            activeLocationId ===
-                                            location.id
-                                                ? "bg-[#173a3b] text-white shadow-lg"
-                                                : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
-                                        }`}
-                                    >
-                                        {localizedText(
-                                            locale,
-                                            {
-                                                vi:
-                                                    location.name,
+    setErrorKey(null);
 
-                                                en:
-                                                    location.nameEn,
-                                            },
-                                        )}
-                                    </button>
-                                ),
-                            )}
-                        </div>
+    resetPage();
 
-                        <SearchBox
-                            key={
-                                searchInUrl
-                            }
-                            defaultValue={
-                                searchInUrl
-                            }
-                            placeholder={t(
-                                "searchPlaceholder",
-                            )}
-                            ariaLabel={t(
-                                "searchAria",
-                            )}
-                            onSubmit={(
-                                value,
-                            ) =>
-                                updateQuery(
-                                    {
-                                        q: value,
-                                    },
-                                )
-                            }
-                        />
-                    </div>
-                </div>
-            </section>
+    setLoadingMore(false);
 
-            <section
-                className="bg-[#fffaf1] px-5 py-16 sm:px-8 lg:px-12 lg:py-20"
-                aria-busy={
-                    loading
+    router.push(nextUrl, {
+      scroll: false,
+    });
+  }
+
+  const errorMessage =
+    errorKey === "loadMore" ? t("errors.loadMore") : errorKey === "loadList" ? t("errors.loadList") : null;
+
+  return (
+    <main className="overflow-x-hidden bg-[#fffaf1] text-[#173a3b]">
+      <HomeHeader />
+
+      <section className="bg-[#f7f0e4] px-5 pb-16 pt-32 sm:px-8 lg:px-12 lg:pt-40">
+        <div className="mx-auto max-w-[1440px]">
+          <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.22em] text-[#e55c49]">{t("eyebrow")}</p>
+
+          <h1 className="font-display text-4xl font-semibold leading-[1.03] tracking-[-0.035em] text-[#173a3b] sm:text-5xl lg:text-6xl">
+            {t("title")}
+          </h1>
+
+          <p className="mt-5 max-w-2xl text-base leading-8 text-[#60706d] sm:text-lg">{t("description")}</p>
+
+          <div className="mt-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("filterAria")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeLocationId === ""}
+                onClick={() =>
+                  updateQuery({
+                    location: "",
+                  })
                 }
+                className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
+                  activeLocationId === ""
+                    ? "bg-[#173a3b] text-white shadow-lg"
+                    : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
+                }`}
+              >
+                {t("all")}
+              </button>
+
+              {locations.map((location) => (
+                <button
+                  key={location.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeLocationId === location.id}
+                  onClick={() =>
+                    updateQuery({
+                      location: location.id,
+                    })
+                  }
+                  className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
+                    activeLocationId === location.id
+                      ? "bg-[#173a3b] text-white shadow-lg"
+                      : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
+                  }`}
+                >
+                  {localizedText(locale, {
+                    vi: location.name,
+
+                    en: location.nameEn,
+                  })}
+                </button>
+              ))}
+            </div>
+
+            <SearchBox
+              key={searchInUrl}
+              defaultValue={searchInUrl}
+              placeholder={t("searchPlaceholder")}
+              ariaLabel={t("searchAria")}
+              onSubmit={(value) =>
+                updateQuery({
+                  q: value,
+                })
+              }
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#fffaf1] px-5 py-16 sm:px-8 lg:px-12 lg:py-20" aria-busy={loading}>
+        <div className="mx-auto max-w-[1440px]">
+          {errorMessage ? (
+            <div
+              role="alert"
+              className="mb-8 rounded-2xl border border-[#e9c3bb] bg-[#fff8f4] px-5 py-4 text-sm text-[#8f3f34]"
             >
-                <div className="mx-auto max-w-[1440px]">
-                    {errorMessage ? (
-                        <div
-                            role="alert"
-                            className="mb-8 rounded-2xl border border-[#e9c3bb] bg-[#fff8f4] px-5 py-4 text-sm text-[#8f3f34]"
-                        >
-                            {
-                                errorMessage
-                            }
-                        </div>
-                    ) : null}
+              {errorMessage}
+            </div>
+          ) : null}
 
-                    {loading ? (
-                        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                            {Array.from(
-                                {
-                                    length:
-                                        6,
-                                },
-                            ).map(
-                                (
-                                    _,
-                                    index,
-                                ) => (
-                                    <div
-                                        key={`destination-skeleton-${index}`}
-                                        className="h-[420px] animate-pulse rounded-[30px] bg-[#ede6d7]"
-                                    />
-                                ),
-                            )}
-                        </div>
-                    ) : destinations.length ===
-                      0 ? (
-                        <div className="rounded-[30px] border border-dashed border-[#d3c8b7] px-8 py-20 text-center">
-                            <p className="font-display text-2xl font-semibold text-[#173a3b]">
-                                {t(
-                                    "emptyTitle",
-                                )}
-                            </p>
+          {loading ? (
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({
+                length: 6,
+              }).map((_, index) => (
+                <div
+                  key={`destination-skeleton-${index}`}
+                  className="h-[420px] animate-pulse rounded-[30px] bg-[#ede6d7]"
+                />
+              ))}
+            </div>
+          ) : destinations.length === 0 ? (
+            <div className="rounded-[30px] border border-dashed border-[#d3c8b7] px-8 py-20 text-center">
+              <p className="font-display text-2xl font-semibold text-[#173a3b]">{t("emptyTitle")}</p>
 
-                            <p className="mt-3 text-[#667370]">
-                                {t(
-                                    "emptyDescription",
-                                )}
-                            </p>
-                        </div>
-                    ) : (
-                        <>
-                            <p className="mb-6 text-sm font-semibold text-[#60706d]">
-                                {t(
-                                    "resultCount",
-                                    {
-                                        count:
-                                            total,
-                                    },
-                                )}
-                            </p>
+              <p className="mt-3 text-[#667370]">{t("emptyDescription")}</p>
+            </div>
+          ) : (
+            <>
+              <p className="mb-6 text-sm font-semibold text-[#60706d]">
+                {t("resultCount", {
+                  count: total,
+                })}
+              </p>
 
-                            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                                {destinations.map(
-                                    (
-                                        destination,
-                                    ) => (
-                                        <DestinationCard
-                                            key={
-                                                destination.id
-                                            }
-                                            destination={
-                                                destination
-                                            }
-                                            locationName={locationNameFor(
-                                                destination,
-                                                locations,
-                                                locale,
-                                            )}
-                                        />
-                                    ),
-                                )}
-                            </div>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {destinations.map((destination) => (
+                  <DestinationCard
+                    key={destination.id}
+                    destination={destination}
+                    locationName={locationNameFor(destination, locations, locale)}
+                  />
+                ))}
+              </div>
 
-                            {destinations.length <
-                            total ? (
-                                <div className="mt-10 flex justify-center">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            void loadMore()
-                                        }
-                                        disabled={
-                                            loadingMore
-                                        }
-                                        className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {loadingMore
-                                            ? t(
-                                                  "loadingMore",
-                                              )
-                                            : t(
-                                                  "loadMore",
-                                                  {
-                                                      loaded:
-                                                          destinations.length,
+              {hasNextPage && destinations.length < total ? (
+                <div className="mt-10 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingMore
+                      ? t("loadingMore")
+                      : t("loadMore", {
+                          loaded: destinations.length,
 
-                                                      total,
-                                                  },
-                                              )}
-                                    </button>
-                                </div>
-                            ) : null}
-                        </>
-                    )}
+                          total,
+                        })}
+                  </button>
                 </div>
-            </section>
+              ) : null}
+            </>
+          )}
+        </div>
+      </section>
 
-            <HomeFooter />
-        </main>
-    );
+      <HomeFooter />
+    </main>
+  );
 }
 
 interface SearchBoxProps {
-    defaultValue:
-        string;
+  defaultValue: string;
 
-    placeholder:
-        string;
+  placeholder: string;
 
-    ariaLabel:
-        string;
+  ariaLabel: string;
 
-    onSubmit:
-        (
-            value:
-                string,
-        ) => void;
+  onSubmit: (value: string) => void;
 }
 
-function SearchBox({
-    defaultValue,
-    placeholder,
-    ariaLabel,
-    onSubmit,
-}: SearchBoxProps) {
-    const [
-        value,
-        setValue,
-    ] =
-        useState(
-            defaultValue,
-        );
+function SearchBox({ defaultValue, placeholder, ariaLabel, onSubmit }: SearchBoxProps) {
+  const [value, setValue] = useState(defaultValue);
 
-    return (
-        <form
-            onSubmit={(
-                event,
-            ) => {
-                event.preventDefault();
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
 
-                onSubmit(
-                    value.trim(),
-                );
-            }}
-            className="flex w-full max-w-sm items-center gap-2 rounded-full border border-[#d3c8b7] bg-white/70 px-4 py-2.5"
-        >
-            <SearchIcon
-                size={
-                    18
-                }
-                className="shrink-0 text-[#8a8575]"
-            />
+        onSubmit(value.trim());
+      }}
+      className="flex w-full max-w-sm items-center gap-2 rounded-full border border-[#d3c8b7] bg-white/70 px-4 py-2.5"
+    >
+      <SearchIcon size={18} className="shrink-0 text-[#8a8575]" />
 
-            <input
-                type="search"
-                value={
-                    value
-                }
-                onChange={(
-                    event,
-                ) =>
-                    setValue(
-                        event
-                            .target
-                            .value,
-                    )
-                }
-                placeholder={
-                    placeholder
-                }
-                aria-label={
-                    ariaLabel
-                }
-                className="w-full bg-transparent text-sm text-[#173a3b] outline-none placeholder:text-[#8a8575]"
-            />
-        </form>
-    );
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        className="w-full bg-transparent text-sm text-[#173a3b] outline-none placeholder:text-[#8a8575]"
+      />
+    </form>
+  );
 }

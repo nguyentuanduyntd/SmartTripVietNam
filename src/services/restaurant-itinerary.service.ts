@@ -1,215 +1,131 @@
 import "server-only";
 
-import type {
-    AddRestaurantToItineraryRequest,
-} from "@/src/db/schema/restaurant-itinerary.schema";
+import type { AddRestaurantToItineraryRequest } from "@/src/db/schema/restaurant-itinerary.schema";
 
 import {
-    addRestaurantToItinerary,
-    findUserItineraryFoodTargets,
+  addRestaurantToItinerary,
+  findUserItineraryFoodTargets,
 } from "@/src/repositories/restaurant-itinerary.repository";
 
-import {
-    findUserItineraryPlannerDetailById,
-} from "@/src/repositories/itinerary-planner.repository";
+import { findUserItineraryPlannerDetailById } from "@/src/repositories/itinerary-planner.repository";
 
-export class RestaurantItineraryServiceError
-    extends Error
-{
-    constructor(
-        message: string,
-        public readonly status:
-            | 400
-            | 404
-            | 409,
-    ) {
-        super(message);
-
-        this.name =
-            "RestaurantItineraryServiceError";
-    }
-}
-
-function notFound(
+export class RestaurantItineraryServiceError extends Error {
+  constructor(
     message: string,
-): never {
-    throw new RestaurantItineraryServiceError(
-        message,
-        404,
-    );
+    public readonly status: 400 | 404 | 409,
+  ) {
+    super(message);
+
+    this.name = "RestaurantItineraryServiceError";
+  }
 }
 
-function conflict(
-    message: string,
-): never {
-    throw new RestaurantItineraryServiceError(
-        message,
-        409,
-    );
+function notFound(message: string): never {
+  throw new RestaurantItineraryServiceError(message, 404);
 }
 
-/**
- * Danh sách plan/day để Food Discovery
- * hiển thị trong select.
- */
-export async function getFoodItineraryTargetsService(
-    userId: string,
-) {
-    return findUserItineraryFoodTargets(
-        userId,
-    );
+function conflict(message: string): never {
+  throw new RestaurantItineraryServiceError(message, 409);
 }
 
-/**
- * Thêm restaurant vào itinerary.
- */
+export async function getFoodItineraryTargetsService(userId: string) {
+  return findUserItineraryFoodTargets(userId);
+}
+
 export async function addRestaurantToItineraryService(
-    restaurantId: string,
-    input: AddRestaurantToItineraryRequest,
-    userId: string,
+  restaurantId: string,
+  input: AddRestaurantToItineraryRequest,
+  userId: string,
 ) {
-    const result =
-        await addRestaurantToItinerary(
-            {
-                userId,
+  const result = await addRestaurantToItinerary({
+    userId,
 
-                restaurantId,
+    restaurantId,
 
-                itineraryId:
-                    input.itineraryId,
+    itineraryId: input.itineraryId,
 
-                itineraryDayId:
-                    input.itineraryDayId,
+    itineraryDayId: input.itineraryDayId,
 
-                mealType:
-                    input.mealType,
+    mealType: input.mealType,
 
-                startTime:
-                    input.startTime,
+    startTime: input.startTime,
 
-                unitPrice:
-                    input.unitPrice,
-            },
-        );
+    unitPrice: input.unitPrice,
+  });
 
-    switch (result.status) {
-        case "itinerary_not_found": {
-            notFound(
-                "Không tìm thấy lịch trình",
-            );
-        }
-
-        case "itinerary_not_editable": {
-            conflict(
-                "Lịch trình này đã hoàn thành hoặc lưu trữ và không thể thêm món ăn.",
-            );
-        }
-
-        case "day_not_found": {
-            notFound(
-                "Không tìm thấy ngày đã chọn trong lịch trình",
-            );
-        }
-
-        case "restaurant_not_found": {
-            notFound(
-                "Không tìm thấy quán ăn",
-            );
-        }
-
-        case "ok": {
-            break;
-        }
+  switch (result.status) {
+    case "itinerary_not_found": {
+      notFound("Không tìm thấy lịch trình");
     }
 
-    /*
-     * Đọc lại planner detail để sử dụng
-     * chính calculator hiện tại của project.
-     *
-     * Không tự tính tổng theo một công thức
-     * riêng ở Food Discovery.
-     */
-    const planner =
-        await findUserItineraryPlannerDetailById(
-            result.itinerary.id,
-            userId,
-        );
-
-    if (!planner) {
-        throw new Error(
-            "Đã thêm món nhưng không thể đọc lại lịch trình",
-        );
+    case "itinerary_not_editable": {
+      conflict("Lịch trình này đã hoàn thành hoặc lưu trữ và không thể thêm món ăn.");
     }
 
-    const travelerCount =
-        result.itinerary.adultCount +
-        result.itinerary.childCount;
+    case "day_not_found": {
+      notFound("Không tìm thấy ngày đã chọn trong lịch trình");
+    }
 
-    return {
-        itinerary: {
-            id:
-                result.itinerary.id,
+    case "restaurant_not_found": {
+      notFound("Không tìm thấy quán ăn");
+    }
 
-            title:
-                result.itinerary.title,
-        },
+    case "ok": {
+      break;
+    }
+  }
 
-        day: {
-            id:
-                result.day.id,
+  const planner = await findUserItineraryPlannerDetailById(result.itinerary.id, userId);
 
-            dayNumber:
-                result.day.dayNumber,
+  if (!planner) {
+    throw new Error("Đã thêm món nhưng không thể đọc lại lịch trình");
+  }
 
-            title:
-                result.day.title,
-        },
+  const travelerCount = result.itinerary.adultCount + result.itinerary.childCount;
 
-        restaurant: {
-            id:
-                result.restaurant.id,
+  return {
+    itinerary: {
+      id: result.itinerary.id,
 
-            name:
-                result.restaurant.name,
-        },
+      title: result.itinerary.title,
+    },
 
-        meal: {
-            id:
-                result.meal.id,
+    day: {
+      id: result.day.id,
 
-            mealType:
-                result.meal.mealType,
+      dayNumber: result.day.dayNumber,
 
-            startTime:
-                result.meal.startTime,
+      title: result.day.title,
+    },
 
-            venueName:
-                result.meal.venueName,
-        },
+    restaurant: {
+      id: result.restaurant.id,
 
-        cost: {
-            id:
-                result.cost.id,
+      name: result.restaurant.name,
+    },
 
-            unitPrice:
-                Number(
-                    result.cost.unitPrice,
-                ),
+    meal: {
+      id: result.meal.id,
 
-            travelerCount,
+      mealType: result.meal.mealType,
 
-            addedAmount:
-                input.unitPrice *
-                travelerCount,
-        },
+      startTime: result.meal.startTime,
 
-        /*
-         * Đây là total thật sau khi insert cost.
-         */
-        costSummary:
-            planner.costSummary,
+      venueName: result.meal.venueName,
+    },
 
-        redirectTo:
-            `/planner/${result.itinerary.id}`,
-    };
+    cost: {
+      id: result.cost.id,
+
+      unitPrice: Number(result.cost.unitPrice),
+
+      travelerCount,
+
+      addedAmount: input.unitPrice * travelerCount,
+    },
+
+    costSummary: planner.costSummary,
+
+    redirectTo: `/planner/${result.itinerary.id}`,
+  };
 }

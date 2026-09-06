@@ -1,9 +1,6 @@
 import { pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-export const userRoleEnum = pgEnum("user_role",[
-  "user",
-  "admin",
-]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
@@ -15,7 +12,7 @@ export const profiles = pgTable("profiles", {
   avatarPublicId: text("avatar_public_id"),
 
   role: userRoleEnum("role").notNull().default("user"),
-  
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

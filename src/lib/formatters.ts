@@ -31,11 +31,7 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("vi-VN", {
 });
 
 export function toFiniteNumber(value: NumericValue): number | null {
-  if (
-    value === null ||
-    value === undefined ||
-    (typeof value === "string" && !value.trim())
-  ) {
+  if (value === null || value === undefined || (typeof value === "string" && !value.trim())) {
     return null;
   }
 
@@ -53,11 +49,7 @@ export function formatOptionalVnd(value: NumericValue) {
   return numberValue === null ? null : VND_FORMATTER.format(numberValue);
 }
 
-export function formatQuantity(
-  value: NumericValue,
-  fallback = "0",
-  maximumFractionDigits = 2,
-) {
+export function formatQuantity(value: NumericValue, fallback = "0", maximumFractionDigits = 2) {
   const numberValue = toFiniteNumber(value);
 
   if (numberValue === null) {
@@ -88,18 +80,13 @@ export function formatVietnameseDate(value: DateValue, fallback = "—") {
   return Number.isNaN(date.getTime()) ? fallback : DATE_FORMATTER.format(date);
 }
 
-export function formatVietnameseDateTime(
-  value: DateValue,
-  fallback = "—",
-) {
+export function formatVietnameseDateTime(value: DateValue, fallback = "—") {
   if (!value) {
     return fallback;
   }
 
   const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime())
-    ? fallback
-    : DATE_TIME_FORMATTER.format(date);
+  return Number.isNaN(date.getTime()) ? fallback : DATE_TIME_FORMATTER.format(date);
 }
 
 export function formatRelativeTime(value: DateValue, now = Date.now()) {

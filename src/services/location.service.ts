@@ -10,41 +10,18 @@ import {
   updateLocation,
 } from "@/src/repositories/location.repository";
 
-import type {
-  CreateLocationRequest,
-  UpdateLocationRequest,
-} from "@/src/schemas/location.schema";
+import type { CreateLocationRequest, UpdateLocationRequest } from "@/src/schemas/location.schema";
 
 import { slugify } from "@/src/utils/slugify";
 
-import {
-  CACHE_TTL_SECONDS,
-  deleteCacheByPrefix,
-  rememberCachedValue,
-} from "@/src/lib/cache/redis-cache";
+import { CACHE_TTL_SECONDS, deleteCacheByPrefix, rememberCachedValue } from "@/src/lib/cache/redis-cache";
 
-const LOCATION_CACHE_PREFIX =
-  "smarttrip:v1:locations:";
+const LOCATION_CACHE_PREFIX = "smarttrip:v1:locations:";
 
-const DESTINATION_CACHE_PREFIX =
-  "smarttrip:v1:destinations:";
+const DESTINATION_CACHE_PREFIX = "smarttrip:v1:destinations:";
 
-/**
- * Khi location thay đổi thì:
- *
- * - Xóa cache location.
- * - Xóa cache destination vì destination có chứa
- *   thông tin location.
- */
 async function invalidateLocationCache() {
-  await Promise.all([
-    deleteCacheByPrefix(
-      LOCATION_CACHE_PREFIX,
-    ),
-    deleteCacheByPrefix(
-      DESTINATION_CACHE_PREFIX,
-    ),
-  ]);
+  await Promise.all([deleteCacheByPrefix(LOCATION_CACHE_PREFIX), deleteCacheByPrefix(DESTINATION_CACHE_PREFIX)]);
 }
 
 export class LocationNotFoundError extends Error {
@@ -56,12 +33,9 @@ export class LocationNotFoundError extends Error {
 
 export class LocationSlugConflictError extends Error {
   constructor(slug: string) {
-    super(
-      `Slug "${slug}" đã được sử dụng`,
-    );
+    super(`Slug "${slug}" đã được sử dụng`);
 
-    this.name =
-      "LocationSlugConflictError";
+    this.name = "LocationSlugConflictError";
   }
 }
 
@@ -69,56 +43,29 @@ export class LocationInUseError extends Error {
   destinationCount: number;
 
   constructor(destinationCount: number) {
-    super(
-      `Không thể xóa location vì vẫn còn ${destinationCount} destination liên kết`,
-    );
+    super(`Không thể xóa location vì vẫn còn ${destinationCount} destination liên kết`);
 
     this.name = "LocationInUseError";
-    this.destinationCount =
-      destinationCount;
+    this.destinationCount = destinationCount;
   }
 }
 
-async function ensureUniqueSlug(
-  slug: string,
-  ignoreId?: string,
-) {
-  const existing =
-    await findLocationBySlug(slug);
+async function ensureUniqueSlug(slug: string, ignoreId?: string) {
+  const existing = await findLocationBySlug(slug);
 
-  if (
-    existing &&
-    existing.id !== ignoreId
-  ) {
-    throw new LocationSlugConflictError(
-      slug,
-    );
+  if (existing && existing.id !== ignoreId) {
+    throw new LocationSlugConflictError(slug);
   }
 }
 
-/**
- * Cache danh sách location trong 60 phút.
- */
 export async function listLocation() {
-  return rememberCachedValue(
-    `${LOCATION_CACHE_PREFIX}list`,
-    CACHE_TTL_SECONDS.long,
-    findAllLocations,
-  );
+  return rememberCachedValue(`${LOCATION_CACHE_PREFIX}list`, CACHE_TTL_SECONDS.long, findAllLocations);
 }
 
-/**
- * Cache chi tiết location trong 15 phút.
- */
-export async function getLocationById(
-  id: string,
-) {
-  const location =
-    await rememberCachedValue(
-      `${LOCATION_CACHE_PREFIX}id:${id}`,
-      CACHE_TTL_SECONDS.medium,
-      () => findLocationById(id),
-    );
+export async function getLocationById(id: string) {
+  const location = await rememberCachedValue(`${LOCATION_CACHE_PREFIX}id:${id}`, CACHE_TTL_SECONDS.medium, () =>
+    findLocationById(id),
+  );
 
   if (!location) {
     throw new LocationNotFoundError();
@@ -127,12 +74,8 @@ export async function getLocationById(
   return location;
 }
 
-export async function createLocationService(
-  input: CreateLocationRequest,
-) {
-  const slug =
-    input.slug?.trim() ||
-    slugify(input.name);
+export async function createLocationService(input: CreateLocationRequest) {
+  const slug = input.slug?.trim() || slugify(input.name);
 
   await ensureUniqueSlug(slug);
 
@@ -140,10 +83,8 @@ export async function createLocationService(
     name: input.name,
     nameEn: input.nameEn ?? null,
     slug,
-    description:
-      input.description ?? null,
-    descriptionEn:
-      input.descriptionEn ?? null,
+    description: input.description ?? null,
+    descriptionEn: input.descriptionEn ?? null,
   });
 
   await invalidateLocationCache();
@@ -151,29 +92,18 @@ export async function createLocationService(
   return created;
 }
 
-export async function updateLocationService(
-  id: string,
-  input: UpdateLocationRequest,
-) {
-  const location =
-    await findLocationById(id);
+export async function updateLocationService(id: string, input: UpdateLocationRequest) {
+  const location = await findLocationById(id);
 
   if (!location) {
     throw new LocationNotFoundError();
   }
 
-  if (
-    input.slug &&
-    input.slug !== location.slug
-  ) {
-    await ensureUniqueSlug(
-      input.slug,
-      id,
-    );
+  if (input.slug && input.slug !== location.slug) {
+    await ensureUniqueSlug(input.slug, id);
   }
 
-  const updated =
-    await updateLocation(id, input);
+  const updated = await updateLocation(id, input);
 
   if (!updated) {
     throw new LocationNotFoundError();
@@ -184,27 +114,20 @@ export async function updateLocationService(
   return updated;
 }
 
-export async function deleteLocationService(
-  id: string,
-) {
-  const location =
-    await findLocationById(id);
+export async function deleteLocationService(id: string) {
+  const location = await findLocationById(id);
 
   if (!location) {
     throw new LocationNotFoundError();
   }
 
-  const destinationCount =
-    await countDestinationByLocation(id);
+  const destinationCount = await countDestinationByLocation(id);
 
   if (destinationCount > 0) {
-    throw new LocationInUseError(
-      destinationCount,
-    );
+    throw new LocationInUseError(destinationCount);
   }
 
-  const deleted =
-    await deleteLocation(id);
+  const deleted = await deleteLocation(id);
 
   if (!deleted) {
     throw new LocationNotFoundError();

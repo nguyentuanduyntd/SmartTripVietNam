@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import {
-  Mail,
-  MapPin,
-  Route,
-  ShieldCheck,
-  Sparkles,
-  UserPlus,
-} from "lucide-react";
+import { Mail, MapPin, Route, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
 
 import {
   AuthAlert,
@@ -42,17 +35,11 @@ function getLoginErrorMessage(message: string): string {
     return "Email của bạn chưa được xác nhận. Vui lòng kiểm tra hộp thư.";
   }
 
-  if (
-    normalizedMessage.includes("rate limit") ||
-    normalizedMessage.includes("too many requests")
-  ) {
+  if (normalizedMessage.includes("rate limit") || normalizedMessage.includes("too many requests")) {
     return "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau.";
   }
 
-  if (
-    normalizedMessage.includes("email link is invalid") ||
-    normalizedMessage.includes("link is invalid")
-  ) {
+  if (normalizedMessage.includes("email link is invalid") || normalizedMessage.includes("link is invalid")) {
     return "Liên kết xác thực không hợp lệ hoặc đã hết hạn.";
   }
 
@@ -69,8 +56,7 @@ function getLoginErrorMessage(message: string): string {
 
 export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
-  const loginVisual =
-    HOME_CITIES.find((city) => city.id === "hoi-an") ?? HOME_CITIES[0];
+  const loginVisual = HOME_CITIES.find((city) => city.id === "hoi-an") ?? HOME_CITIES[0];
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -117,11 +103,10 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const { data, error: loginError } =
-        await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
       if (loginError) {
         setError(getLoginErrorMessage(loginError.message));
@@ -139,11 +124,8 @@ export default function LoginPage() {
         cache: "no-store",
       }).catch(() => null);
 
-      const adminCheckResult = adminCheckResponse
-        ? await adminCheckResponse.json().catch(() => null)
-        : null;
-      const isAdmin =
-        adminCheckResponse?.ok === true && adminCheckResult?.success === true;
+      const adminCheckResult = adminCheckResponse ? await adminCheckResponse.json().catch(() => null) : null;
+      const isAdmin = adminCheckResponse?.ok === true && adminCheckResult?.success === true;
 
       window.location.assign(isAdmin ? "/admin/destinations" : nextPath);
     } catch (caughtError) {
@@ -187,10 +169,7 @@ export default function LoginPage() {
   }
 
   const busy = isSubmitting || isGoogleSubmitting;
-  const registerHref =
-    nextPath === "/"
-      ? "/auth/register"
-      : `/auth/register?next=${encodeURIComponent(nextPath)}`;
+  const registerHref = nextPath === "/" ? "/auth/register" : `/auth/register?next=${encodeURIComponent(nextPath)}`;
 
   return (
     <AuthSplitShell
@@ -223,11 +202,7 @@ export default function LoginPage() {
 
         {error ? <AuthAlert className="mt-6">{error}</AuthAlert> : null}
 
-        <form
-          className="mt-8 space-y-5"
-          onSubmit={handleLogin}
-          aria-busy={isSubmitting}
-        >
+        <form className="mt-8 space-y-5" onSubmit={handleLogin} aria-busy={isSubmitting}>
           <AuthTextField
             id="email"
             name="email"
@@ -268,21 +243,13 @@ export default function LoginPage() {
             disabled={isSubmitting}
           />
 
-          <AuthSubmitButton
-            loading={isSubmitting}
-            loadingLabel="Đang đăng nhập..."
-            disabled={busy}
-          >
+          <AuthSubmitButton loading={isSubmitting} loadingLabel="Đang đăng nhập..." disabled={busy}>
             Đăng nhập
           </AuthSubmitButton>
         </form>
 
         <AuthDivider>Hoặc tiếp tục với</AuthDivider>
-        <GoogleAuthButton
-          onClick={handleGoogleLogin}
-          disabled={busy}
-          loading={isGoogleSubmitting}
-        />
+        <GoogleAuthButton onClick={handleGoogleLogin} disabled={busy} loading={isGoogleSubmitting} />
 
         <AuthDivider>Chưa có tài khoản?</AuthDivider>
         <Link
@@ -294,8 +261,7 @@ export default function LoginPage() {
         </Link>
 
         <p className="mt-6 text-center text-xs leading-5 text-[#8a9491]">
-          Bằng việc đăng nhập, bạn đồng ý sử dụng dịch vụ theo các điều khoản
-          của Rực Rỡ Miền Trung.
+          Bằng việc đăng nhập, bạn đồng ý sử dụng dịch vụ theo các điều khoản của Rực Rỡ Miền Trung.
         </p>
       </AuthCard>
     </AuthSplitShell>

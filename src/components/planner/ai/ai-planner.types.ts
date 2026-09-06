@@ -1,152 +1,94 @@
-import type {
-    AiItineraryPlan,
-    AiPlannerRequest,
-} from "@/src/schemas/ai-itinerary.schema";
-
-/* -------------------------------------------------------------------------- */
-/* Location                                                                   */
-/* -------------------------------------------------------------------------- */
+import type { AiItineraryPlan, AiPlannerRequest } from "@/src/schemas/ai-itinerary.schema";
 
 export type LocationOption = {
-    id: string;
-    name: string;
-    slug: string;
+  id: string;
+  name: string;
+  slug: string;
 };
 
-/* -------------------------------------------------------------------------- */
-/* Request                                                                    */
-/* -------------------------------------------------------------------------- */
+export type { AiPlannerRequest };
 
-export type {
-    AiPlannerRequest,
-};
-
-export type Pace =
-    AiPlannerRequest["pace"];
-
-/* -------------------------------------------------------------------------- */
-/* Form                                                                       */
-/* -------------------------------------------------------------------------- */
+export type Pace = AiPlannerRequest["pace"];
 
 export type FormState = {
-    locationId: string;
+  locationId: string;
 
-    startDate: string;
+  startDate: string;
 
-    dayCount: number;
+  dayCount: number;
 
-    adultCount: number;
+  adultCount: number;
 
-    childCount: number;
+  childCount: number;
 
-    roomCount: number;
+  roomCount: number;
 
-    budget: string;
+  budget: string;
 
-    pace: Pace;
+  pace: Pace;
 
-    interests: string[];
+  interests: string[];
 
-    note: string;
+  note: string;
 };
 
-/* -------------------------------------------------------------------------- */
-/* AI plan                                                                    */
-/* -------------------------------------------------------------------------- */
+export type AiPlan = AiItineraryPlan;
 
-export type AiPlan =
-    AiItineraryPlan;
+export type AiDay = AiItineraryPlan["days"][number];
 
-export type AiDay =
-    AiItineraryPlan["days"][number];
+export type AiActivity = AiDay["activities"][number];
 
-export type AiActivity =
-    AiDay["activities"][number];
+export type AiMeal = AiDay["meals"][number];
 
-export type AiMeal =
-    AiDay["meals"][number];
+export type AiCuisine = AiMeal["cuisines"][number];
 
-export type AiCuisine =
-    AiMeal["cuisines"][number];
-
-export type AiEstimatedCost =
-    AiItineraryPlan["estimatedCosts"][number];
-
-/* -------------------------------------------------------------------------- */
-/* RAG                                                                        */
-/* -------------------------------------------------------------------------- */
+export type AiEstimatedCost = AiItineraryPlan["estimatedCosts"][number];
 
 export type RagSource = {
-    kind:
-        | "destination"
-        | "cuisine";
+  kind: "destination" | "cuisine";
 
-    id: string;
+  id: string;
 
-    name: string;
+  name: string;
 
-    similarity: number;
+  similarity: number;
 };
-
-/* -------------------------------------------------------------------------- */
-/* Generate response                                                          */
-/* -------------------------------------------------------------------------- */
 
 export type GeneratedItinerary = {
-    request:
-        AiPlannerRequest;
+  request: AiPlannerRequest;
 
-    location: {
-        id: string;
-        name: string;
-    };
+  location: {
+    id: string;
+    name: string;
+  };
 
-    plan:
-        AiItineraryPlan;
+  plan: AiItineraryPlan;
 
-    /**
-     * Proof được backend ký.
-     *
-     * Client chỉ giữ lại và gửi
-     * về endpoint Save.
-     */
-    generationProof: string;
+  generationProof: string;
 
-    rag: {
-        query: string;
+  rag: {
+    query: string;
 
-        sourceCount: number;
+    sourceCount: number;
 
-        sources:
-            RagSource[];
-    };
+    sources: RagSource[];
+  };
 };
-
-/* -------------------------------------------------------------------------- */
-/* Save response                                                              */
-/* -------------------------------------------------------------------------- */
 
 export type SavedItinerary = {
-    id: string;
+  id: string;
 
-    title: string;
+  title: string;
 
-    source: string;
+  source: string;
 };
 
-/* -------------------------------------------------------------------------- */
-/* API                                                                        */
-/* -------------------------------------------------------------------------- */
-
 export type ApiPayload<T> = {
-    success: boolean;
+  success: boolean;
 
-    message?: string;
+  message?: string;
 
-    data?: T;
+  data?: T;
 
-    errors?: Record<
-        string,
-        string[]
-    >;
+  errors?: Record<string, string[]>;
 };

@@ -5,11 +5,7 @@ type AdminCreateButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
 };
 
-export function AdminCreateButton({
-  children,
-  className = "",
-  ...props
-}: AdminCreateButtonProps) {
+export function AdminCreateButton({ children, className = "", ...props }: AdminCreateButtonProps) {
   return (
     <button
       type="button"
@@ -29,12 +25,7 @@ type AdminListPanelProps = {
   loadingLabel?: string;
 };
 
-export function AdminListPanel({
-  loading,
-  errorMessage,
-  children,
-  loadingLabel = "Đang tải…",
-}: AdminListPanelProps) {
+export function AdminListPanel({ loading, errorMessage, children, loadingLabel = "Đang tải…" }: AdminListPanelProps) {
   return (
     <>
       {errorMessage ? (
@@ -48,13 +39,7 @@ export function AdminListPanel({
       ) : null}
 
       <div className="overflow-hidden rounded-lg border border-admin-line bg-admin-paper-card">
-        {loading ? (
-          <div className="px-4 py-10 text-center text-sm text-admin-muted">
-            {loadingLabel}
-          </div>
-        ) : (
-          children
-        )}
+        {loading ? <div className="px-4 py-10 text-center text-sm text-admin-muted">{loadingLabel}</div> : children}
       </div>
     </>
   );

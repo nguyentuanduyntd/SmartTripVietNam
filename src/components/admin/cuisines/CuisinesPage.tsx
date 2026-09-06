@@ -3,31 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
-import {
-  CuisineFormDialog,
-  type CuisineFormSubmitData,
-} from "@/src/components/admin/cuisines/CuisineFormDialog";
-import {
-  AdminCreateButton,
-  AdminListPanel,
-} from "@/src/components/admin/shared/AdminListPanel";
+import { CuisineFormDialog, type CuisineFormSubmitData } from "@/src/components/admin/cuisines/CuisineFormDialog";
+import { AdminCreateButton, AdminListPanel } from "@/src/components/admin/shared/AdminListPanel";
+import { AdminPagination } from "@/src/components/admin/shared/AdminPagination";
 import { saveEntityWithCover } from "@/src/components/admin/shared/saveEntityWithCover";
 import { useAdminList } from "@/src/components/admin/shared/useAdminList";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import {
-  DataTable,
-  type DataTableColumn,
-  type SortDirection,
-} from "@/src/components/ui/DataTable";
+import { DataTable, type DataTableColumn, type SortDirection } from "@/src/components/ui/DataTable";
+import { useDebounce } from "@/src/hooks/useDebounce";
+import { usePagination } from "@/src/hooks/usePagination";
 import { cuisinesApi, type Cuisine } from "@/src/lib/api-client/cuisines";
-import {
-  destinationsApi,
-  type Destination,
-} from "@/src/lib/api-client/destinations";
+import { destinationsApi, type Destination } from "@/src/lib/api-client/destinations";
 import { ApiRequestError } from "@/src/lib/api-client/http";
 
 type SortKey = "name" | "updatedAt";
+
+const PAGE_SIZE = 10;
 
 function formatPrice(value: number | null) {
   if (value === null) return "—";
@@ -39,9 +31,8 @@ export function CuisinesPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [filterValues, setFilterValues] = useState<Record<string, string>>(
-    {},
-  );
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [paginationTotal, setPaginationTotal] = useState(0);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingCuisine, setEditingCuisine] = useState<Cuisine | null>(null);
@@ -51,17 +42,27 @@ export function CuisinesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Cuisine | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const { page, pageSize, totalPages, totalItems, startItem, endItem, nextPage, previousPage, resetPage } =
+    usePagination({
+      totalItems: paginationTotal,
+      pageSize: PAGE_SIZE,
+    });
+
+  const nameFilter = useDebounce(filterValues.name?.trim() ?? "", 350, resetPage);
   const destinationFilter = filterValues.destinationId;
 
-  const fetchCuisines = useCallback(
-    () =>
-      cuisinesApi.list({
-        page: 1,
-        limit: 50,
-        destinationId: destinationFilter || undefined,
-      }),
-    [destinationFilter],
-  );
+  const fetchCuisines = useCallback(async () => {
+    const result = await cuisinesApi.list({
+      page,
+      limit: pageSize,
+      search: nameFilter || undefined,
+      destinationId: destinationFilter || undefined,
+    });
+
+    setPaginationTotal(result.meta.total);
+
+    return result;
+  }, [destinationFilter, nameFilter, page, pageSize]);
 
   const {
     rows,
@@ -96,14 +97,6 @@ export function CuisinesPage() {
   const visibleRows = useMemo(() => {
     let result = rows;
 
-    if (filterValues.name) {
-      const keyword = filterValues.name.trim().toLowerCase();
-
-      result = result.filter((row) =>
-        row.name.toLowerCase().includes(keyword),
-      );
-    }
-
     if (sortKey && sortDirection) {
       result = [...result].sort((a, b) => {
         const valueA = sortKey === "name" ? a.name : a.updatedAt;
@@ -115,7 +108,7 @@ export function CuisinesPage() {
     }
 
     return result;
-  }, [filterValues, rows, sortDirection, sortKey]);
+  }, [rows, sortDirection, sortKey]);
 
   function handleSortChange(key: string) {
     const nextKey = key as SortKey;
@@ -141,14 +134,25 @@ export function CuisinesPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
-    if (key === "destinationId") {
+    if (key !== "name") {
       beginReload();
+      resetPage();
     }
 
     setFilterValues((current) => ({
       ...current,
       [key]: value,
     }));
+  }
+
+  function handlePreviousPage() {
+    beginReload();
+    previousPage();
+  }
+
+  function handleNextPage() {
+    beginReload();
+    nextPage();
   }
 
   function openCreateForm() {
@@ -172,11 +176,7 @@ export function CuisinesPage() {
     setErrorMessage(null);
   }
 
-  async function handleSubmitForm({
-    input,
-    coverFile,
-    removeCover,
-  }: CuisineFormSubmitData) {
+  async function handleSubmitForm({ input, coverFile, removeCover }: CuisineFormSubmitData) {
     setSubmitting(true);
     setFieldErrors(undefined);
     setErrorMessage(null);
@@ -188,9 +188,7 @@ export function CuisinesPage() {
         removeCover,
         uploadFolder: "cuisine-cover",
         save: (payload) =>
-          editingCuisine
-            ? cuisinesApi.update(editingCuisine.id, payload)
-            : cuisinesApi.create(payload),
+          editingCuisine ? cuisinesApi.update(editingCuisine.id, payload) : cuisinesApi.create(payload),
       });
 
       closeForm();
@@ -200,11 +198,7 @@ export function CuisinesPage() {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
       } else {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Không thể lưu món ăn, vui lòng thử lại",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "Không thể lưu món ăn, vui lòng thử lại");
       }
     } finally {
       setSubmitting(false);
@@ -222,11 +216,7 @@ export function CuisinesPage() {
       setDeleteTarget(null);
       await reloadCuisines();
     } catch (error) {
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.message
-          : "Không xóa được món ăn",
-      );
+      setErrorMessage(error instanceof ApiRequestError ? error.message : "Không xóa được món ăn");
     } finally {
       setDeleting(false);
     }
@@ -244,9 +234,7 @@ export function CuisinesPage() {
       render: (row) => (
         <div>
           <div className="font-medium">{row.name}</div>
-          <div className="font-mono text-[11px] text-admin-muted">
-            {row.slug}
-          </div>
+          <div className="font-mono text-[11px] text-admin-muted">{row.slug}</div>
         </div>
       ),
     },
@@ -262,9 +250,7 @@ export function CuisinesPage() {
       },
       render: (row) => (
         <div className="flex flex-wrap gap-1">
-          {row.destinations.length === 0 && (
-            <span className="text-admin-muted">—</span>
-          )}
+          {row.destinations.length === 0 && <span className="text-admin-muted">—</span>}
 
           {row.destinations.map((destination) => (
             <span
@@ -280,11 +266,7 @@ export function CuisinesPage() {
     {
       key: "avgPrice",
       header: "Giá tham khảo",
-      render: (row) => (
-        <span className="font-mono text-[12px] text-admin-muted">
-          {formatPrice(row.avgPrice)}
-        </span>
-      ),
+      render: (row) => <span className="font-mono text-[12px] text-admin-muted">{formatPrice(row.avgPrice)}</span>,
     },
     {
       key: "updatedAt",
@@ -332,10 +314,7 @@ export function CuisinesPage() {
         title="Ẩm thực"
         subtitle={`Huế · Đà Nẵng · Hội An — ${total} món ăn đang quản lý`}
         action={
-          <AdminCreateButton
-            onClick={openCreateForm}
-            disabled={submitting || deleting}
-          >
+          <AdminCreateButton onClick={openCreateForm} disabled={submitting || deleting}>
             Thêm món ăn
           </AdminCreateButton>
         }
@@ -354,6 +333,17 @@ export function CuisinesPage() {
           emptyLabel="Không tìm thấy món ăn phù hợp"
         />
       </AdminListPanel>
+
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        startItem={startItem}
+        endItem={endItem}
+        loading={loading}
+        onPreviousPage={handlePreviousPage}
+        onNextPage={handleNextPage}
+      />
 
       {formOpen ? (
         <CuisineFormDialog

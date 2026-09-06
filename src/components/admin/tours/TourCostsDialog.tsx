@@ -1,21 +1,8 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Calculator,
-  LoaderCircle,
-  Pencil,
-  Plus,
-  ReceiptText,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Calculator, LoaderCircle, Pencil, Plus, ReceiptText, Trash2, X } from "lucide-react";
 
 import {
   COST_CALCULATION_UNITS,
@@ -29,18 +16,11 @@ import {
   type TravelerScope,
 } from "@/src/constants/itinerary";
 
-import {
-  calculateCostAmount,
-  calculateCostsTotal,
-} from "@/src/lib/costs/cost-calculator";
+import { calculateCostAmount, calculateCostsTotal } from "@/src/lib/costs/cost-calculator";
 import { formatCostFormula } from "@/src/lib/costs/cost-display";
 import { formatVnd } from "@/src/lib/formatters";
 
-import {
-  tourCostsApi,
-  type CreateTourCostInput,
-  type TourCost,
-} from "@/src/lib/api-client/tour-costs";
+import { tourCostsApi, type CreateTourCostInput, type TourCost } from "@/src/lib/api-client/tour-costs";
 
 import { ApiRequestError } from "@/src/lib/api-client/http";
 
@@ -57,10 +37,6 @@ type TourCostsDialogProps = {
   tour: TourCostsDialogTour;
   onClose: () => void;
 
-  /**
-   * Dùng để ToursPage tải lại danh sách,
-   * vì estimatedPrice của tour có thể vừa thay đổi.
-   */
   onChanged?: () => void | Promise<void>;
 };
 
@@ -90,109 +66,62 @@ const emptyForm: CostFormState = {
   note: "",
 };
 
-function formatMoney(
-  value: string | number | null | undefined,
-) {
+function formatMoney(value: string | number | null | undefined) {
   return formatVnd(value, "0 ₫");
 }
 
-function createFormFromCost(
-  cost: TourCost,
-): CostFormState {
+function createFormFromCost(cost: TourCost): CostFormState {
   return {
     title: cost.title,
     category: cost.category,
 
-    calculationUnit:
-      cost.calculationUnit,
+    calculationUnit: cost.calculationUnit,
 
-    travelerScope:
-      cost.travelerScope,
+    travelerScope: cost.travelerScope,
 
-    unitPrice:
-      cost.unitPrice,
+    unitPrice: cost.unitPrice,
 
-    quantity:
-      cost.quantity,
+    quantity: cost.quantity,
 
-    nightCount:
-      cost.nightCount !== null
-        ? String(cost.nightCount)
-        : "",
+    nightCount: cost.nightCount !== null ? String(cost.nightCount) : "",
 
-    note:
-      cost.note ?? "",
+    note: cost.note ?? "",
   };
 }
 
-export function TourCostsDialog({
-  open,
-  tour,
-  onClose,
-  onChanged,
-}: TourCostsDialogProps) {
-  const [costs, setCosts] = useState<
-    TourCost[]
-  >([]);
+export function TourCostsDialog({ open, tour, onClose, onChanged }: TourCostsDialogProps) {
+  const [costs, setCosts] = useState<TourCost[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [deletingId, setDeletingId] =
-    useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [
-    editingCost,
-    setEditingCost,
-  ] = useState<TourCost | null>(
-    null,
-  );
+  const [editingCost, setEditingCost] = useState<TourCost | null>(null);
 
-  const [form, setForm] =
-    useState<CostFormState>({
-      ...emptyForm,
-    });
+  const [form, setForm] = useState<CostFormState>({
+    ...emptyForm,
+  });
 
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [
-    fieldErrors,
-    setFieldErrors,
-  ] = useState<
-    Record<string, string[]> | undefined
-  >();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | undefined>();
 
-  const loadCosts = useCallback(
-    async () => {
-      try {
-        setLoading(true);
+  const loadCosts = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        const data =
-          await tourCostsApi.list(
-            tour.id,
-          );
+      const data = await tourCostsApi.list(tour.id);
 
-        setCosts(data);
-        setErrorMessage(null);
-      } catch (error) {
-        setErrorMessage(
-          error instanceof
-            ApiRequestError
-            ? error.message
-            : "Không tải được chi tiết chi phí",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [tour.id],
-  );
+      setCosts(data);
+      setErrorMessage(null);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiRequestError ? error.message : "Không tải được chi tiết chi phí");
+    } finally {
+      setLoading(false);
+    }
+  }, [tour.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -207,117 +136,60 @@ export function TourCostsDialog({
   useEffect(() => {
     if (!open) return;
 
-    const previousOverflow =
-      document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
 
-    function handleKeyDown(
-      event: KeyboardEvent,
-    ) {
-      if (
-        event.key === "Escape" &&
-        !submitting
-      ) {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !submitting) {
         onClose();
       }
     }
 
-    document.body.style.overflow =
-      "hidden";
+    document.body.style.overflow = "hidden";
 
-    document.addEventListener(
-      "keydown",
-      handleKeyDown,
-    );
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow =
-        previousOverflow;
+      document.body.style.overflow = previousOverflow;
 
-      document.removeEventListener(
-        "keydown",
-        handleKeyDown,
-      );
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    onClose,
-    open,
-    submitting,
-  ]);
+  }, [onClose, open, submitting]);
 
-  const calculationContext =
-    useMemo(
-      () => ({
-        /**
-         * Đây là context chuẩn để hiển thị
-         * estimatedPrice của TOUR MẪU.
-         *
-         * Tour mẫu hiện đang công bố:
-         * "giá tham khảo cho một người".
-         */
-        adultCount: 1,
-        childCount: 0,
-        roomCount: 1,
+  const calculationContext = useMemo(
+    () => ({
+      adultCount: 1,
+      childCount: 0,
+      roomCount: 1,
 
-        defaultNightCount:
-          tour.durationNights,
-      }),
-      [tour.durationNights],
-    );
+      defaultNightCount: tour.durationNights,
+    }),
+    [tour.durationNights],
+  );
 
-  const calculatedTotal =
-    useMemo(
-      () =>
-        calculateCostsTotal(
-          costs,
-          calculationContext,
-        ),
-      [
-        calculationContext,
-        costs,
-      ],
-    );
+  const calculatedTotal = useMemo(() => calculateCostsTotal(costs, calculationContext), [calculationContext, costs]);
 
-  const previewAmount =
-    useMemo(() => {
-      if (!form.unitPrice.trim()) {
-        return 0;
-      }
+  const previewAmount = useMemo(() => {
+    if (!form.unitPrice.trim()) {
+      return 0;
+    }
 
-      const parsedNightCount =
-        form.nightCount.trim()
-          ? Number.parseInt(
-              form.nightCount,
-              10,
-            )
-          : null;
+    const parsedNightCount = form.nightCount.trim() ? Number.parseInt(form.nightCount, 10) : null;
 
-      return calculateCostAmount(
-        {
-          calculationUnit:
-            form.calculationUnit,
+    return calculateCostAmount(
+      {
+        calculationUnit: form.calculationUnit,
 
-          travelerScope:
-            form.travelerScope,
+        travelerScope: form.travelerScope,
 
-          unitPrice:
-            form.unitPrice,
+        unitPrice: form.unitPrice,
 
-          quantity:
-            form.quantity || "1",
+        quantity: form.quantity || "1",
 
-          nightCount:
-            Number.isNaN(
-              parsedNightCount,
-            )
-              ? null
-              : parsedNightCount,
-        },
-        calculationContext,
-      );
-    }, [
+        nightCount: Number.isNaN(parsedNightCount) ? null : parsedNightCount,
+      },
       calculationContext,
-      form,
-    ]);
+    );
+  }, [calculationContext, form]);
 
   function resetForm() {
     setEditingCost(null);
@@ -330,36 +202,22 @@ export function TourCostsDialog({
     setErrorMessage(null);
   }
 
-  function startEditing(
-    cost: TourCost,
-  ) {
+  function startEditing(cost: TourCost) {
     setEditingCost(cost);
 
-    setForm(
-      createFormFromCost(cost),
-    );
+    setForm(createFormFromCost(cost));
 
     setFieldErrors(undefined);
     setErrorMessage(null);
   }
 
-  function handleCalculationUnitChange(
-    value: CostCalculationUnit,
-  ) {
+  function handleCalculationUnitChange(value: CostCalculationUnit) {
     setForm((current) => ({
       ...current,
 
       calculationUnit: value,
 
-      /**
-       * Nếu chuyển khỏi per_room,
-       * phải clear nightCount để backend
-       * không từ chối dữ liệu.
-       */
-      nightCount:
-        value === "per_room"
-          ? current.nightCount
-          : "",
+      nightCount: value === "per_room" ? current.nightCount : "",
     }));
   }
 
@@ -370,13 +228,8 @@ export function TourCostsDialog({
   }
 
   async function handleSubmit() {
-    if (
-      !form.title.trim() ||
-      !form.unitPrice.trim()
-    ) {
-      setErrorMessage(
-        "Vui lòng nhập tên khoản chi phí và đơn giá",
-      );
+    if (!form.title.trim() || !form.unitPrice.trim()) {
+      setErrorMessage("Vui lòng nhập tên khoản chi phí và đơn giá");
 
       return;
     }
@@ -385,77 +238,37 @@ export function TourCostsDialog({
     setFieldErrors(undefined);
     setErrorMessage(null);
 
-    const parsedNightCount =
-      form.nightCount.trim()
-        ? Number.parseInt(
-            form.nightCount,
-            10,
-          )
-        : null;
+    const parsedNightCount = form.nightCount.trim() ? Number.parseInt(form.nightCount, 10) : null;
 
-    const input: CreateTourCostInput =
-      {
-        title:
-          form.title.trim(),
+    const input: CreateTourCostInput = {
+      title: form.title.trim(),
 
-        category:
-          form.category,
+      category: form.category,
 
-        calculationUnit:
-          form.calculationUnit,
+      calculationUnit: form.calculationUnit,
 
-        travelerScope:
-          form.travelerScope,
+      travelerScope: form.travelerScope,
 
-        unitPrice:
-          form.unitPrice.trim(),
+      unitPrice: form.unitPrice.trim(),
 
-        quantity:
-          form.quantity.trim() ||
-          "1",
+      quantity: form.quantity.trim() || "1",
 
-        /**
-         * Cost tạo trong dialog này trước mắt
-         * áp dụng ở cấp toàn tour.
-         *
-         * Sau này nếu muốn gắn trực tiếp
-         * activity/day/meal, API và DB đã
-         * sẵn sàng hỗ trợ.
-         */
-        tourDayId: null,
-        tourItemId: null,
-        tourMealId: null,
+      tourDayId: null,
+      tourItemId: null,
+      tourMealId: null,
 
-        nightCount:
-          form.calculationUnit ===
-            "per_room" &&
-          Number.isFinite(
-            parsedNightCount,
-          )
-            ? parsedNightCount
-            : null,
+      nightCount: form.calculationUnit === "per_room" && Number.isFinite(parsedNightCount) ? parsedNightCount : null,
 
-        note:
-          form.note.trim()
-            ? form.note.trim()
-            : null,
+      note: form.note.trim() ? form.note.trim() : null,
 
-        sortOrder:
-          editingCost?.sortOrder ??
-          costs.length,
-      };
+      sortOrder: editingCost?.sortOrder ?? costs.length,
+    };
 
     try {
       if (editingCost) {
-        await tourCostsApi.update(
-          editingCost.id,
-          input,
-        );
+        await tourCostsApi.update(editingCost.id, input);
       } else {
-        await tourCostsApi.create(
-          tour.id,
-          input,
-        );
+        await tourCostsApi.create(tour.id, input);
       }
 
       resetForm();
@@ -463,36 +276,20 @@ export function TourCostsDialog({
       await loadCosts();
       await notifyChanged();
     } catch (error) {
-      if (
-        error instanceof
-        ApiRequestError
-      ) {
-        setFieldErrors(
-          error.fieldErrors,
-        );
+      if (error instanceof ApiRequestError) {
+        setFieldErrors(error.fieldErrors);
 
-        setErrorMessage(
-          error.message,
-        );
+        setErrorMessage(error.message);
       } else {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Không thể lưu khoản chi phí",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "Không thể lưu khoản chi phí");
       }
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleDelete(
-    cost: TourCost,
-  ) {
-    const confirmed =
-      window.confirm(
-        `Xóa khoản chi phí "${cost.title}"?`,
-      );
+  async function handleDelete(cost: TourCost) {
+    const confirmed = window.confirm(`Xóa khoản chi phí "${cost.title}"?`);
 
     if (!confirmed) {
       return;
@@ -502,25 +299,16 @@ export function TourCostsDialog({
     setErrorMessage(null);
 
     try {
-      await tourCostsApi.remove(
-        cost.id,
-      );
+      await tourCostsApi.remove(cost.id);
 
-      if (
-        editingCost?.id === cost.id
-      ) {
+      if (editingCost?.id === cost.id) {
         resetForm();
       }
 
       await loadCosts();
       await notifyChanged();
     } catch (error) {
-      setErrorMessage(
-        error instanceof
-          ApiRequestError
-          ? error.message
-          : "Không thể xóa khoản chi phí",
-      );
+      setErrorMessage(error instanceof ApiRequestError ? error.message : "Không thể xóa khoản chi phí");
     } finally {
       setDeletingId(null);
     }
@@ -535,11 +323,7 @@ export function TourCostsDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
       role="presentation"
       onMouseDown={(event) => {
-        if (
-          event.target ===
-            event.currentTarget &&
-          !submitting
-        ) {
+        if (event.target === event.currentTarget && !submitting) {
           onClose();
         }
       }}
@@ -549,34 +333,23 @@ export function TourCostsDialog({
         aria-modal="true"
         aria-labelledby="tour-costs-dialog-title"
         className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-admin-line bg-admin-paper-card shadow-2xl"
-        onMouseDown={(event) =>
-          event.stopPropagation()
-        }
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        {/* Header */}
+        {}
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-admin-line bg-admin-paper-card px-6 py-5">
           <div>
             <div className="mb-1 flex items-center gap-2 text-admin-muted">
-              <ReceiptText
-                size={17}
-                strokeWidth={1.75}
-              />
+              <ReceiptText size={17} strokeWidth={1.75} />
 
-              <span className="text-xs font-semibold uppercase tracking-[0.12em]">
-                Chi phí tour
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em]">Chi phí tour</span>
             </div>
 
-            <h2
-              id="tour-costs-dialog-title"
-              className="font-display text-2xl font-semibold text-admin-ink"
-            >
+            <h2 id="tour-costs-dialog-title" className="font-display text-2xl font-semibold text-admin-ink">
               {tour.name}
             </h2>
 
             <p className="mt-1 text-sm text-admin-muted">
-              {tour.durationDays} ngày ·{" "}
-              {tour.durationNights} đêm
+              {tour.durationDays} ngày · {tour.durationNights} đêm
             </p>
           </div>
 
@@ -592,37 +365,23 @@ export function TourCostsDialog({
         </div>
 
         <div className="grid gap-6 p-6 lg:grid-cols-[1.15fr_0.85fr]">
-          {/* LEFT - Breakdown */}
+          {}
           <section>
             <div className="mb-4 grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-admin-line bg-admin-paper px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-admin-muted">
-                  Dự toán hiện tại
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-admin-muted">Dự toán hiện tại</p>
 
-                <p className="mt-1 font-mono text-xl font-semibold text-admin-ink">
-                  {formatMoney(
-                    calculatedTotal,
-                  )}
-                </p>
+                <p className="mt-1 font-mono text-xl font-semibold text-admin-ink">{formatMoney(calculatedTotal)}</p>
 
-                <p className="mt-1 text-xs text-admin-muted">
-                  Cho 1 người lớn · 1 phòng
-                </p>
+                <p className="mt-1 text-xs text-admin-muted">Cho 1 người lớn · 1 phòng</p>
               </div>
 
               <div className="rounded-lg border border-admin-line bg-admin-paper px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-admin-muted">
-                  Số khoản chi
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-admin-muted">Số khoản chi</p>
 
-                <p className="mt-1 font-mono text-xl font-semibold text-admin-ink">
-                  {costs.length}
-                </p>
+                <p className="mt-1 font-mono text-xl font-semibold text-admin-ink">{costs.length}</p>
 
-                <p className="mt-1 text-xs text-admin-muted">
-                  Có thể xem rõ từng khoản
-                </p>
+                <p className="mt-1 text-xs text-admin-muted">Có thể xem rõ từng khoản</p>
               </div>
             </div>
 
@@ -634,22 +393,15 @@ export function TourCostsDialog({
 
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-admin-ink">
-                  Chi tiết dự toán
-                </h3>
+                <h3 className="font-medium text-admin-ink">Chi tiết dự toán</h3>
 
-                <p className="text-xs text-admin-muted">
-                  Tổng tiền được tính từ các khoản bên dưới
-                </p>
+                <p className="text-xs text-admin-muted">Tổng tiền được tính từ các khoản bên dưới</p>
               </div>
 
               <button
                 type="button"
                 onClick={resetForm}
-                disabled={
-                  submitting ||
-                  Boolean(deletingId)
-                }
+                disabled={submitting || Boolean(deletingId)}
                 className="inline-flex items-center gap-1.5 rounded-md border border-admin-gold px-2.5 py-1.5 text-xs font-medium text-admin-ink transition hover:bg-admin-gold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus size={14} />
@@ -660,53 +412,33 @@ export function TourCostsDialog({
             {loading ? (
               <div className="flex min-h-48 items-center justify-center rounded-lg border border-admin-line">
                 <div className="flex items-center gap-2 text-sm text-admin-muted">
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
-
+                  <LoaderCircle size={17} className="animate-spin" />
                   Đang tải chi phí…
                 </div>
               </div>
             ) : costs.length === 0 ? (
               <div className="rounded-lg border border-dashed border-admin-line px-5 py-10 text-center">
-                <Calculator
-                  size={28}
-                  className="mx-auto text-admin-muted"
-                  strokeWidth={1.5}
-                />
+                <Calculator size={28} className="mx-auto text-admin-muted" strokeWidth={1.5} />
 
-                <p className="mt-3 text-sm font-medium text-admin-ink">
-                  Tour chưa có breakdown chi phí
-                </p>
+                <p className="mt-3 text-sm font-medium text-admin-ink">Tour chưa có breakdown chi phí</p>
 
                 <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-admin-muted">
-                  Hãy thêm vé, lưu trú,
-                  di chuyển, ăn uống…
-                  để giá dự kiến được tính
-                  từ dữ liệu cụ thể thay vì
-                  một con số tổng không có
-                  giải thích.
+                  Hãy thêm vé, lưu trú, di chuyển, ăn uống… để giá dự kiến được tính từ dữ liệu cụ thể thay vì một con
+                  số tổng không có giải thích.
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {costs.map((cost) => {
-                  const amount =
-                    calculateCostAmount(
-                      cost,
-                      calculationContext,
-                    );
+                  const amount = calculateCostAmount(cost, calculationContext);
 
-                  const isDeleting =
-                    deletingId === cost.id;
+                  const isDeleting = deletingId === cost.id;
 
                   return (
                     <div
                       key={cost.id}
                       className={`rounded-lg border px-4 py-3 transition ${
-                        editingCost?.id ===
-                        cost.id
+                        editingCost?.id === cost.id
                           ? "border-admin-gold bg-admin-paper"
                           : "border-admin-line bg-admin-paper-card"
                       }`}
@@ -714,91 +446,46 @@ export function TourCostsDialog({
                       <div className="flex gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-admin-ink">
-                              {cost.title}
-                            </p>
+                            <p className="font-medium text-admin-ink">{cost.title}</p>
 
                             <span className="rounded-full border border-admin-line px-2 py-0.5 text-[10px] font-medium text-admin-muted">
-                              {
-                                CATEGORY_LABEL[
-                                  cost.category
-                                ]
-                              }
+                              {CATEGORY_LABEL[cost.category]}
                             </span>
                           </div>
 
                           <p className="mt-1 font-mono text-xs text-admin-muted">
-                            {formatCostFormula(
-                              cost,
-                              calculationContext,
-                              {
-                                groupLabel: "nhóm",
-                                alwaysShowQuantity: true,
-                              },
-                            )}
+                            {formatCostFormula(cost, calculationContext, {
+                              groupLabel: "nhóm",
+                              alwaysShowQuantity: true,
+                            })}
                           </p>
 
-                          {cost.note && (
-                            <p className="mt-1 text-xs text-admin-muted">
-                              {cost.note}
-                            </p>
-                          )}
+                          {cost.note && <p className="mt-1 text-xs text-admin-muted">{cost.note}</p>}
                         </div>
 
                         <div className="flex shrink-0 items-start gap-3">
                           <span className="pt-0.5 font-mono text-sm font-semibold text-admin-ink">
-                            {formatMoney(
-                              amount,
-                            )}
+                            {formatMoney(amount)}
                           </span>
 
                           <button
                             type="button"
-                            onClick={() =>
-                              startEditing(
-                                cost,
-                              )
-                            }
-                            disabled={
-                              submitting ||
-                              Boolean(
-                                deletingId,
-                              )
-                            }
+                            onClick={() => startEditing(cost)}
+                            disabled={submitting || Boolean(deletingId)}
                             aria-label={`Sửa ${cost.title}`}
                             className="text-admin-muted transition hover:text-admin-ink disabled:opacity-40"
                           >
-                            <Pencil
-                              size={15}
-                            />
+                            <Pencil size={15} />
                           </button>
 
                           <button
                             type="button"
-                            onClick={() =>
-                              void handleDelete(
-                                cost,
-                              )
-                            }
-                            disabled={
-                              submitting ||
-                              Boolean(
-                                deletingId,
-                              )
-                            }
+                            onClick={() => void handleDelete(cost)}
+                            disabled={submitting || Boolean(deletingId)}
                             aria-label={`Xóa ${cost.title}`}
                             className="text-admin-muted transition hover:text-admin-seal disabled:opacity-40"
                           >
-                            {isDeleting ? (
-                              <LoaderCircle
-                                size={15}
-                                className="animate-spin"
-                              />
-                            ) : (
-                              <Trash2
-                                size={15}
-                              />
-                            )}
+                            {isDeleting ? <LoaderCircle size={15} className="animate-spin" /> : <Trash2 size={15} />}
                           </button>
                         </div>
                       </div>
@@ -807,43 +494,28 @@ export function TourCostsDialog({
                 })}
 
                 <div className="mt-3 flex items-center justify-between border-t border-admin-line px-1 pt-4">
-                  <span className="text-sm font-semibold text-admin-ink">
-                    Tổng dự toán
-                  </span>
+                  <span className="text-sm font-semibold text-admin-ink">Tổng dự toán</span>
 
-                  <span className="font-mono text-lg font-semibold text-admin-ink">
-                    {formatMoney(
-                      calculatedTotal,
-                    )}
-                  </span>
+                  <span className="font-mono text-lg font-semibold text-admin-ink">{formatMoney(calculatedTotal)}</span>
                 </div>
               </div>
             )}
           </section>
 
-          {/* RIGHT - Form */}
+          {}
           <section className="rounded-xl border border-admin-line bg-admin-paper p-5">
             <div className="mb-4">
-              <h3 className="font-medium text-admin-ink">
-                {editingCost
-                  ? "Sửa khoản chi phí"
-                  : "Thêm khoản chi phí"}
-              </h3>
+              <h3 className="font-medium text-admin-ink">{editingCost ? "Sửa khoản chi phí" : "Thêm khoản chi phí"}</h3>
 
               <p className="mt-1 text-xs leading-5 text-admin-muted">
-                Khai báo đơn giá và cách
-                tính. Hệ thống sẽ tự tính
-                lại tổng dự toán của tour.
+                Khai báo đơn giá và cách tính. Hệ thống sẽ tự tính lại tổng dự toán của tour.
               </p>
             </div>
 
             <div className="space-y-4">
-              {/* Title */}
+              {}
               <div>
-                <label
-                  htmlFor="tour-cost-title"
-                  className="mb-1.5 block text-sm font-medium text-admin-muted"
-                >
+                <label htmlFor="tour-cost-title" className="mb-1.5 block text-sm font-medium text-admin-muted">
                   Tên khoản chi
                 </label>
 
@@ -852,35 +524,21 @@ export function TourCostsDialog({
                   value={form.title}
                   disabled={submitting}
                   onChange={(event) =>
-                    setForm(
-                      (current) => ({
-                        ...current,
-                        title:
-                          event.target
-                            .value,
-                      }),
-                    )
+                    setForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
                   }
                   className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                   placeholder="Ví dụ: Vé Đại Nội Huế"
                 />
 
-                {fieldErrors?.title?.[0] && (
-                  <p className="mt-1 text-xs text-admin-seal">
-                    {
-                      fieldErrors
-                        .title[0]
-                    }
-                  </p>
-                )}
+                {fieldErrors?.title?.[0] && <p className="mt-1 text-xs text-admin-seal">{fieldErrors.title[0]}</p>}
               </div>
 
-              {/* Category */}
+              {}
               <div>
-                <label
-                  htmlFor="tour-cost-category"
-                  className="mb-1.5 block text-sm font-medium text-admin-muted"
-                >
+                <label htmlFor="tour-cost-category" className="mb-1.5 block text-sm font-medium text-admin-muted">
                   Nhóm chi phí
                 </label>
 
@@ -889,77 +547,44 @@ export function TourCostsDialog({
                   value={form.category}
                   disabled={submitting}
                   onChange={(event) =>
-                    setForm(
-                      (current) => ({
-                        ...current,
-                        category:
-                          event.target
-                            .value as CostCategory,
-                      }),
-                    )
+                    setForm((current) => ({
+                      ...current,
+                      category: event.target.value as CostCategory,
+                    }))
                   }
                   className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                 >
-                  {COST_CATEGORIES.map(
-                    (category) => (
-                      <option
-                        key={category}
-                        value={category}
-                      >
-                        {
-                          CATEGORY_LABEL[
-                            category
-                          ]
-                        }
-                      </option>
-                    ),
-                  )}
+                  {COST_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {CATEGORY_LABEL[category]}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Calculation */}
+              {}
               <div>
-                <label
-                  htmlFor="tour-cost-calculation"
-                  className="mb-1.5 block text-sm font-medium text-admin-muted"
-                >
+                <label htmlFor="tour-cost-calculation" className="mb-1.5 block text-sm font-medium text-admin-muted">
                   Cách tính
                 </label>
 
                 <select
                   id="tour-cost-calculation"
-                  value={
-                    form.calculationUnit
-                  }
+                  value={form.calculationUnit}
                   disabled={submitting}
-                  onChange={(event) =>
-                    handleCalculationUnitChange(
-                      event.target
-                        .value as CostCalculationUnit,
-                    )
-                  }
+                  onChange={(event) => handleCalculationUnitChange(event.target.value as CostCalculationUnit)}
                   className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                 >
-                  {COST_CALCULATION_UNITS.map(
-                    (unit) => (
-                      <option
-                        key={unit}
-                        value={unit}
-                      >
-                        {
-                          CALCULATION_UNIT_LABEL[
-                            unit
-                          ]
-                        }
-                      </option>
-                    ),
-                  )}
+                  {COST_CALCULATION_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {CALCULATION_UNIT_LABEL[unit]}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {/* Traveler scope */}
-              {form.calculationUnit ===
-                "per_person" && (
+              {}
+              {form.calculationUnit === "per_person" && (
                 <div>
                   <label
                     htmlFor="tour-cost-traveler-scope"
@@ -970,48 +595,30 @@ export function TourCostsDialog({
 
                   <select
                     id="tour-cost-traveler-scope"
-                    value={
-                      form.travelerScope
-                    }
+                    value={form.travelerScope}
                     disabled={submitting}
                     onChange={(event) =>
-                      setForm(
-                        (current) => ({
-                          ...current,
+                      setForm((current) => ({
+                        ...current,
 
-                          travelerScope:
-                            event.target
-                              .value as TravelerScope,
-                        }),
-                      )
+                        travelerScope: event.target.value as TravelerScope,
+                      }))
                     }
                     className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                   >
-                    {TRAVELER_SCOPES.map(
-                      (scope) => (
-                        <option
-                          key={scope}
-                          value={scope}
-                        >
-                          {
-                            TRAVELER_SCOPE_LABEL[
-                              scope
-                            ]
-                          }
-                        </option>
-                      ),
-                    )}
+                    {TRAVELER_SCOPES.map((scope) => (
+                      <option key={scope} value={scope}>
+                        {TRAVELER_SCOPE_LABEL[scope]}
+                      </option>
+                    ))}
                   </select>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                {/* Price */}
+                {}
                 <div>
-                  <label
-                    htmlFor="tour-cost-price"
-                    className="mb-1.5 block text-sm font-medium text-admin-muted"
-                  >
+                  <label htmlFor="tour-cost-price" className="mb-1.5 block text-sm font-medium text-admin-muted">
                     Đơn giá (VNĐ)
                   </label>
 
@@ -1020,41 +627,26 @@ export function TourCostsDialog({
                     type="number"
                     min={0}
                     step={1}
-                    value={
-                      form.unitPrice
-                    }
+                    value={form.unitPrice}
                     disabled={submitting}
                     onChange={(event) =>
-                      setForm(
-                        (current) => ({
-                          ...current,
-                          unitPrice:
-                            event.target
-                              .value,
-                        }),
-                      )
+                      setForm((current) => ({
+                        ...current,
+                        unitPrice: event.target.value,
+                      }))
                     }
                     className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 font-mono text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                     placeholder="200000"
                   />
 
-                  {fieldErrors
-                    ?.unitPrice?.[0] && (
-                    <p className="mt-1 text-xs text-admin-seal">
-                      {
-                        fieldErrors
-                          .unitPrice[0]
-                      }
-                    </p>
+                  {fieldErrors?.unitPrice?.[0] && (
+                    <p className="mt-1 text-xs text-admin-seal">{fieldErrors.unitPrice[0]}</p>
                   )}
                 </div>
 
-                {/* Quantity */}
+                {}
                 <div>
-                  <label
-                    htmlFor="tour-cost-quantity"
-                    className="mb-1.5 block text-sm font-medium text-admin-muted"
-                  >
+                  <label htmlFor="tour-cost-quantity" className="mb-1.5 block text-sm font-medium text-admin-muted">
                     Số lượng
                   </label>
 
@@ -1063,33 +655,23 @@ export function TourCostsDialog({
                     type="number"
                     min={0.01}
                     step={0.01}
-                    value={
-                      form.quantity
-                    }
+                    value={form.quantity}
                     disabled={submitting}
                     onChange={(event) =>
-                      setForm(
-                        (current) => ({
-                          ...current,
-                          quantity:
-                            event.target
-                              .value,
-                        }),
-                      )
+                      setForm((current) => ({
+                        ...current,
+                        quantity: event.target.value,
+                      }))
                     }
                     className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 font-mono text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                   />
                 </div>
               </div>
 
-              {/* Night */}
-              {form.calculationUnit ===
-                "per_room" && (
+              {}
+              {form.calculationUnit === "per_room" && (
                 <div>
-                  <label
-                    htmlFor="tour-cost-night-count"
-                    className="mb-1.5 block text-sm font-medium text-admin-muted"
-                  >
+                  <label htmlFor="tour-cost-night-count" className="mb-1.5 block text-sm font-medium text-admin-muted">
                     Số đêm
                   </label>
 
@@ -1098,53 +680,32 @@ export function TourCostsDialog({
                     type="number"
                     min={1}
                     step={1}
-                    value={
-                      form.nightCount
-                    }
+                    value={form.nightCount}
                     disabled={submitting}
                     onChange={(event) =>
-                      setForm(
-                        (current) => ({
-                          ...current,
+                      setForm((current) => ({
+                        ...current,
 
-                          nightCount:
-                            event.target
-                              .value,
-                        }),
-                      )
+                        nightCount: event.target.value,
+                      }))
                     }
                     className="w-full rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 font-mono text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                     placeholder={
-                      tour.durationNights >
-                      0
-                        ? `Để trống = ${tour.durationNights} đêm của tour`
-                        : "Ví dụ: 1"
+                      tour.durationNights > 0 ? `Để trống = ${tour.durationNights} đêm của tour` : "Ví dụ: 1"
                     }
                   />
 
-                  <p className="mt-1 text-xs text-admin-muted">
-                    Để trống sẽ dùng số
-                    đêm mặc định của tour.
-                  </p>
+                  <p className="mt-1 text-xs text-admin-muted">Để trống sẽ dùng số đêm mặc định của tour.</p>
 
-                  {fieldErrors
-                    ?.nightCount?.[0] && (
-                    <p className="mt-1 text-xs text-admin-seal">
-                      {
-                        fieldErrors
-                          .nightCount[0]
-                      }
-                    </p>
+                  {fieldErrors?.nightCount?.[0] && (
+                    <p className="mt-1 text-xs text-admin-seal">{fieldErrors.nightCount[0]}</p>
                   )}
                 </div>
               )}
 
-              {/* Note */}
+              {}
               <div>
-                <label
-                  htmlFor="tour-cost-note"
-                  className="mb-1.5 block text-sm font-medium text-admin-muted"
-                >
+                <label htmlFor="tour-cost-note" className="mb-1.5 block text-sm font-medium text-admin-muted">
                   Ghi chú / nguồn giá
                 </label>
 
@@ -1154,39 +715,26 @@ export function TourCostsDialog({
                   value={form.note}
                   disabled={submitting}
                   onChange={(event) =>
-                    setForm(
-                      (current) => ({
-                        ...current,
-                        note:
-                          event.target
-                            .value,
-                      }),
-                    )
+                    setForm((current) => ({
+                      ...current,
+                      note: event.target.value,
+                    }))
                   }
                   className="w-full resize-y rounded-md border border-admin-line bg-admin-paper-card px-3 py-2 text-sm text-admin-ink outline-none focus:border-admin-gold disabled:opacity-60"
                   placeholder="Ví dụ: Giá niêm yết tham khảo 08/2026"
                 />
               </div>
 
-              {/* Preview */}
+              {}
               <div className="rounded-lg border border-admin-gold/60 bg-admin-paper-card px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-admin-muted">
-                      Thành tiền dự kiến
-                    </p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-admin-muted">Thành tiền dự kiến</p>
 
-                    <p className="mt-1 text-xs text-admin-muted">
-                      Theo mức tham khảo
-                      1 người · 1 phòng
-                    </p>
+                    <p className="mt-1 text-xs text-admin-muted">Theo mức tham khảo 1 người · 1 phòng</p>
                   </div>
 
-                  <p className="font-mono text-lg font-semibold text-admin-ink">
-                    {formatMoney(
-                      previewAmount,
-                    )}
-                  </p>
+                  <p className="font-mono text-lg font-semibold text-admin-ink">{formatMoney(previewAmount)}</p>
                 </div>
               </div>
 
@@ -1204,36 +752,23 @@ export function TourCostsDialog({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    void handleSubmit()
-                  }
-                  disabled={
-                    submitting ||
-                    loading ||
-                    Boolean(deletingId)
-                  }
+                  onClick={() => void handleSubmit()}
+                  disabled={submitting || loading || Boolean(deletingId)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-admin-gold bg-admin-gold px-3 py-2 text-sm font-medium text-admin-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
-                      <LoaderCircle
-                        size={15}
-                        className="animate-spin"
-                      />
+                      <LoaderCircle size={15} className="animate-spin" />
                       Đang lưu…
                     </>
                   ) : editingCost ? (
                     <>
-                      <Pencil
-                        size={15}
-                      />
+                      <Pencil size={15} />
                       Lưu thay đổi
                     </>
                   ) : (
                     <>
-                      <Plus
-                        size={15}
-                      />
+                      <Plus size={15} />
                       Thêm khoản
                     </>
                   )}

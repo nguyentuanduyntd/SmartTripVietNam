@@ -10,15 +10,8 @@ import {
   AuthSubmitButton,
   PasswordRequirements,
 } from "@/src/components/auth/AuthFormControls";
-import {
-  AuthCard,
-  AuthCenteredShell,
-  AuthHeader,
-} from "@/src/components/auth/AuthShell";
-import {
-  getPasswordChecks,
-  isPasswordValid,
-} from "@/src/lib/auth/auth-form.utils";
+import { AuthCard, AuthCenteredShell, AuthHeader } from "@/src/components/auth/AuthShell";
+import { getPasswordChecks, isPasswordValid } from "@/src/lib/auth/auth-form.utils";
 import { createClient } from "@/src/lib/supabase/client";
 
 function getUpdatePasswordError(message: string) {
@@ -45,14 +38,9 @@ export default function UpdatePasswordPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const passwordChecks = useMemo(
-    () => getPasswordChecks(password),
-    [password],
-  );
+  const passwordChecks = useMemo(() => getPasswordChecks(password), [password]);
   const passwordValid = isPasswordValid(passwordChecks);
-  const passwordsMismatch = Boolean(
-    confirmPassword && password !== confirmPassword,
-  );
+  const passwordsMismatch = Boolean(confirmPassword && password !== confirmPassword);
 
   useEffect(() => {
     let mounted = true;
@@ -118,7 +106,6 @@ export default function UpdatePasswordPage() {
 
       setSuccess(true);
 
-      // Kết thúc recovery session; người dùng đăng nhập lại bằng mật khẩu mới.
       await supabase.auth.signOut();
     } catch (caughtError) {
       console.error("[UPDATE PASSWORD ERROR]", caughtError);
@@ -133,9 +120,7 @@ export default function UpdatePasswordPage() {
       <main className="flex min-h-dvh items-center justify-center bg-[#f7efe1] text-[#173a3b]">
         <div className="text-center">
           <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-[#d9d0c1] border-t-[#173a3b]" />
-          <p className="mt-4 text-sm font-semibold text-[#687572]">
-            Đang kiểm tra liên kết khôi phục...
-          </p>
+          <p className="mt-4 text-sm font-semibold text-[#687572]">Đang kiểm tra liên kết khôi phục...</p>
         </div>
       </main>
     );
@@ -148,25 +133,17 @@ export default function UpdatePasswordPage() {
           <div className="mx-auto grid h-20 w-20 place-items-center rounded-[26px] bg-[#e6f3ed] text-[#348371]">
             <CheckCircle2 size={38} />
           </div>
-          <p className="mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">
-            Thành công
-          </p>
-          <h1 className="mt-3 font-display text-4xl font-semibold sm:text-5xl">
-            Đã đổi mật khẩu
-          </h1>
+          <p className="mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">Thành công</p>
+          <h1 className="mt-3 font-display text-4xl font-semibold sm:text-5xl">Đã đổi mật khẩu</h1>
           <p className="mt-5 leading-7 text-[#687572]">
-            Mật khẩu của bạn đã được cập nhật. Hãy đăng nhập lại bằng mật khẩu
-            mới.
+            Mật khẩu của bạn đã được cập nhật. Hãy đăng nhập lại bằng mật khẩu mới.
           </p>
           <Link
             href="/auth/login"
             className="group mt-7 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#173a3b] font-bold text-white transition hover:bg-[#21494a]"
           >
             Đăng nhập
-            <ArrowRight
-              size={19}
-              className="transition-transform group-hover:translate-x-1"
-            />
+            <ArrowRight size={19} className="transition-transform group-hover:translate-x-1" />
           </Link>
         </AuthCard>
       </AuthCenteredShell>
@@ -180,12 +157,9 @@ export default function UpdatePasswordPage() {
           <div className="mx-auto grid h-20 w-20 place-items-center rounded-[26px] bg-[#fff0eb] text-[#d95643]">
             <KeyRound size={36} />
           </div>
-          <h1 className="mt-6 font-display text-4xl font-semibold">
-            Liên kết không hợp lệ
-          </h1>
+          <h1 className="mt-6 font-display text-4xl font-semibold">Liên kết không hợp lệ</h1>
           <p className="mt-4 leading-7 text-[#687572]">
-            Phiên khôi phục mật khẩu không tồn tại hoặc đã hết hạn. Hãy yêu cầu
-            một liên kết mới.
+            Phiên khôi phục mật khẩu không tồn tại hoặc đã hết hạn. Hãy yêu cầu một liên kết mới.
           </p>
           <Link
             href="/auth/forgot-password"
@@ -193,10 +167,7 @@ export default function UpdatePasswordPage() {
           >
             Gửi lại liên kết
           </Link>
-          <Link
-            href="/auth/login"
-            className="mt-5 inline-block text-sm font-bold text-[#d95643] hover:underline"
-          >
+          <Link href="/auth/login" className="mt-5 inline-block text-sm font-bold text-[#d95643] hover:underline">
             Quay lại đăng nhập
           </Link>
         </AuthCard>
@@ -251,11 +222,7 @@ export default function UpdatePasswordPage() {
 
           {error ? <AuthAlert>{error}</AuthAlert> : null}
 
-          <AuthSubmitButton
-            loading={isSubmitting}
-            loadingLabel="Đang cập nhật..."
-            disabled={isSubmitting}
-          >
+          <AuthSubmitButton loading={isSubmitting} loadingLabel="Đang cập nhật..." disabled={isSubmitting}>
             Cập nhật mật khẩu
           </AuthSubmitButton>
         </form>

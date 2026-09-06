@@ -1,12 +1,12 @@
 import { getCurrentUser } from "@/src/lib/auth/get-current-user";
 import { requireAdmin } from "@/src/lib/auth/require-admin";
-import {tourDayIdParamsSchema,updateTourDayRequestSchema,} from "@/src/schemas/tour.schema";
-import {deleteTourDayService,getTourDayByIdService,updateTourDayService,} from "@/src/services/tour.service";
-import {errorResponse,successResponse,zodErrorToFieldErrors,} from "@/src/utils/api_response";
+import { tourDayIdParamsSchema, updateTourDayRequestSchema } from "@/src/schemas/tour.schema";
+import { deleteTourDayService, getTourDayByIdService, updateTourDayService } from "@/src/services/tour.service";
+import { errorResponse, successResponse, zodErrorToFieldErrors } from "@/src/utils/api_response";
 import { handleTourServiceError } from "@/src/utils/tour_api_response";
 
 type RouteContext = {
-  params: Promise<{ id: string; }>;
+  params: Promise<{ id: string }>;
 };
 
 async function parseTourDayId(context: RouteContext) {
@@ -14,18 +14,11 @@ async function parseTourDayId(context: RouteContext) {
   return tourDayIdParamsSchema.safeParse({ id });
 }
 
-export async function GET(
-  _request: Request,
-  context: RouteContext,
-) {
+export async function GET(_request: Request, context: RouteContext) {
   const parsedId = await parseTourDayId(context);
 
   if (!parsedId.success) {
-    return errorResponse(
-      "Tour day ID không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedId.error),
-    );
+    return errorResponse("Tour day ID không hợp lệ", 400, zodErrorToFieldErrors(parsedId.error));
   }
 
   const currentUser = await getCurrentUser();
@@ -41,45 +34,28 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  context: RouteContext,
-) {
+export async function PATCH(request: Request, context: RouteContext) {
   const authResult = await requireAdmin();
 
   if (!authResult.ok) {
-    return errorResponse(
-      authResult.message,
-      authResult.status,
-    );
+    return errorResponse(authResult.message, authResult.status);
   }
 
   const parsedId = await parseTourDayId(context);
 
   if (!parsedId.success) {
-    return errorResponse(
-      "Tour day ID không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedId.error),
-    );
+    return errorResponse("Tour day ID không hợp lệ", 400, zodErrorToFieldErrors(parsedId.error));
   }
 
   const body = await request.json().catch(() => null);
   const parsedBody = updateTourDayRequestSchema.safeParse(body);
 
   if (!parsedBody.success) {
-    return errorResponse(
-      "Dữ liệu không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedBody.error),
-    );
+    return errorResponse("Dữ liệu không hợp lệ", 400, zodErrorToFieldErrors(parsedBody.error));
   }
 
   try {
-    const day = await updateTourDayService(
-      parsedId.data.id,
-      parsedBody.data,
-    );
+    const day = await updateTourDayService(parsedId.data.id, parsedBody.data);
 
     return successResponse(day, {
       message: "Cập nhật ngày trong tour thành công",
@@ -89,27 +65,17 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  context: RouteContext,
-) {
+export async function DELETE(_request: Request, context: RouteContext) {
   const authResult = await requireAdmin();
 
   if (!authResult.ok) {
-    return errorResponse(
-      authResult.message,
-      authResult.status,
-    );
+    return errorResponse(authResult.message, authResult.status);
   }
 
   const parsedId = await parseTourDayId(context);
 
   if (!parsedId.success) {
-    return errorResponse(
-      "Tour day ID không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedId.error),
-    );
+    return errorResponse("Tour day ID không hợp lệ", 400, zodErrorToFieldErrors(parsedId.error));
   }
 
   try {

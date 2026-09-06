@@ -193,5 +193,259 @@
       "categories": "Danh mục",
       "viewGoogleMaps": "Xem trên Google Maps"
     }
+  },
+  "Notifications": {
+    "metadata": {
+      "title": "Thông báo",
+      "description": "Thông báo từ SmartTrip"
+    },
+    "center": "Trung tâm thông báo",
+    "title": "Thông báo của bạn",
+    "unreadCount": "{count} thông báo chưa đọc",
+    "markAllRead": "Đọc tất cả",
+    "markOneRead": "Đánh dấu đã đọc",
+    "emptyTitle": "Chưa có thông báo",
+    "emptyDescription": "Thông báo mới từ SmartTrip sẽ xuất hiện tại đây.",
+    "page": "Trang {current}/{total}",
+    "loadError": "Không thể tải thông báo",
+    "updateError": "Không thể cập nhật thông báo"
+  },
+  "Community": {
+    "metadata": {
+      "title": "Cộng đồng chia sẻ",
+      "description": "Đọc và chia sẻ trải nghiệm du lịch thực tế từ cộng đồng."
+    },
+    "feed": {
+      "sortLatest": "Mới nhất",
+      "sortPopular": "Nhiều tim",
+      "sortSaved": "Đã lưu",
+      "allDestinations": "Tất cả điểm đến",
+      "loading": "Đang tải trải nghiệm...",
+      "emptyTitle": "Chưa có bài chia sẻ",
+      "emptyDescription": "Hãy là người đầu tiên kể lại một chuyến đi đáng nhớ.",
+      "shareExperience": "Chia sẻ trải nghiệm",
+      "loadMore": "Xem thêm trải nghiệm",
+      "loading2": "Đang tải...",
+      "viewPost": "Xem bài",
+      "days": "{count} ngày",
+      "visited": "Đã ghé:",
+      "member": "Thành viên",
+      "memberSmartTrip": "Thành viên SmartTrip",
+      "loadError": "Không thể tải bài chia sẻ cộng đồng.",
+      "fallbackError": "Không thể tải cộng đồng."
+    },
+    "detail": {
+      "loading": "Đang tải trải nghiệm...",
+      "defaultTitle": "Chia sẻ trải nghiệm",
+      "days": "{count} ngày",
+      "likes": "{count} lượt thích",
+      "comments": "{count} bình luận",
+      "saved": "Đã lưu",
+      "savePost": "Lưu bài",
+      "visitedPlaces": "Những nơi đã ghé",
+      "member": "Thành viên",
+      "memberSmartTrip": "Thành viên SmartTrip",
+      "itinerarySnapshot": "Hành trình đã trải nghiệm",
+      "plannerSnapshot": "Planner Snapshot",
+      "snapshotNote": "Snapshot này được lưu cùng bài Community. Chức năng \"Dùng lịch trình này\" sẽ được nối vào Planner ở giai đoạn tiếp theo.",
+      "activities": "{count} hoạt động",
+      "meals": "{count} bữa ăn",
+      "cuisine": "Ẩm thực",
+      "dayTitle": "Ngày {number}",
+      "editPost": "Sửa bài",
+      "deletePost": "Xóa bài",
+      "editLabel": "Chỉnh sửa",
+      "editPostTitle": "Bài chia sẻ",
+      "editTitleLabel": "Tiêu đề",
+      "editContentLabel": "Nội dung",
+      "editRatingLabel": "Đánh giá",
+      "saveChanges": "Lưu thay đổi",
+      "confirmDeletePost": "Bạn chắc chắn muốn xóa bài chia sẻ này?",
+      "confirmDeleteComment": "Xóa bình luận này?",
+      "editCommentPrompt": "Sửa bình luận:",
+      "errorEmpty": "Không tìm thấy bài chia sẻ.",
+      "errorLoad": "Không thể tải bài chia sẻ.",
+      "submitError": "Không thể gửi bình luận.",
+      "deleteCommentError": "Không thể xóa bình luận.",
+      "editCommentError": "Không thể sửa bình luận.",
+      "updatePostError": "Không thể cập nhật bài viết.",
+      "deletePostError": "Không thể xóa bài viết.",
+      "starLabel": "{star} sao"
+    },
+    "comments": {
+      "title": "Bình luận",
+      "discussion": "Thảo luận",
+      "count": "{count} bình luận",
+      "empty": "Chưa có bình luận. Hãy bắt đầu cuộc trò chuyện.",
+      "replyingTo": "Đang trả lời",
+      "reply": "Trả lời",
+      "edit": "Sửa",
+      "delete": "Xóa",
+      "send": "Gửi",
+      "placeholderGuest": "Đăng nhập để tham gia bình luận...",
+      "placeholderReply": "Trả lời {name}...",
+      "placeholderDefault": "Chia sẻ suy nghĩ hoặc hỏi thêm về chuyến đi...",
+      "emptyCommentError": "Vui lòng nhập nội dung bình luận.",
+      "member": "thành viên",
+      "memberFull": "Thành viên SmartTrip"
+    },
+    "create": {
+      "metadata": {
+        "title": "Chia sẻ trải nghiệm"
+      },
+      "notDateSet": "Chưa đặt ngày"
+    },
+    "report": {
+      "trigger": "Báo cáo",
+      "badge": "Báo cáo nội dung",
+      "titlePost": "Báo cáo bài viết",
+      "titleComment": "Báo cáo bình luận",
+      "description": "Báo cáo sẽ được chuyển đến quản trị viên để xem xét. Nội dung không tự động bị ẩn chỉ vì một báo cáo.",
+      "closeDialog": "Đóng hộp thoại báo cáo",
+      "successTitle": "Đã gửi báo cáo",
+      "close": "Đóng",
+      "reasonLegend": "Lý do báo cáo",
+      "detailsLabel": "Chi tiết",
+      "detailsOptional": " (không bắt buộc)",
+      "detailsRequired": " *",
+      "cancel": "Hủy",
+      "submit": "Gửi báo cáo",
+      "submitting": "Đang gửi...",
+      "errorSelectReason": "Vui lòng chọn lý do báo cáo.",
+      "errorDescribeReason": "Vui lòng mô tả lý do báo cáo.",
+      "errorTooLong": "Mô tả báo cáo không được vượt quá 1000 ký tự.",
+      "errorFallback": "Không thể gửi báo cáo.",
+      "serverError": "Phản hồi từ máy chủ không đúng định dạng.",
+      "successFallback": "Báo cáo đã được gửi.",
+      "placeholderOther": "Mô tả cụ thể vấn đề bạn nhận thấy...",
+      "placeholderDefault": "Bạn có thể cung cấp thêm thông tin để quản trị viên dễ xem xét hơn...",
+      "reasons": {
+        "spam": {
+          "label": "Spam hoặc quảng cáo",
+          "description": "Nội dung lặp lại, quảng cáo không phù hợp hoặc cố tình gây nhiễu."
+        },
+        "harassment": {
+          "label": "Quấy rối hoặc xúc phạm",
+          "description": "Công kích, đe dọa, làm nhục hoặc nhắm vào một cá nhân."
+        },
+        "hate_speech": {
+          "label": "Ngôn từ thù ghét",
+          "description": "Nội dung tấn công một nhóm người dựa trên đặc điểm được bảo vệ."
+        },
+        "inappropriate_content": {
+          "label": "Nội dung không phù hợp",
+          "description": "Hình ảnh hoặc nội dung phản cảm, không phù hợp với cộng đồng du lịch."
+        },
+        "misinformation": {
+          "label": "Thông tin sai lệch",
+          "description": "Thông tin có dấu hiệu sai sự thật hoặc có thể gây hiểu nhầm nghiêm trọng."
+        },
+        "other": {
+          "label": "Lý do khác",
+          "description": "Vấn đề khác chưa nằm trong các nhóm ở trên."
+        }
+      }
+    }
+  },
+  "Tours": {
+    "metadata": {
+      "title": "Hành trình",
+      "description": "Khám phá các lịch trình du lịch được thiết kế riêng cho Huế, Đà Nẵng và Hội An."
+    },
+    "detail": {
+      "backToJourneys": "Tất cả hành trình",
+      "overviewDuration": "Thời lượng",
+      "overviewDeparture": "Điểm khởi hành",
+      "overviewMeeting": "Điểm tập trung",
+      "tbdMeeting": "Sẽ thông báo",
+      "departsFrom": "Khởi hành từ {location}",
+      "itineraryEyebrow": "Lịch trình theo ngày",
+      "itineraryTitle": "Đi đâu, làm gì trong chuyến đi?",
+      "daysWithSchedule": "{count} ngày có lịch trình",
+      "dayLabel": "Ngày {number}",
+      "dayCode": "N{number}",
+      "noActivities": "Ngày này chưa có hoạt động chi tiết.",
+      "noItinerary": "Lịch trình chi tiết đang được cập nhật.",
+      "travelAbout": "Khoảng {minutes} phút",
+      "transport": "Di chuyển",
+      "notesTitle": "Lưu ý trước chuyến đi",
+      "notes": [
+        "Giờ mở cửa và giá vé có thể thay đổi theo thời điểm.",
+        "Nên chuẩn bị giày dễ đi và trang phục phù hợp điểm tâm linh.",
+        "Lịch trình có thể điều chỉnh theo thời tiết và thể trạng.",
+        "Chi phí hiển thị là mức tham khảo, chưa phải báo giá đặt dịch vụ."
+      ],
+      "estimatedCost": "Chi phí dự kiến",
+      "perPersonRef": "Mức tham khảo cho một người",
+      "duration": "Thời lượng",
+      "departure": "Khởi hành",
+      "meeting": "Tập trung",
+      "relatedEyebrow": "Có thể bạn quan tâm",
+      "relatedTitle": "Hành trình tương tự",
+      "flexible": "Linh hoạt",
+      "mealIncluded": "Đã gồm",
+      "mealSelfPay": "Tự túc",
+      "updatingPrice": "Đang cập nhật"
+    },
+    "transport": {
+      "walking": "Đi bộ",
+      "bicycle": "Xe đạp",
+      "motobike": "Xe máy",
+      "car": "Ô tô",
+      "bus": "Xe buýt",
+      "train": "Tàu hỏa",
+      "airplane": "Máy bay",
+      "boat": "Thuyền",
+      "other": "Phương tiện khác"
+    },
+    "meal": {
+      "breakfast": "Bữa sáng",
+      "lunch": "Bữa trưa",
+      "dinner": "Bữa tối",
+      "snack": "Bữa nhẹ",
+      "default": "Bữa ăn"
+    },
+    "actions": {
+      "customizeAI": "Tùy chỉnh bằng AI",
+      "comingSoon": "Sắp ra mắt",
+      "aiTitle": "Tính năng tùy chỉnh bằng AI sẽ được phát triển sau",
+      "saved": "Đã lưu",
+      "save": "Lưu",
+      "share": "Chia sẻ",
+      "copied": "Đã sao chép",
+      "shareError": "Không thể chia sẻ",
+      "saveNote": "Bản lưu nhanh được giữ trên thiết bị. Hành trình tạo từ tour sẽ được lưu trong tài khoản.",
+      "saveError": "Không thể lưu hành trình:",
+      "shareError2": "Không thể chia sẻ hành trình:"
+    },
+    "costs": {
+      "estimatedCost": "Chi phí dự kiến",
+      "viewDetails": "Xem chi tiết",
+      "eyebrow": "Chi phí tour",
+      "title": "Chi tiết dự toán",
+      "description": "Mức tham khảo được tính cho 1 người lớn và 1 phòng.",
+      "close": "Đóng",
+      "noCostsTitle": "Tour chưa có breakdown chi phí",
+      "noCostsDescription": "Giá hiện tại là mức tham khảo cũ. Chi tiết từng khoản đang được cập nhật.",
+      "totalLabel": "Tổng dự toán",
+      "totalNote": "Mức tham khảo cho một người",
+      "updatingPrice": "Đang cập nhật"
+    }
+  },
+  "Profile": {
+    "metadata": {
+      "title": "Tài khoản của tôi",
+      "description": "Quản lý thông tin cá nhân và tài khoản SmartTrip."
+    },
+    "settings": {
+      "nameMinError": "Họ và tên phải có ít nhất 2 ký tự.",
+      "nameMaxError": "Họ và tên không được vượt quá 80 ký tự.",
+      "nameInvalidError": "Họ và tên phải chứa chữ cái hoặc chữ số."
+    }
+  },
+  "Auth": {
+    "metadata": {
+      "title": "Đăng nhập"
+    }
   }
 }

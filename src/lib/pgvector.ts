@@ -8,8 +8,8 @@ export const RAG_CHUNK_SIZE = 1200;
 
 export const RAG_CHUNK_OVERLAP = 160;
 
-export function normalizeRagLimit(value?:number){
-    const normalized = Math.trunc(value ?? RAG_DEFAULT_LIMIT);
+export function normalizeRagLimit(value?: number) {
+  const normalized = Math.trunc(value ?? RAG_DEFAULT_LIMIT);
 
-    return Math.min(Math.max(normalized, 1), RAG_DEFAULT_LIMIT);
+  return Math.min(Math.max(normalized, 1), RAG_DEFAULT_LIMIT);
 }

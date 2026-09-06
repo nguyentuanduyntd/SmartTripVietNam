@@ -1,230 +1,138 @@
 "use client";
 
-import {
-    Crosshair,
-    MapPin,
-    Navigation,
-} from "lucide-react";
-import {
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import { Crosshair, MapPin, Navigation } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 type LocationMapProps = {
-    latitude: number;
-    longitude: number;
-    label: string;
+  latitude: number;
+  longitude: number;
+  label: string;
 
-    gpsLatitude?: number | null;
-    gpsLongitude?: number | null;
+  gpsLatitude?: number | null;
+  gpsLongitude?: number | null;
 
-    onSelectLocation: (
-        latitude: number,
-        longitude: number,
-    ) => void;
+  onSelectLocation: (latitude: number, longitude: number) => void;
 };
 
 export function LocationMap({
+  latitude,
+  longitude,
+  label,
+  gpsLatitude,
+  gpsLongitude,
+  onSelectLocation,
+}: LocationMapProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const mapRef = useRef<import("leaflet").Map | null>(null);
+
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+
+  const selectedMarkerRef = useRef<import("leaflet").Marker | null>(null);
+
+  const gpsMarkerRef = useRef<import("leaflet").Marker | null>(null);
+
+  const onSelectLocationRef = useRef(onSelectLocation);
+
+  const initialLocationRef = useRef({
     latitude,
     longitude,
-    label,
-    gpsLatitude,
-    gpsLongitude,
-    onSelectLocation,
-}: LocationMapProps) {
-    const containerRef =
-        useRef<HTMLDivElement | null>(
-            null,
-        );
+  });
 
-    const mapRef =
-        useRef<
-            import("leaflet").Map | null
-        >(null);
+  useEffect(() => {
+    onSelectLocationRef.current = onSelectLocation;
+  }, [onSelectLocation]);
 
-    const [isMapReady, setIsMapReady] =
-        useState(false);
+  useEffect(() => {
+    let cancelled = false;
 
-    const leafletRef =
-        useRef<
-            typeof import("leaflet") | null
-        >(null);
+    async function initializeMap() {
+      if (!containerRef.current || mapRef.current) {
+        return;
+      }
 
-    const selectedMarkerRef =
-        useRef<
-            import("leaflet").Marker | null
-        >(null);
+      const L = await import("leaflet");
 
-    const gpsMarkerRef =
-        useRef<
-            import("leaflet").Marker | null
-        >(null);
+      if (cancelled || !containerRef.current) {
+        return;
+      }
 
-    const onSelectLocationRef =
-        useRef(onSelectLocation);
+      leafletRef.current = L;
 
-    const initialLocationRef =
-        useRef({
-            latitude,
-            longitude,
-        });
+      const initial = initialLocationRef.current;
 
-    useEffect(() => {
-        onSelectLocationRef.current =
-            onSelectLocation;
-    }, [onSelectLocation]);
+      const map = L.map(containerRef.current, {
+        zoomControl: false,
+        attributionControl: true,
+      }).setView([initial.latitude, initial.longitude], 15);
 
-    /*
-     * Khởi tạo Leaflet duy nhất một lần.
-     *
-     * Import Leaflet bên trong useEffect để tránh
-     * lỗi "window is not defined" khi Next.js render server.
-     */
-    useEffect(() => {
-        let cancelled = false;
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
 
-        async function initializeMap() {
-            if (
-                !containerRef.current ||
-                mapRef.current
-            ) {
-                return;
-            }
+      L.control
+        .zoom({
+          position: "bottomright",
+        })
+        .addTo(map);
 
-            const L =
-                await import("leaflet");
+      map.on("click", (event) => {
+        const { lat, lng } = event.latlng;
 
-            if (
-                cancelled ||
-                !containerRef.current
-            ) {
-                return;
-            }
+        onSelectLocationRef.current(lat, lng);
+      });
 
-            leafletRef.current = L;
+      mapRef.current = map;
+      setIsMapReady(true);
 
-            const initial =
-                initialLocationRef.current;
+      window.setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+    }
 
-            const map = L.map(
-                containerRef.current,
-                {
-                    zoomControl: false,
-                    attributionControl:
-                        true,
-                },
-            ).setView(
-                [
-                    initial.latitude,
-                    initial.longitude,
-                ],
-                15,
-            );
+    void initializeMap();
 
-            L.tileLayer(
-                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                {
-                    maxZoom: 19,
-                    attribution:
-                        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                },
-            ).addTo(map);
+    return () => {
+      cancelled = true;
 
-            L.control
-                .zoom({
-                    position:
-                        "bottomright",
-                })
-                .addTo(map);
+      selectedMarkerRef.current = null;
+      gpsMarkerRef.current = null;
 
-            map.on(
-                "click",
-                (event) => {
-                    const {
-                        lat,
-                        lng,
-                    } = event.latlng;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
 
-                    onSelectLocationRef.current(
-                        lat,
-                        lng,
-                    );
-                },
-            );
+      leafletRef.current = null;
+    };
+  }, []);
 
-            mapRef.current = map;
-            setIsMapReady(true);
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
 
-            /*
-             * Khi component nằm trong grid/layout responsive,
-             * Leaflet đôi lúc tính sai kích thước ở frame đầu.
-             */
-            window.setTimeout(
-                () => {
-                    map.invalidateSize();
-                },
-                100,
-            );
-        }
+    if (!isMapReady || !L || !map) {
+      return;
+    }
 
-        void initializeMap();
+    const overlapsGps =
+      gpsLatitude != null &&
+      gpsLongitude != null &&
+      Math.abs(latitude - gpsLatitude) < 0.000001 &&
+      Math.abs(longitude - gpsLongitude) < 0.000001;
 
-        return () => {
-            cancelled = true;
+    if (overlapsGps) {
+      selectedMarkerRef.current?.remove();
+      selectedMarkerRef.current = null;
+      return;
+    }
 
-            selectedMarkerRef.current =
-                null;
-            gpsMarkerRef.current =
-                null;
-
-            if (mapRef.current) {
-                mapRef.current.remove();
-                mapRef.current =
-                    null;
-            }
-
-            leafletRef.current =
-                null;
-        };
-    }, []);
-
-    /*
-     * Marker màu vàng:
-     * vị trí user đang CHỌN để tìm restaurant.
-     */
-    useEffect(() => {
-        const L =
-            leafletRef.current;
-        const map =
-            mapRef.current;
-
-        if (!isMapReady || !L || !map) {
-            return;
-        }
-
-        const overlapsGps =
-            gpsLatitude != null &&
-            gpsLongitude != null &&
-            Math.abs(
-                latitude - gpsLatitude,
-            ) < 0.000001 &&
-            Math.abs(
-                longitude - gpsLongitude,
-            ) < 0.000001;
-
-        if (overlapsGps) {
-            selectedMarkerRef.current?.remove();
-            selectedMarkerRef.current =
-                null;
-            return;
-        }
-
-        const selectedIcon =
-            L.divIcon({
-                className:
-                    "smarttrip-selected-marker",
-                html: `
+    const selectedIcon = L.divIcon({
+      className: "smarttrip-selected-marker",
+      html: `
                     <div
                         style="
                             position: relative;
@@ -260,100 +168,48 @@ export function LocationMap({
                         </div>
                     </div>
                 `,
-                iconSize: [
-                    48,
-                    58,
-                ],
-                iconAnchor: [
-                    24,
-                    50,
-                ],
-            });
+      iconSize: [48, 58],
+      iconAnchor: [24, 50],
+    });
 
-        const position: [
-            number,
-            number,
-        ] = [
-            latitude,
-            longitude,
-        ];
+    const position: [number, number] = [latitude, longitude];
 
-        if (
-            selectedMarkerRef.current
-        ) {
-            selectedMarkerRef.current.setLatLng(
-                position,
-            );
-        } else {
-            selectedMarkerRef.current =
-                L.marker(position, {
-                    icon: selectedIcon,
-                    zIndexOffset:
-                        1000,
-                })
-                    .addTo(map)
-                    .bindTooltip(
-                        "Vị trí tìm kiếm",
-                        {
-                            permanent:
-                                false,
-                            direction:
-                                "top",
-                            offset: [
-                                0,
-                                -42,
-                            ],
-                        },
-                    );
-        }
-    }, [
-        latitude,
-        longitude,
-        gpsLatitude,
-        gpsLongitude,
-        isMapReady,
-    ]);
+    if (selectedMarkerRef.current) {
+      selectedMarkerRef.current.setLatLng(position);
+    } else {
+      selectedMarkerRef.current = L.marker(position, {
+        icon: selectedIcon,
+        zIndexOffset: 1000,
+      })
+        .addTo(map)
+        .bindTooltip("Vị trí tìm kiếm", {
+          permanent: false,
+          direction: "top",
+          offset: [0, -42],
+        });
+    }
+  }, [latitude, longitude, gpsLatitude, gpsLongitude, isMapReady]);
 
-    /*
-     * Chấm xanh:
-     * vị trí GPS thật của thiết bị.
-     *
-     * Sau này user click sang một nơi khác,
-     * chấm GPS vẫn đứng nguyên để phân biệt:
-     *
-     * - Bạn đang ở đâu
-     * - Bạn muốn tìm quán ở đâu
-     */
-    useEffect(() => {
-        const L =
-            leafletRef.current;
-        const map =
-            mapRef.current;
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
 
-        if (!isMapReady || !L || !map) {
-            return;
-        }
+    if (!isMapReady || !L || !map) {
+      return;
+    }
 
-        if (
-            gpsLatitude == null ||
-            gpsLongitude == null
-        ) {
-            if (
-                gpsMarkerRef.current
-            ) {
-                gpsMarkerRef.current.remove();
-                gpsMarkerRef.current =
-                    null;
-            }
+    if (gpsLatitude == null || gpsLongitude == null) {
+      if (gpsMarkerRef.current) {
+        gpsMarkerRef.current.remove();
+        gpsMarkerRef.current = null;
+      }
 
-            return;
-        }
+      return;
+    }
 
-        const gpsIcon =
-            L.divIcon({
-                className:
-                    "smarttrip-gps-marker",
-                html: `
+    const gpsIcon = L.divIcon({
+      className: "smarttrip-gps-marker",
+      html: `
                     <div
                         style="
                             position: relative;
@@ -387,208 +243,110 @@ export function LocationMap({
                         ></div>
                     </div>
                 `,
-                iconSize: [
-                    34,
-                    34,
-                ],
-                iconAnchor: [
-                    17,
-                    17,
-                ],
-            });
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
 
-        const position: [
-            number,
-            number,
-        ] = [
-            gpsLatitude,
-            gpsLongitude,
-        ];
+    const position: [number, number] = [gpsLatitude, gpsLongitude];
 
-        if (gpsMarkerRef.current) {
-            gpsMarkerRef.current.setLatLng(
-                position,
-            );
-        } else {
-            gpsMarkerRef.current =
-                L.marker(position, {
-                    icon: gpsIcon,
-                    zIndexOffset:
-                        500,
-                })
-                    .addTo(map)
-                    .bindTooltip(
-                        "Vị trí GPS của bạn",
-                        {
-                            direction:
-                                "top",
-                        },
-                    );
-        }
-    }, [
-        gpsLatitude,
-        gpsLongitude,
-        isMapReady,
-    ]);
+    if (gpsMarkerRef.current) {
+      gpsMarkerRef.current.setLatLng(position);
+    } else {
+      gpsMarkerRef.current = L.marker(position, {
+        icon: gpsIcon,
+        zIndexOffset: 500,
+      })
+        .addTo(map)
+        .bindTooltip("Vị trí GPS của bạn", {
+          direction: "top",
+        });
+    }
+  }, [gpsLatitude, gpsLongitude, isMapReady]);
 
-    /*
-     * Khi GPS hoặc điểm chọn trên bản đồ thay đổi,
-     * đưa camera về vị trí đó.
-     *
-     * Không recreate map.
-     */
-    useEffect(() => {
-        const map =
-            mapRef.current;
+  useEffect(() => {
+    const map = mapRef.current;
 
-        if (!isMapReady || !map) {
-            return;
-        }
-
-        const center =
-            map.getCenter();
-
-        const distance =
-            Math.abs(
-                center.lat -
-                    latitude,
-            ) +
-            Math.abs(
-                center.lng -
-                    longitude,
-            );
-
-        /*
-         * Nếu chỉ click gần trong cùng vùng bản đồ
-         * thì không flyTo liên tục gây khó chịu.
-         */
-        if (distance > 0.01) {
-            map.flyTo(
-                [
-                    latitude,
-                    longitude,
-                ],
-                Math.max(
-                    map.getZoom(),
-                    15,
-                ),
-                {
-                    duration: 0.8,
-                },
-            );
-        }
-    }, [
-        latitude,
-        longitude,
-        isMapReady,
-    ]);
-
-    function focusSelectedLocation() {
-        mapRef.current?.flyTo(
-            [
-                latitude,
-                longitude,
-            ],
-            16,
-            {
-                duration: 0.7,
-            },
-        );
+    if (!isMapReady || !map) {
+      return;
     }
 
-    function focusGpsLocation() {
-        if (
-            gpsLatitude == null ||
-            gpsLongitude == null
-        ) {
-            return;
-        }
+    const center = map.getCenter();
 
-        mapRef.current?.flyTo(
-            [
-                gpsLatitude,
-                gpsLongitude,
-            ],
-            16,
-            {
-                duration: 0.7,
-            },
-        );
+    const distance = Math.abs(center.lat - latitude) + Math.abs(center.lng - longitude);
+
+    if (distance > 0.01) {
+      map.flyTo([latitude, longitude], Math.max(map.getZoom(), 15), {
+        duration: 0.8,
+      });
+    }
+  }, [latitude, longitude, isMapReady]);
+
+  function focusSelectedLocation() {
+    mapRef.current?.flyTo([latitude, longitude], 16, {
+      duration: 0.7,
+    });
+  }
+
+  function focusGpsLocation() {
+    if (gpsLatitude == null || gpsLongitude == null) {
+      return;
     }
 
-    const isSelectedGps =
-        gpsLatitude != null &&
-        gpsLongitude != null &&
-        Math.abs(
-            latitude - gpsLatitude,
-        ) < 0.000001 &&
-        Math.abs(
-            longitude - gpsLongitude,
-        ) < 0.000001;
+    mapRef.current?.flyTo([gpsLatitude, gpsLongitude], 16, {
+      duration: 0.7,
+    });
+  }
 
-    return (
-        <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[28px] border border-white/10 bg-[#102f30] sm:min-h-[420px] lg:min-h-[460px]">
-            <div
-                ref={containerRef}
-                className="absolute inset-0 z-0"
-            />
+  const isSelectedGps =
+    gpsLatitude != null &&
+    gpsLongitude != null &&
+    Math.abs(latitude - gpsLatitude) < 0.000001 &&
+    Math.abs(longitude - gpsLongitude) < 0.000001;
 
-            {/* Gradient giúp map hòa với theme SmartTrip */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-[#102f30]/40 to-transparent" />
+  return (
+    <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-[28px] border border-white/10 bg-[#102f30] sm:min-h-[420px] lg:min-h-[460px]">
+      <div ref={containerRef} className="absolute inset-0 z-0" />
 
-            {/* Thông tin vị trí đang chọn */}
-            <div className="pointer-events-none absolute left-4 right-4 top-4 z-[500] flex items-start justify-between gap-3">
-                <div className="pointer-events-auto max-w-[75%] rounded-2xl border border-white/15 bg-[#102f30]/90 px-3 py-2.5 shadow-xl backdrop-blur-md">
-                    <div className="flex items-center gap-3">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f3bd59] text-[#173a3b]">
-                            <MapPin
-                                size={17}
-                            />
-                        </span>
+      {}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-[#102f30]/40 to-transparent" />
 
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-extrabold text-white">
-                                {label}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+      {}
+      <div className="pointer-events-none absolute left-4 right-4 top-4 z-[500] flex items-start justify-between gap-3">
+        <div className="pointer-events-auto max-w-[75%] rounded-2xl border border-white/15 bg-[#102f30]/90 px-3 py-2.5 shadow-xl backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f3bd59] text-[#173a3b]">
+              <MapPin size={17} />
+            </span>
 
-                <button
-                    type="button"
-                    onClick={
-                        focusSelectedLocation
-                    }
-                    aria-label="Đưa bản đồ về vị trí đang chọn"
-                    title="Về vị trí đang chọn"
-                    className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/15 bg-[#102f30]/90 text-[#f3bd59] shadow-xl backdrop-blur-md transition hover:bg-[#173f40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                >
-                    <Crosshair
-                        size={18}
-                    />
-                </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold text-white">{label}</p>
             </div>
-
-            {/* Nút về GPS */}
-            {gpsLatitude != null &&
-            gpsLongitude != null &&
-            !isSelectedGps ? (
-                <button
-                    type="button"
-                    onClick={
-                        focusGpsLocation
-                    }
-                    aria-label="Đưa bản đồ về vị trí GPS của tôi"
-                    className="absolute bottom-5 left-4 z-[500] inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#102f30]/90 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl backdrop-blur-md transition hover:bg-[#173f40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                >
-                    <Navigation
-                        size={14}
-                        className="text-[#55b7ae]"
-                    />
-                    Vị trí của tôi
-                </button>
-            ) : null}
-
+          </div>
         </div>
-    );
+
+        <button
+          type="button"
+          onClick={focusSelectedLocation}
+          aria-label="Đưa bản đồ về vị trí đang chọn"
+          title="Về vị trí đang chọn"
+          className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/15 bg-[#102f30]/90 text-[#f3bd59] shadow-xl backdrop-blur-md transition hover:bg-[#173f40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <Crosshair size={18} />
+        </button>
+      </div>
+
+      {}
+      {gpsLatitude != null && gpsLongitude != null && !isSelectedGps ? (
+        <button
+          type="button"
+          onClick={focusGpsLocation}
+          aria-label="Đưa bản đồ về vị trí GPS của tôi"
+          className="absolute bottom-5 left-4 z-[500] inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#102f30]/90 px-4 py-2.5 text-xs font-extrabold text-white shadow-xl backdrop-blur-md transition hover:bg-[#173f40] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <Navigation size={14} className="text-[#55b7ae]" />
+          Vị trí của tôi
+        </button>
+      ) : null}
+    </div>
+  );
 }

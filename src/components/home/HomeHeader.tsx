@@ -2,1249 +2,723 @@
 
 import type { User } from "@supabase/supabase-js";
 import {
-    Bell,
-    CalendarDays,
-    ChevronDown,
-    LayoutDashboard,
-    Landmark,
-    LogOut,
-    Menu,
-    Route,
-    UserRound,
-    X,
+  Bell,
+  CalendarDays,
+  ChevronDown,
+  LayoutDashboard,
+  Landmark,
+  LogOut,
+  Menu,
+  Route,
+  UserRound,
+  X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LanguageSwitcher } from "@/src/components/common/LanguageSwitcher";
 import { notificationsApi } from "@/src/lib/api-client/notifications";
 import { createClient } from "@/src/lib/supabase/client";
 
 interface UserProfile {
-    full_name: string | null;
-    avatar_url: string | null;
-    role: "user" | "admin" | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: "user" | "admin" | null;
 }
 
 interface LoadedUserProfile {
-    userId: string;
-    profile: UserProfile | null;
+  userId: string;
+  profile: UserProfile | null;
 }
 
 interface ProfileUpdatedDetail {
-    fullName?: string;
-    avatarUrl?: string | null;
-    role?: "user" | "admin";
+  fullName?: string;
+  avatarUrl?: string | null;
+  role?: "user" | "admin";
 }
 
 interface UserAvatarProps {
-    avatarUrl: string | null;
-    displayName: string;
-    initials: string;
-    className?: string;
+  avatarUrl: string | null;
+  displayName: string;
+  initials: string;
+  className?: string;
 }
 
-function UserAvatar({
-    avatarUrl,
-    displayName,
-    initials,
-    className = "h-10 w-10",
-}: UserAvatarProps) {
-    if (avatarUrl) {
-        return (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-                src={avatarUrl}
-                alt={displayName}
-                referrerPolicy="no-referrer"
-                className={`${className} shrink-0 rounded-full object-cover ring-2 ring-white`}
-            />
-        );
-    }
-
+function UserAvatar({ avatarUrl, displayName, initials, className = "h-10 w-10" }: UserAvatarProps) {
+  if (avatarUrl) {
     return (
-        <span
-            className={`${className} grid shrink-0 place-items-center rounded-full bg-[#f25f4b] font-bold uppercase text-white ring-2 ring-white`}
-            aria-hidden="true"
-        >
-            {initials}
-        </span>
+      <img
+        src={avatarUrl}
+        alt={displayName}
+        referrerPolicy="no-referrer"
+        className={`${className} shrink-0 rounded-full object-cover ring-2 ring-white`}
+      />
     );
+  }
+
+  return (
+    <span
+      className={`${className} grid shrink-0 place-items-center rounded-full bg-[#f25f4b] font-bold uppercase text-white ring-2 ring-white`}
+      aria-hidden="true"
+    >
+      {initials}
+    </span>
+  );
 }
 
-function getMetadataString(
-    value: unknown,
-): string | null {
-    if (
-        typeof value !== "string" ||
-        !value.trim()
-    ) {
-        return null;
-    }
+function getMetadataString(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
 
-    return value.trim();
+  return value.trim();
 }
 
-function getHomeSectionHref(
-    href: string,
-) {
-    if (href.startsWith("#")) {
-        return `/${href}`;
-    }
+function getHomeSectionHref(href: string) {
+  if (href.startsWith("#")) {
+    return `/${href}`;
+  }
 
-    return href;
+  return href;
 }
 
-function getInitials(
-    name: string,
-): string {
-    const words = name
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
+function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
 
-    if (words.length === 0) {
-        return "U";
-    }
+  if (words.length === 0) {
+    return "U";
+  }
 
-    if (words.length === 1) {
-        return words[0]
-            .slice(0, 2)
-            .toUpperCase();
-    }
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
 
-    return `${words[0][0]}${
-        words[
-            words.length - 1
-        ][0]
-    }`.toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
 }
 
 export function HomeHeader() {
-    const router =
-        useRouter();
+  const router = useRouter();
 
-    const t =
-        useTranslations(
-            "Header",
-        );
+  const t = useTranslations("Header");
 
-    const supabase =
-        useMemo(
-            () =>
-                createClient(),
-            [],
-        );
+  const supabase = useMemo(() => createClient(), []);
 
-    const userMenuRef =
-        useRef<HTMLDivElement>(
-            null,
-        );
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-    const [isOpen, setIsOpen] =
-        useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-    const [
-        isUserMenuOpen,
-        setIsUserMenuOpen,
-    ] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-    const [user, setUser] =
-        useState<User | null>(
-            null,
-        );
+  const [user, setUser] = useState<User | null>(null);
 
-    const [
-        loadedProfile,
-        setLoadedProfile,
-    ] =
-        useState<LoadedUserProfile | null>(
-            null,
-        );
+  const [loadedProfile, setLoadedProfile] = useState<LoadedUserProfile | null>(null);
 
-    const [
-        isAuthLoading,
-        setIsAuthLoading,
-    ] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-    const [
-        isSigningOut,
-        setIsSigningOut,
-    ] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-    const [
-        unreadNotificationCount,
-        setUnreadNotificationCount,
-    ] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
-    const navItems =
-        useMemo(
-            () => [
-                {
-                    key:
-                        "explore" as const,
-                    href:
-                        "#kham-pha",
-                },
-                {
-                    key:
-                        "destinations" as const,
-                    href:
-                        "#diem-den",
-                },
-                {
-                    key:
-                        "cuisine" as const,
-                    href:
-                        "/food",
-                },
-                {
-                    key:
-                        "journeys" as const,
-                    href:
-                        "#hanh-trinh",
-                },
-                {
-                    key:
-                        "experiences" as const,
-                    href:
-                        "#trai-nghiem",
-                },
-            ],
-            [],
-        );
+  const navItems = useMemo(
+    () => [
+      {
+        key: "explore" as const,
+        href: "#kham-pha",
+      },
+      {
+        key: "destinations" as const,
+        href: "#diem-den",
+      },
+      {
+        key: "cuisine" as const,
+        href: "/food",
+      },
+      {
+        key: "journeys" as const,
+        href: "#hanh-trinh",
+      },
+      {
+        key: "experiences" as const,
+        href: "#trai-nghiem",
+      },
+    ],
+    [],
+  );
 
-    useEffect(() => {
-        let isMounted =
-            true;
+  useEffect(() => {
+    let isMounted = true;
 
-        async function loadCurrentSession() {
-            try {
-                const {
-                    data: {
-                        session,
-                    },
-                    error,
-                } =
-                    await supabase.auth.getSession();
-
-                if (!isMounted) {
-                    return;
-                }
-
-                if (error) {
-                    console.error(
-                        "[HOME HEADER AUTH SESSION ERROR]",
-                        error,
-                    );
-
-                    setUser(null);
-                    return;
-                }
-
-                setUser(
-                    session?.user ??
-                        null,
-                );
-            } catch (error) {
-                console.error(
-                    "[HOME HEADER AUTH SESSION ERROR]",
-                    error,
-                );
-
-                if (
-                    isMounted
-                ) {
-                    setUser(
-                        null,
-                    );
-                }
-            } finally {
-                if (
-                    isMounted
-                ) {
-                    setIsAuthLoading(
-                        false,
-                    );
-                }
-            }
-        }
-
-        void loadCurrentSession();
-
+    async function loadCurrentSession() {
+      try {
         const {
-            data: {
-                subscription,
-            },
-        } =
-            supabase.auth.onAuthStateChange(
-                (
-                    _event,
-                    session,
-                ) => {
-                    if (
-                        !isMounted
-                    ) {
-                        return;
-                    }
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-                    const nextUser =
-                        session?.user ??
-                        null;
-
-                    setUser(
-                        nextUser,
-                    );
-
-                    setIsAuthLoading(
-                        false,
-                    );
-
-                    if (
-                        !nextUser
-                    ) {
-                        setUnreadNotificationCount(
-                            0,
-                        );
-
-                        setLoadedProfile(
-                            null,
-                        );
-
-                        setIsUserMenuOpen(
-                            false,
-                        );
-                    }
-                },
-            );
-
-        return () => {
-            isMounted =
-                false;
-
-            subscription.unsubscribe();
-        };
-    }, [supabase]);
-
-    useEffect(() => {
-        let isMounted =
-            true;
-
-        const userId =
-            user?.id;
-
-        if (
-            typeof userId !==
-                "string" ||
-            userId.length === 0
-        ) {
-            return;
+        if (!isMounted) {
+          return;
         }
 
-        async function loadProfile(
-            authenticatedUserId: string,
-        ) {
-            const {
-                data,
-                error,
-            } =
-                await supabase
-                    .from(
-                        "profiles",
-                    )
-                    .select(
-                        "full_name, avatar_url, role",
-                    )
-                    .eq(
-                        "id",
-                        authenticatedUserId,
-                    )
-                    .maybeSingle();
+        if (error) {
+          console.error("[HOME HEADER AUTH SESSION ERROR]", error);
 
-            if (
-                !isMounted
-            ) {
-                return;
-            }
-
-            if (error) {
-                console.error(
-                    "[HOME HEADER PROFILE ERROR]",
-                    error,
-                );
-
-                setLoadedProfile(
-                    {
-                        userId:
-                            authenticatedUserId,
-                        profile:
-                            null,
-                    },
-                );
-
-                return;
-            }
-
-            setLoadedProfile(
-                {
-                    userId:
-                        authenticatedUserId,
-                    profile:
-                        data as UserProfile | null,
-                },
-            );
+          setUser(null);
+          return;
         }
 
-        void loadProfile(
-            userId,
-        );
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error("[HOME HEADER AUTH SESSION ERROR]", error);
 
-        return () => {
-            isMounted =
-                false;
-        };
-    }, [
-        supabase,
-        user?.id,
-    ]);
-
-    useEffect(() => {
-        const userId = user?.id;
-
-        if (!userId) {
-            return;
+        if (isMounted) {
+          setUser(null);
         }
-
-        const authenticatedUserId: string = userId;
-
-        function handleProfileUpdated(
-            event: Event,
-        ) {
-            const detail =
-                (
-                    event as CustomEvent<ProfileUpdatedDetail>
-                ).detail;
-
-            if (!detail) {
-                return;
-            }
-
-            setLoadedProfile(
-                (current) => {
-                    const currentProfile =
-                        current &&
-                        current.userId ===
-                            authenticatedUserId
-                            ? current.profile
-                            : null;
-
-                    return {
-                        userId: authenticatedUserId,
-                        profile: {
-                            full_name:
-                                detail.fullName !==
-                                undefined
-                                    ? detail.fullName
-                                    : currentProfile?.full_name ??
-                                      null,
-                            avatar_url:
-                                detail.avatarUrl !==
-                                undefined
-                                    ? detail.avatarUrl
-                                    : currentProfile?.avatar_url ??
-                                      null,
-                            role:
-                                detail.role ??
-                                currentProfile?.role ??
-                                null,
-                        },
-                    };
-                },
-            );
+      } finally {
+        if (isMounted) {
+          setIsAuthLoading(false);
         }
-
-        window.addEventListener(
-            "smarttrip:profile-updated",
-            handleProfileUpdated,
-        );
-
-        return () => {
-            window.removeEventListener(
-                "smarttrip:profile-updated",
-                handleProfileUpdated,
-            );
-        };
-    }, [user?.id]);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        if (!user?.id) {
-            return;
-        }
-
-        async function loadUnreadCount() {
-            try {
-                const data = await notificationsApi.list(1, 1);
-
-                if (isMounted) {
-                    setUnreadNotificationCount(data.unreadCount);
-                }
-            } catch (error) {
-                console.error("[HOME HEADER NOTIFICATION ERROR]", error);
-            }
-        }
-
-        void loadUnreadCount();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [user?.id]);
-
-    const profile =
-        user &&
-        loadedProfile?.userId ===
-            user.id
-            ? loadedProfile.profile
-            : null;
-
-    useEffect(() => {
-        if (
-            !isUserMenuOpen
-        ) {
-            return;
-        }
-
-        function handlePointerDown(
-            event: PointerEvent,
-        ) {
-            const target =
-                event.target as Node;
-
-            if (
-                userMenuRef.current &&
-                !userMenuRef.current.contains(
-                    target,
-                )
-            ) {
-                setIsUserMenuOpen(
-                    false,
-                );
-            }
-        }
-
-        function handleKeyDown(
-            event: KeyboardEvent,
-        ) {
-            if (
-                event.key ===
-                "Escape"
-            ) {
-                setIsUserMenuOpen(
-                    false,
-                );
-            }
-        }
-
-        document.addEventListener(
-            "pointerdown",
-            handlePointerDown,
-        );
-
-        document.addEventListener(
-            "keydown",
-            handleKeyDown,
-        );
-
-        return () => {
-            document.removeEventListener(
-                "pointerdown",
-                handlePointerDown,
-            );
-
-            document.removeEventListener(
-                "keydown",
-                handleKeyDown,
-            );
-        };
-    }, [isUserMenuOpen]);
-
-    const metadataFullName =
-        getMetadataString(
-            user
-                ?.user_metadata
-                ?.full_name,
-        ) ??
-        getMetadataString(
-            user
-                ?.user_metadata
-                ?.name,
-        );
-
-    const metadataAvatarUrl =
-        getMetadataString(
-            user
-                ?.user_metadata
-                ?.avatar_url,
-        ) ??
-        getMetadataString(
-            user
-                ?.user_metadata
-                ?.picture,
-        );
-
-    const email =
-        user?.email ??
-        t(
-            "account.noEmail",
-        );
-
-    const displayName =
-        profile?.full_name?.trim() ||
-        metadataFullName ||
-        user?.email?.split(
-            "@",
-        )[0] ||
-        t(
-            "account.member",
-        );
-
-    const avatarUrl =
-        profile?.avatar_url ||
-        metadataAvatarUrl ||
-        null;
-
-    const initials =
-        getInitials(
-            displayName,
-        );
-
-    const roleLabel =
-        profile?.role ===
-        "admin"
-            ? t(
-                  "account.admin",
-              )
-            : t(
-                  "account.member",
-              );
-
-    function closeMenu() {
-        setIsOpen(false);
-        setIsUserMenuOpen(
-            false,
-        );
+      }
     }
 
-    async function handleSignOut() {
-        if (
-            isSigningOut
-        ) {
-            return;
-        }
+    void loadCurrentSession();
 
-        setIsSigningOut(
-            true,
-        );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) {
+        return;
+      }
 
-        try {
-            const {
-                error,
-            } =
-                await supabase.auth.signOut(
-                    {
-                        scope:
-                            "local",
-                    },
-                );
+      const nextUser = session?.user ?? null;
 
-            if (error) {
-                console.error(
-                    "[HOME HEADER SIGN OUT ERROR]",
-                    error,
-                );
+      setUser(nextUser);
 
-                return;
-            }
+      setIsAuthLoading(false);
 
-            setUser(null);
-            setLoadedProfile(
-                null,
-            );
-            setUnreadNotificationCount(
-                0,
-            );
-            setIsOpen(false);
-            setIsUserMenuOpen(
-                false,
-            );
+      if (!nextUser) {
+        setUnreadNotificationCount(0);
 
-            router.replace("/");
-            router.refresh();
-        } catch (error) {
-            console.error(
-                "[HOME HEADER SIGN OUT ERROR]",
-                error,
-            );
-        } finally {
-            setIsSigningOut(
-                false,
-            );
-        }
+        setLoadedProfile(null);
+
+        setIsUserMenuOpen(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const userId = user?.id;
+
+    if (typeof userId !== "string" || userId.length === 0) {
+      return;
     }
 
-    return (
-        <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-6">
-            <div className="mx-auto flex max-w-[1440px] items-center justify-between rounded-[24px] border border-white/60 bg-[#fffaf0]/88 px-4 py-3 shadow-[0_20px_70px_rgba(35,45,43,0.10)] backdrop-blur-xl sm:px-6 lg:px-8">
-                <Link
-                    href="/"
-                    className="group flex min-w-0 items-center gap-3 text-[#173a3b]"
-                    aria-label={t(
-                        "brandHomeAria",
-                    )}
-                    onClick={
-                        closeMenu
-                    }
+    async function loadProfile(authenticatedUserId: string) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url, role")
+        .eq("id", authenticatedUserId)
+        .maybeSingle();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        console.error("[HOME HEADER PROFILE ERROR]", error);
+
+        setLoadedProfile({
+          userId: authenticatedUserId,
+          profile: null,
+        });
+
+        return;
+      }
+
+      setLoadedProfile({
+        userId: authenticatedUserId,
+        profile: data as UserProfile | null,
+      });
+    }
+
+    void loadProfile(userId);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase, user?.id]);
+
+  useEffect(() => {
+    const userId = user?.id;
+
+    if (!userId) {
+      return;
+    }
+
+    const authenticatedUserId: string = userId;
+
+    function handleProfileUpdated(event: Event) {
+      const detail = (event as CustomEvent<ProfileUpdatedDetail>).detail;
+
+      if (!detail) {
+        return;
+      }
+
+      setLoadedProfile((current) => {
+        const currentProfile = current && current.userId === authenticatedUserId ? current.profile : null;
+
+        return {
+          userId: authenticatedUserId,
+          profile: {
+            full_name: detail.fullName !== undefined ? detail.fullName : (currentProfile?.full_name ?? null),
+            avatar_url: detail.avatarUrl !== undefined ? detail.avatarUrl : (currentProfile?.avatar_url ?? null),
+            role: detail.role ?? currentProfile?.role ?? null,
+          },
+        };
+      });
+    }
+
+    window.addEventListener("smarttrip:profile-updated", handleProfileUpdated);
+
+    return () => {
+      window.removeEventListener("smarttrip:profile-updated", handleProfileUpdated);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!user?.id) {
+      return;
+    }
+
+    async function loadUnreadCount() {
+      try {
+        const data = await notificationsApi.list(1, 1);
+
+        if (isMounted) {
+          setUnreadNotificationCount(data.unreadCount);
+        }
+      } catch (error) {
+        console.error("[HOME HEADER NOTIFICATION ERROR]", error);
+      }
+    }
+
+    void loadUnreadCount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  const profile = user && loadedProfile?.userId === user.id ? loadedProfile.profile : null;
+
+  const isAdmin = profile?.role === "admin";
+
+  const showMemberMenuItems = loadedProfile?.userId === user?.id && !isAdmin;
+
+  useEffect(() => {
+    if (!isUserMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isUserMenuOpen]);
+
+  const metadataFullName =
+    getMetadataString(user?.user_metadata?.full_name) ?? getMetadataString(user?.user_metadata?.name);
+
+  const metadataAvatarUrl =
+    getMetadataString(user?.user_metadata?.avatar_url) ?? getMetadataString(user?.user_metadata?.picture);
+
+  const email = user?.email ?? t("account.noEmail");
+
+  const displayName =
+    profile?.full_name?.trim() || metadataFullName || user?.email?.split("@")[0] || t("account.member");
+
+  const avatarUrl = profile?.avatar_url || metadataAvatarUrl || null;
+
+  const initials = getInitials(displayName);
+
+  const roleLabel = isAdmin ? t("account.admin") : t("account.member");
+
+  function closeMenu() {
+    setIsOpen(false);
+    setIsUserMenuOpen(false);
+  }
+
+  async function handleSignOut() {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut({
+        scope: "local",
+      });
+
+      if (error) {
+        console.error("[HOME HEADER SIGN OUT ERROR]", error);
+
+        return;
+      }
+
+      setUser(null);
+      setLoadedProfile(null);
+      setUnreadNotificationCount(0);
+      setIsOpen(false);
+      setIsUserMenuOpen(false);
+
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      console.error("[HOME HEADER SIGN OUT ERROR]", error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between rounded-[24px] border border-white/60 bg-[#fffaf0]/88 px-4 py-3 shadow-[0_20px_70px_rgba(35,45,43,0.10)] backdrop-blur-xl sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="group flex min-w-0 items-center gap-3 text-[#173a3b]"
+          aria-label={t("brandHomeAria")}
+          onClick={closeMenu}
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f25f4b] text-white shadow-[0_10px_30px_rgba(242,95,75,0.24)] transition-transform group-hover:-rotate-3 group-hover:scale-105">
+            <Landmark size={23} strokeWidth={1.8} />
+          </span>
+
+          <span className="hidden truncate font-display text-[22px] font-semibold tracking-[-0.02em] sm:block sm:text-[26px]">
+            {t("brand")}
+          </span>
+        </Link>
+
+        <nav className="hidden items-center gap-6 xl:flex" aria-label={t("mainNavigationAria")}>
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={getHomeSectionHref(item.href)}
+              className="relative py-2 text-[15px] font-medium text-[#294748] transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-[#f25f4b] after:transition-transform hover:text-[#f25f4b] hover:after:scale-x-100"
+            >
+              {t(`nav.${item.key}`)}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden items-center gap-2 lg:flex">
+          <LanguageSwitcher compact />
+
+          {isAuthLoading ? (
+            <div className="h-11 w-32 animate-pulse rounded-full bg-[#e8dfd1]" />
+          ) : user ? (
+            <div ref={userMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setIsUserMenuOpen((current) => !current)}
+                className="flex h-12 max-w-52 items-center gap-3 rounded-full border border-[#d8cdbc] bg-white/65 py-1.5 pl-1.5 pr-3 text-left transition-all hover:border-[#bcae9a] hover:bg-white"
+                aria-expanded={isUserMenuOpen}
+                aria-controls="home-user-menu"
+              >
+                <UserAvatar
+                  avatarUrl={avatarUrl}
+                  displayName={displayName}
+                  initials={initials}
+                  className="h-9 w-9 text-xs"
+                />
+
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-medium text-[#77827f]">{t("account.hello")}</span>
+
+                  <span className="block truncate text-sm font-bold text-[#294748]">{displayName}</span>
+                </span>
+
+                <ChevronDown
+                  size={17}
+                  className={`ml-auto shrink-0 text-[#77827f] transition-transform ${
+                    isUserMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {isUserMenuOpen ? (
+                <div
+                  id="home-user-menu"
+                  className="absolute right-0 top-[calc(100%+10px)] w-80 overflow-hidden rounded-[24px] border border-[#ddd2c2] bg-[#fffaf3] p-3 shadow-[0_24px_70px_rgba(30,52,49,0.18)]"
                 >
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f25f4b] text-white shadow-[0_10px_30px_rgba(242,95,75,0.24)] transition-transform group-hover:-rotate-3 group-hover:scale-105">
-                        <Landmark
-                            size={23}
-                            strokeWidth={
-                                1.8
-                            }
-                        />
-                    </span>
-
-                    <span className="hidden truncate font-display text-[22px] font-semibold tracking-[-0.02em] sm:block sm:text-[26px]">
-                        {t(
-                            "brand",
-                        )}
-                    </span>
-                </Link>
-
-                <nav
-                    className="hidden items-center gap-6 xl:flex"
-                    aria-label={t(
-                        "mainNavigationAria",
-                    )}
-                >
-                    {navItems.map(
-                        (
-                            item,
-                        ) => (
-                            <Link
-                                key={
-                                    item.href
-                                }
-                                href={getHomeSectionHref(
-                                    item.href,
-                                )}
-                                className="relative py-2 text-[15px] font-medium text-[#294748] transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-[#f25f4b] after:transition-transform hover:text-[#f25f4b] hover:after:scale-x-100"
-                            >
-                                {t(
-                                    `nav.${item.key}`,
-                                )}
-                            </Link>
-                        ),
-                    )}
-                </nav>
-
-                <div className="hidden items-center gap-2 lg:flex">
-                    <LanguageSwitcher
-                        compact
+                  <div className="flex items-center gap-3 rounded-[18px] bg-[#f1e9dc] p-4">
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      displayName={displayName}
+                      initials={initials}
+                      className="h-12 w-12 text-sm"
                     />
 
-                    {isAuthLoading ? (
-                        <div className="h-11 w-32 animate-pulse rounded-full bg-[#e8dfd1]" />
-                    ) : user ? (
-                        <div
-                            ref={
-                                userMenuRef
-                            }
-                            className="relative"
-                        >
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setIsUserMenuOpen(
-                                        (
-                                            current,
-                                        ) =>
-                                            !current,
-                                    )
-                                }
-                                className="flex h-12 max-w-52 items-center gap-3 rounded-full border border-[#d8cdbc] bg-white/65 py-1.5 pl-1.5 pr-3 text-left transition-all hover:border-[#bcae9a] hover:bg-white"
-                                aria-expanded={
-                                    isUserMenuOpen
-                                }
-                                aria-controls="home-user-menu"
-                            >
-                                <UserAvatar
-                                    avatarUrl={
-                                        avatarUrl
-                                    }
-                                    displayName={
-                                        displayName
-                                    }
-                                    initials={
-                                        initials
-                                    }
-                                    className="h-9 w-9 text-xs"
-                                />
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-[#173a3b]">{displayName}</p>
 
-                                <span className="min-w-0">
-                                    <span className="block truncate text-[11px] font-medium text-[#77827f]">
-                                        {t(
-                                            "account.hello",
-                                        )}
-                                    </span>
+                      <p className="mt-0.5 truncate text-xs text-[#6d7a77]">{email}</p>
 
-                                    <span className="block truncate text-sm font-bold text-[#294748]">
-                                        {
-                                            displayName
-                                        }
-                                    </span>
-                                </span>
+                      <span className="mt-2 inline-flex rounded-full bg-[#dcebe7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#2f7773]">
+                        {roleLabel}
+                      </span>
+                    </div>
+                  </div>
 
-                                <ChevronDown
-                                    size={17}
-                                    className={`ml-auto shrink-0 text-[#77827f] transition-transform ${
-                                        isUserMenuOpen
-                                            ? "rotate-180"
-                                            : ""
-                                    }`}
-                                />
-                            </button>
-
-                            {isUserMenuOpen ? (
-                                <div
-                                    id="home-user-menu"
-                                    className="absolute right-0 top-[calc(100%+10px)] w-80 overflow-hidden rounded-[24px] border border-[#ddd2c2] bg-[#fffaf3] p-3 shadow-[0_24px_70px_rgba(30,52,49,0.18)]"
-                                >
-                                    <div className="flex items-center gap-3 rounded-[18px] bg-[#f1e9dc] p-4">
-                                        <UserAvatar
-                                            avatarUrl={
-                                                avatarUrl
-                                            }
-                                            displayName={
-                                                displayName
-                                            }
-                                            initials={
-                                                initials
-                                            }
-                                            className="h-12 w-12 text-sm"
-                                        />
-
-                                        <div className="min-w-0">
-                                            <p className="truncate font-bold text-[#173a3b]">
-                                                {
-                                                    displayName
-                                                }
-                                            </p>
-
-                                            <p className="mt-0.5 truncate text-xs text-[#6d7a77]">
-                                                {
-                                                    email
-                                                }
-                                            </p>
-
-                                            <span className="mt-2 inline-flex rounded-full bg-[#dcebe7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#2f7773]">
-                                                {
-                                                    roleLabel
-                                                }
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-2 grid gap-1">
-                                        <Link
-                                            href="/planner"
-                                            onClick={
-                                                closeMenu
-                                            }
-                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
-                                        >
-                                            <CalendarDays
-                                                size={
-                                                    18
-                                                }
-                                            />
-                                            {t(
-                                                "account.myItineraries",
-                                            )}
-                                        </Link>
-
-                                        <Link
-                                            href="/notifications"
-                                            onClick={
-                                                closeMenu
-                                            }
-                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
-                                        >
-                                            <Bell
-                                                size={18}
-                                            />
-                                            <span className="flex-1">
-                                                Thông báo
-                                            </span>
-                                            {unreadNotificationCount > 0 ? (
-                                                <span className="grid min-w-5 place-items-center rounded-full bg-[#f25f4b] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                                                </span>
-                                            ) : null}
-                                        </Link>
-
-                                        <Link
-                                            href="/profile"
-                                            onClick={
-                                                closeMenu
-                                            }
-                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
-                                        >
-                                            <UserRound
-                                                size={
-                                                    18
-                                                }
-                                            />
-                                            {t(
-                                                "account.myAccount",
-                                            )}
-                                        </Link>
-
-                                        {profile?.role ===
-                                        "admin" ? (
-                                            <Link
-                                                href="/admin"
-                                                onClick={
-                                                    closeMenu
-                                                }
-                                                className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
-                                            >
-                                                <LayoutDashboard
-                                                    size={
-                                                        18
-                                                    }
-                                                />
-                                                {t(
-                                                    "account.adminDashboard",
-                                                )}
-                                            </Link>
-                                        ) : null}
-
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                void handleSignOut()
-                                            }
-                                            disabled={
-                                                isSigningOut
-                                            }
-                                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-[#c94f3e] transition-colors hover:bg-[#fff0eb] disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            <LogOut
-                                                size={
-                                                    18
-                                                }
-                                            />
-
-                                            {isSigningOut
-                                                ? t(
-                                                      "account.signingOut",
-                                                  )
-                                                : t(
-                                                      "account.signOut",
-                                                  )}
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : null}
-                        </div>
-                    ) : (
+                  <div className="mt-2 grid gap-1">
+                    {showMemberMenuItems ? (
+                      <>
                         <Link
-                            href="/auth/login"
-                            className="rounded-full px-3 py-2.5 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
+                          href="/planner"
+                          onClick={closeMenu}
+                          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
                         >
-                            {t(
-                                "account.signIn",
-                            )}
+                          <CalendarDays size={18} />
+                          {t("account.myItineraries")}
                         </Link>
-                    )}
+
+                        <Link
+                          href="/notifications"
+                          onClick={closeMenu}
+                          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
+                        >
+                          <Bell size={18} />
+                          <span className="flex-1">Thông báo</span>
+                          {unreadNotificationCount > 0 ? (
+                            <span className="grid min-w-5 place-items-center rounded-full bg-[#f25f4b] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                              {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </>
+                    ) : null}
 
                     <Link
-                        href="/planner/ai/"
-                        className="inline-flex items-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#20494a]"
+                      href="/profile"
+                      onClick={closeMenu}
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
                     >
-                        <Route
-                            size={17}
-                        />
-                        {t(
-                            "planTrip",
-                        )}
+                      <UserRound size={18} />
+                      {t("account.myAccount")}
                     </Link>
-                </div>
 
-                <div className="flex items-center gap-2 lg:hidden">
-                    <LanguageSwitcher
-                        compact
-                    />
+                    {isAdmin ? (
+                      <Link
+                        href="/admin"
+                        onClick={closeMenu}
+                        className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe6d8]"
+                      >
+                        <LayoutDashboard size={18} />
+                        {t("account.adminDashboard")}
+                      </Link>
+                    ) : null}
 
                     <button
-                        type="button"
-                        className="grid h-11 w-11 place-items-center rounded-full border border-[#d9d0c1] text-[#173a3b] transition-colors hover:bg-[#efe7d8]"
-                        onClick={() =>
-                            setIsOpen(
-                                (
-                                    current,
-                                ) =>
-                                    !current,
-                            )
-                        }
-                        aria-expanded={
-                            isOpen
-                        }
-                        aria-controls="home-mobile-menu"
-                        aria-label={
-                            isOpen
-                                ? t(
-                                      "closeMenu",
-                                  )
-                                : t(
-                                      "openMenu",
-                                  )
-                        }
+                      type="button"
+                      onClick={() => void handleSignOut()}
+                      disabled={isSigningOut}
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold text-[#c94f3e] transition-colors hover:bg-[#fff0eb] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {isOpen ? (
-                            <X
-                                size={
-                                    22
-                                }
-                            />
-                        ) : (
-                            <Menu
-                                size={
-                                    22
-                                }
-                            />
-                        )}
+                      <LogOut size={18} />
+
+                      {isSigningOut ? t("account.signingOut") : t("account.signOut")}
                     </button>
+                  </div>
                 </div>
+              ) : null}
             </div>
+          ) : (
+            <Link
+              href="/auth/login"
+              className="rounded-full px-3 py-2.5 text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
+            >
+              {t("account.signIn")}
+            </Link>
+          )}
 
-            {isOpen ? (
-                <div
-                    id="home-mobile-menu"
-                    className="mx-auto mt-2 max-w-[1440px] rounded-[24px] border border-white/70 bg-[#fffaf3]/96 p-4 shadow-2xl backdrop-blur-xl lg:hidden"
-                >
-                    <nav
-                        className="grid gap-1"
-                        aria-label={t(
-                            "mobileNavigationAria",
-                        )}
-                    >
-                        {navItems.map(
-                            (
-                                item,
-                            ) => (
-                                <Link
-                                    key={
-                                        item.href
-                                    }
-                                    href={getHomeSectionHref(
-                                        item.href,
-                                    )}
-                                    onClick={
-                                        closeMenu
-                                    }
-                                    className="rounded-2xl px-4 py-3 font-medium text-[#294748] transition-colors hover:bg-[#efe7d8]"
-                                >
-                                    {t(
-                                        `nav.${item.key}`,
-                                    )}
-                                </Link>
-                            ),
-                        )}
-                    </nav>
+          <Link
+            href="/planner/ai/"
+            className="inline-flex items-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#20494a]"
+          >
+            <Route size={17} />
+            {t("planTrip")}
+          </Link>
+        </div>
 
-                    <div className="mt-3 border-t border-[#ded5c6] pt-4">
-                        {isAuthLoading ? (
-                            <div className="h-20 animate-pulse rounded-2xl bg-[#e8dfd1]" />
-                        ) : user ? (
-                            <div className="rounded-[22px] border border-[#ddd2c2] bg-white/65 p-3">
-                                <div className="flex items-center gap-3 rounded-2xl bg-[#f1e9dc] p-3">
-                                    <UserAvatar
-                                        avatarUrl={
-                                            avatarUrl
-                                        }
-                                        displayName={
-                                            displayName
-                                        }
-                                        initials={
-                                            initials
-                                        }
-                                        className="h-12 w-12 text-sm"
-                                    />
+        <div className="flex items-center gap-2 lg:hidden">
+          <LanguageSwitcher compact />
 
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate font-bold text-[#173a3b]">
-                                            {
-                                                displayName
-                                            }
-                                        </p>
+          <button
+            type="button"
+            className="grid h-11 w-11 place-items-center rounded-full border border-[#d9d0c1] text-[#173a3b] transition-colors hover:bg-[#efe7d8]"
+            onClick={() => setIsOpen((current) => !current)}
+            aria-expanded={isOpen}
+            aria-controls="home-mobile-menu"
+            aria-label={isOpen ? t("closeMenu") : t("openMenu")}
+          >
+            {isOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+      </div>
 
-                                        <p className="truncate text-xs text-[#6d7a77]">
-                                            {
-                                                email
-                                            }
-                                        </p>
+      {isOpen ? (
+        <div
+          id="home-mobile-menu"
+          className="mx-auto mt-2 max-w-[1440px] rounded-[24px] border border-white/70 bg-[#fffaf3]/96 p-4 shadow-2xl backdrop-blur-xl lg:hidden"
+        >
+          <nav className="grid gap-1" aria-label={t("mobileNavigationAria")}>
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={getHomeSectionHref(item.href)}
+                onClick={closeMenu}
+                className="rounded-2xl px-4 py-3 font-medium text-[#294748] transition-colors hover:bg-[#efe7d8]"
+              >
+                {t(`nav.${item.key}`)}
+              </Link>
+            ))}
+          </nav>
 
-                                        <span className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.08em] text-[#2f7773]">
-                                            {
-                                                roleLabel
-                                            }
-                                        </span>
-                                    </div>
-                                </div>
+          <div className="mt-3 border-t border-[#ded5c6] pt-4">
+            {isAuthLoading ? (
+              <div className="h-20 animate-pulse rounded-2xl bg-[#e8dfd1]" />
+            ) : user ? (
+              <div className="rounded-[22px] border border-[#ddd2c2] bg-white/65 p-3">
+                <div className="flex items-center gap-3 rounded-2xl bg-[#f1e9dc] p-3">
+                  <UserAvatar
+                    avatarUrl={avatarUrl}
+                    displayName={displayName}
+                    initials={initials}
+                    className="h-12 w-12 text-sm"
+                  />
 
-                                <div className="mt-2 grid gap-2">
-                                    <Link
-                                        href="/planner"
-                                        onClick={
-                                            closeMenu
-                                        }
-                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
-                                    >
-                                        <CalendarDays
-                                            size={
-                                                17
-                                            }
-                                        />
-                                        {t(
-                                            "account.myItineraries",
-                                        )}
-                                    </Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-[#173a3b]">{displayName}</p>
 
-                                    <Link
-                                        href="/notifications"
-                                        onClick={
-                                            closeMenu
-                                        }
-                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
-                                    >
-                                        <Bell
-                                            size={17}
-                                        />
-                                        Thông báo
-                                        {unreadNotificationCount > 0 ? (
-                                            <span className="grid min-w-5 place-items-center rounded-full bg-[#f25f4b] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                                {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                                            </span>
-                                        ) : null}
-                                    </Link>
+                    <p className="truncate text-xs text-[#6d7a77]">{email}</p>
 
-                                    <Link
-                                        href="/profile"
-                                        onClick={
-                                            closeMenu
-                                        }
-                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
-                                    >
-                                        <UserRound
-                                            size={
-                                                17
-                                            }
-                                        />
-                                        {t(
-                                            "account.myAccount",
-                                        )}
-                                    </Link>
-
-                                    {profile?.role ===
-                                    "admin" ? (
-                                        <Link
-                                            href="/admin"
-                                            onClick={
-                                                closeMenu
-                                            }
-                                            className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
-                                        >
-                                            <LayoutDashboard
-                                                size={
-                                                    17
-                                                }
-                                            />
-                                            {t(
-                                                "account.adminDashboard",
-                                            )}
-                                        </Link>
-                                    ) : null}
-
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            void handleSignOut()
-                                        }
-                                        disabled={
-                                            isSigningOut
-                                        }
-                                        className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#fff0eb] px-4 text-sm font-semibold text-[#c94f3e] disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        <LogOut
-                                            size={
-                                                17
-                                            }
-                                        />
-
-                                        {isSigningOut
-                                            ? t(
-                                                  "account.signingOut",
-                                              )
-                                            : t(
-                                                  "account.signOut",
-                                              )}
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <Link
-                                href="/auth/login"
-                                onClick={
-                                    closeMenu
-                                }
-                                className="flex min-h-12 items-center justify-center rounded-full border border-[#cfc5b5] px-4 py-3 text-center text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
-                            >
-                                {t(
-                                    "account.signIn",
-                                )}
-                            </Link>
-                        )}
-
-                        <Link
-                            href="/planner/ai/"
-                            onClick={
-                                closeMenu
-                            }
-                            className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#20494a]"
-                        >
-                            <Route
-                                size={
-                                    17
-                                }
-                            />
-                            {t(
-                                "planTrip",
-                            )}
-                        </Link>
-                    </div>
+                    <span className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.08em] text-[#2f7773]">
+                      {roleLabel}
+                    </span>
+                  </div>
                 </div>
-            ) : null}
-        </header>
-    );
+
+                <div className="mt-2 grid gap-2">
+                  {showMemberMenuItems ? (
+                    <>
+                      <Link
+                        href="/planner"
+                        onClick={closeMenu}
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                      >
+                        <CalendarDays size={17} />
+                        {t("account.myItineraries")}
+                      </Link>
+
+                      <Link
+                        href="/notifications"
+                        onClick={closeMenu}
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                      >
+                        <Bell size={17} />
+                        Thông báo
+                        {unreadNotificationCount > 0 ? (
+                          <span className="grid min-w-5 place-items-center rounded-full bg-[#f25f4b] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                            {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                          </span>
+                        ) : null}
+                      </Link>
+                    </>
+                  ) : null}
+
+                  <Link
+                    href="/profile"
+                    onClick={closeMenu}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                  >
+                    <UserRound size={17} />
+                    {t("account.myAccount")}
+                  </Link>
+
+                  {isAdmin ? (
+                    <Link
+                      href="/admin"
+                      onClick={closeMenu}
+                      className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#cfc5b5] px-4 text-sm font-semibold text-[#294748]"
+                    >
+                      <LayoutDashboard size={17} />
+                      {t("account.adminDashboard")}
+                    </Link>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    disabled={isSigningOut}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#fff0eb] px-4 text-sm font-semibold text-[#c94f3e] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <LogOut size={17} />
+
+                    {isSigningOut ? t("account.signingOut") : t("account.signOut")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Link
+                href="/auth/login"
+                onClick={closeMenu}
+                className="flex min-h-12 items-center justify-center rounded-full border border-[#cfc5b5] px-4 py-3 text-center text-sm font-semibold text-[#294748] transition-colors hover:bg-[#efe7d8]"
+              >
+                {t("account.signIn")}
+              </Link>
+            )}
+
+            <Link
+              href="/planner/ai/"
+              onClick={closeMenu}
+              className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#173a3b] px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-[#20494a]"
+            >
+              <Route size={17} />
+              {t("planTrip")}
+            </Link>
+          </div>
+        </div>
+      ) : null}
+    </header>
+  );
 }

@@ -1,15 +1,29 @@
-import { sql } from "drizzle-orm"; 
-import { type AnyPgColumn, boolean, check, integer, numeric, pgTable, index,
-    primaryKey, text, time, timestamp, uniqueIndex, uuid,
- } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  type AnyPgColumn,
+  boolean,
+  check,
+  integer,
+  numeric,
+  pgTable,
+  index,
+  primaryKey,
+  text,
+  time,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { cuisines } from "./cuisines";
 import { destinations } from "./destinations";
 import { socialContentStatusEnum, mealTypeEnum, tourStatusEnum, transportMethodEnum } from "./tour_community_enums";
 import { locations } from "./locations";
 import { profiles } from "./profiles";
-import { costCalculationUnitEnum, costCategoryEnum, travelerScopeEnum  } from "./itinerary_enums";
+import { costCalculationUnitEnum, costCategoryEnum, travelerScopeEnum } from "./itinerary_enums";
 
-export const tours = pgTable("tour",{
+export const tours = pgTable(
+  "tour",
+  {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     nameEn: text("name_en"),
@@ -20,32 +34,31 @@ export const tours = pgTable("tour",{
     coverImagePublicId: text("cover_image_public_id"),
     durationDays: integer("duration_days").notNull(),
     durationNights: integer("duration_nights").notNull().default(0),
-    estimatedPrice: numeric("estimated_price",{
-        precision: 12,
-        scale: 0,
+    estimatedPrice: numeric("estimated_price", {
+      precision: 12,
+      scale: 0,
     }),
-    startLocationId: uuid("start_location_id").notNull().references(()=> locations.id, {onDelete: "restrict"}),
+    startLocationId: uuid("start_location_id")
+      .notNull()
+      .references(() => locations.id, { onDelete: "restrict" }),
     meetingPoint: text("meeting_point"),
     status: tourStatusEnum("status").notNull().default("draft"),
-    publishedAt: timestamp("published_at",{withTimezone: true}),
-    createdBy: uuid("created_by").notNull().references(()=> profiles.id, {onDelete: "restrict"}),
-    createdAt: timestamp("created_at",{withTimezone: true}).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at",{withTimezone: true}).defaultNow().notNull(),
-    },
-    (table) => [
-        index("tours_status_idx").on(table.status),
-        index("tours_start_location_idx").on(table.startLocationId),
-        index("tours_created_by_idx").on(table.createdBy),
-        check("tours_duration_days_check", sql`${table.durationDays} > 0`),
-        check("tours_duration_nights_check", sql`${table.durationNights} >= 0`),
-        check(
-        "tours_duration_nights_days_check",
-        sql`${table.durationNights} <= ${table.durationDays}`,
-        ),
-        check(
-        "tours_estimated_price_check",
-        sql`${table.estimatedPrice} is null or ${table.estimatedPrice} >= 0`, ),   
-    ],
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("tours_status_idx").on(table.status),
+    index("tours_start_location_idx").on(table.startLocationId),
+    index("tours_created_by_idx").on(table.createdBy),
+    check("tours_duration_days_check", sql`${table.durationDays} > 0`),
+    check("tours_duration_nights_check", sql`${table.durationNights} >= 0`),
+    check("tours_duration_nights_days_check", sql`${table.durationNights} <= ${table.durationDays}`),
+    check("tours_estimated_price_check", sql`${table.estimatedPrice} is null or ${table.estimatedPrice} >= 0`),
+  ],
 );
 
 export const tourDays = pgTable(
@@ -62,15 +75,11 @@ export const tourDays = pgTable(
     descriptionEn: text("description_en"),
   },
   (table) => [
-    uniqueIndex("tour_days_tour_day_number_uidx").on(
-      table.tourId,
-      table.dayNumber,
-    ),
+    uniqueIndex("tour_days_tour_day_number_uidx").on(table.tourId, table.dayNumber),
     index("tour_days_tour_id_idx").on(table.tourId),
     check("tour_days_day_number_check", sql`${table.dayNumber} > 0`),
   ],
 );
-
 
 export const tourItems = pgTable(
   "tour_items",
@@ -95,10 +104,7 @@ export const tourItems = pgTable(
     estimatedTravelMinutes: integer("estimated_travel_minutes"),
   },
   (table) => [
-    uniqueIndex("tour_items_day_sort_order_uidx").on(
-      table.tourDayId,
-      table.sortOrder,
-    ),
+    uniqueIndex("tour_items_day_sort_order_uidx").on(table.tourDayId, table.sortOrder),
     index("tour_items_tour_day_id_idx").on(table.tourDayId),
     index("tour_items_destination_id_idx").on(table.destinationId),
     check("tour_items_sort_order_check", sql`${table.sortOrder} >= 0`),
@@ -130,10 +136,7 @@ export const tourMeals = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [
-    uniqueIndex("tour_meals_day_sort_order_uidx").on(
-      table.tourDayId,
-      table.sortOrder,
-    ),
+    uniqueIndex("tour_meals_day_sort_order_uidx").on(table.tourDayId, table.sortOrder),
     index("tour_meals_tour_day_id_idx").on(table.tourDayId),
     check("tour_meals_sort_order_check", sql`${table.sortOrder} >= 0`),
   ],
@@ -153,15 +156,9 @@ export const tourMealCuisines = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.tourMealId, table.cuisineId] }),
-    uniqueIndex("tour_meal_cuisines_meal_sort_order_uidx").on(
-      table.tourMealId,
-      table.sortOrder,
-    ),
+    uniqueIndex("tour_meal_cuisines_meal_sort_order_uidx").on(table.tourMealId, table.sortOrder),
     index("tour_meal_cuisines_cuisine_id_idx").on(table.cuisineId),
-    check(
-      "tour_meal_cuisines_sort_order_check",
-      sql`${table.sortOrder} >= 0`,
-    ),
+    check("tour_meal_cuisines_sort_order_check", sql`${table.sortOrder} >= 0`),
   ],
 );
 
@@ -173,9 +170,15 @@ export const tourCosts = pgTable(
       .notNull()
       .references(() => tours.id, { onDelete: "cascade" }),
 
-    tourDayId: uuid("tour_day_id").references(() => tourDays.id, { onDelete: "cascade" }),
-    tourItemId: uuid("tour_item_id").references(() => tourItems.id, { onDelete: "cascade" }),
-    tourMealId: uuid("tour_meal_id").references(() => tourMeals.id, { onDelete: "cascade" }),
+    tourDayId: uuid("tour_day_id").references(() => tourDays.id, {
+      onDelete: "cascade",
+    }),
+    tourItemId: uuid("tour_item_id").references(() => tourItems.id, {
+      onDelete: "cascade",
+    }),
+    tourMealId: uuid("tour_meal_id").references(() => tourMeals.id, {
+      onDelete: "cascade",
+    }),
     title: text("title").notNull(),
     category: costCategoryEnum("category").notNull(),
     calculationUnit: costCalculationUnitEnum("calculation_unit").notNull(),
@@ -189,71 +192,44 @@ export const tourCosts = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    index("tour_costs_tour_id_idx").on(
-            table.tourId,
-        ),
+    index("tour_costs_tour_id_idx").on(table.tourId),
 
-        index("tour_costs_day_id_idx").on(
-            table.tourDayId,
-        ),
+    index("tour_costs_day_id_idx").on(table.tourDayId),
 
-        index("tour_costs_item_id_idx").on(
-            table.tourItemId,
-        ),
+    index("tour_costs_item_id_idx").on(table.tourItemId),
 
-        index("tour_costs_meal_id_idx").on(
-            table.tourMealId,
-        ),
+    index("tour_costs_meal_id_idx").on(table.tourMealId),
 
-        index("tour_costs_category_idx").on(
-            table.category,
-        ),
+    index("tour_costs_category_idx").on(table.category),
 
-        check(
-            "tour_costs_title_check",
-            sql`length(btrim(${table.title})) > 0`,
-        ),
+    check("tour_costs_title_check", sql`length(btrim(${table.title})) > 0`),
 
-        check(
-            "tour_costs_unit_price_check",
-            sql`${table.unitPrice} >= 0`,
-        ),
+    check("tour_costs_unit_price_check", sql`${table.unitPrice} >= 0`),
 
-        check(
-            "tour_costs_quantity_check",
-            sql`${table.quantity} > 0`,
-        ),
+    check("tour_costs_quantity_check", sql`${table.quantity} > 0`),
 
-        check(
-            "tour_costs_night_count_check",
-            sql`
+    check(
+      "tour_costs_night_count_check",
+      sql`
                 ${table.nightCount} is null
                 or ${table.nightCount} > 0
             `,
-        ),
+    ),
 
-        check(
-            "tour_costs_sort_order_check",
-            sql`${table.sortOrder} >= 0`,
-        ),
+    check("tour_costs_sort_order_check", sql`${table.sortOrder} >= 0`),
 
-        /*
-         * Không cho một cost vừa gắn ngày,
-         * vừa gắn activity, vừa gắn meal.
-         */
-        check(
-            "tour_costs_single_target_check",
-            sql`
+    check(
+      "tour_costs_single_target_check",
+      sql`
                 num_nonnulls(
                     ${table.tourDayId},
                     ${table.tourItemId},
                     ${table.tourMealId}
                 ) <= 1
             `,
-        ),
+    ),
   ],
-)
-
+);
 
 export const tourLikes = pgTable(
   "tour_likes",
@@ -264,14 +240,9 @@ export const tourLikes = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.tourId, table.userId] }),
-    index("tour_likes_user_id_idx").on(table.userId),
-  ],
+  (table) => [primaryKey({ columns: [table.tourId, table.userId] }), index("tour_likes_user_id_idx").on(table.userId)],
 );
 
 export const tourComments = pgTable(
@@ -284,32 +255,21 @@ export const tourComments = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    parentId: uuid("parent_id").references(
-      (): AnyPgColumn => tourComments.id,
-      { onDelete: "set null" },
-    ),
+    parentId: uuid("parent_id").references((): AnyPgColumn => tourComments.id, {
+      onDelete: "set null",
+    }),
     content: text("content").notNull(),
     status: socialContentStatusEnum("status").notNull().default("approved"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
-    index("tour_comments_tour_created_at_idx").on(
-      table.tourId,
-      table.createdAt,
-    ),
+    index("tour_comments_tour_created_at_idx").on(table.tourId, table.createdAt),
     index("tour_comments_parent_id_idx").on(table.parentId),
     index("tour_comments_user_id_idx").on(table.userId),
     index("tour_comments_status_idx").on(table.status),
-    check(
-      "tour_comments_content_check",
-      sql`length(btrim(${table.content})) > 0`,
-    ),
+    check("tour_comments_content_check", sql`length(btrim(${table.content})) > 0`),
   ],
 );
 

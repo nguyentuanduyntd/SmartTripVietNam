@@ -1,15 +1,15 @@
 type StampVariant = "approved" | "pending" | "hidden";
 
 const STAMP_LABEL: Record<StampVariant, string> = {
-    approved: "Đã duyệt",
-    pending: "Chờ duyệt",
-    hidden: "Đã ẩn",
+  approved: "Đã duyệt",
+  pending: "Chờ duyệt",
+  hidden: "Đã ẩn",
 };
 
 const STAMP_CLASS: Record<StampVariant, string> = {
-  approved:"border-2 border-admin-seal text-admin-seal bg-admin-seal-light",
-  pending:"border-2 border-dashed border-admin-muted text-admin-muted bg-transparent",
-  hidden:"border-2 border-admin-muted text-admin-muted bg-admin-line/40 stamp-hidden",
+  approved: "border-2 border-admin-seal text-admin-seal bg-admin-seal-light",
+  pending: "border-2 border-dashed border-admin-muted text-admin-muted bg-transparent",
+  hidden: "border-2 border-admin-muted text-admin-muted bg-admin-line/40 stamp-hidden",
 };
 
 export function StatusStamp({ variant }: { variant: StampVariant }) {

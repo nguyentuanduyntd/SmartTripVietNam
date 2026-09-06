@@ -16,28 +16,22 @@ type UseAdminListOptions<T> = {
   fallbackError: string;
 };
 
-export function useAdminList<T>({
-  load,
-  fallbackError,
-}: UseAdminListOptions<T>) {
+export function useAdminList<T>({ load, fallbackError }: UseAdminListOptions<T>) {
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
-  const applyResult = useCallback(
-    (requestId: number, { data, meta }: PaginatedList<T>) => {
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
+  const applyResult = useCallback((requestId: number, { data, meta }: PaginatedList<T>) => {
+    if (requestId !== requestIdRef.current) {
+      return;
+    }
 
-      setRows(data);
-      setTotal(meta.total);
-      setErrorMessage(null);
-    },
-    [],
-  );
+    setRows(data);
+    setTotal(meta.total);
+    setErrorMessage(null);
+  }, []);
 
   const applyError = useCallback(
     (requestId: number, error: unknown) => {
@@ -45,9 +39,7 @@ export function useAdminList<T>({
         return;
       }
 
-      setErrorMessage(
-        error instanceof ApiRequestError ? error.message : fallbackError,
-      );
+      setErrorMessage(error instanceof ApiRequestError ? error.message : fallbackError);
     },
     [fallbackError],
   );

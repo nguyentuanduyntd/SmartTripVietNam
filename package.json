@@ -12,6 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed-community": "tsx scripts/seed-community.ts",
+    "db:flush-cache": "npx dotenv-cli -e .env.local -- redis-cli -u $REDIS_URL FLUSHDB",
     "rag:ingest": "tsx scripts/ingest-rag.ts",
     "rag:test": "tsx scripts/test-rag.ts",
     "test": "vitest",

@@ -1,25 +1,29 @@
 import "server-only";
 
-import {and,sql,asc,count,desc,eq,gte,ilike,inArray,lte,max,or,type SQL,} from "drizzle-orm";
+import { and, sql, asc, count, desc, eq, gte, ilike, inArray, lte, max, or, type SQL } from "drizzle-orm";
 import { db } from "@/src/db";
 import { calculateCostsTotal } from "../lib/costs/cost-calculator";
 import type { TourStatus } from "@/src/constants/tour_community";
 import { cuisines } from "@/src/db/schema/cuisines";
 import { destinations } from "@/src/db/schema/destinations";
 import { locations } from "@/src/db/schema/locations";
-import { tourCosts, tourDays, tourItems, tourMealCuisines, tourMeals, tours,
-  type NewTour, type NewTourCost, type NewTourDay, type NewTourItem, type NewTourMeal
- } from "../db/schema";
+import {
+  tourCosts,
+  tourDays,
+  tourItems,
+  tourMealCuisines,
+  tourMeals,
+  tours,
+  type NewTour,
+  type NewTourCost,
+  type NewTourDay,
+  type NewTourItem,
+  type NewTourMeal,
+} from "../db/schema";
 
 type NewTourMealCuisine = typeof tourMealCuisines.$inferInsert;
 
-export type TourSortBy =
-  | "name"
-  | "estimatedPrice"
-  | "durationDays"
-  | "createdAt"
-  | "updatedAt"
-  | "publishedAt";
+export type TourSortBy = "name" | "estimatedPrice" | "durationDays" | "createdAt" | "updatedAt" | "publishedAt";
 
 export type TourFilters = {
   search?: string;
@@ -67,10 +71,7 @@ export type UpdateTourRecord = Partial<
 >;
 
 export type UpdateTourDayRecord = Partial<
-  Pick<
-    NewTourDay,
-    "dayNumber" | "title" | "titleEn" | "description" | "descriptionEn"
-  >
+  Pick<NewTourDay, "dayNumber" | "title" | "titleEn" | "description" | "descriptionEn">
 >;
 
 export type UpdateTourItemRecord = Partial<
@@ -94,28 +95,12 @@ export type UpdateTourItemRecord = Partial<
 export type UpdateTourMealRecord = Partial<
   Pick<
     NewTourMeal,
-    | "mealType"
-    | "startTime"
-    | "venueName"
-    | "venueNameEn"
-    | "note"
-    | "noteEn"
-    | "isIncluded"
-    | "sortOrder"
+    "mealType" | "startTime" | "venueName" | "venueNameEn" | "note" | "noteEn" | "isIncluded" | "sortOrder"
   >
 >;
 
 export type UpdateTourCostRecord = Partial<
-  Pick<
-    NewTourCost,
-    | "title"
-    | "category"
-    | "calculationUnit"
-    | "travelerScope"
-    | "unitPrice"
-    | "quantity"
-    | "sortOrder"
-  >
+  Pick<NewTourCost, "title" | "category" | "calculationUnit" | "travelerScope" | "unitPrice" | "quantity" | "sortOrder">
 > & {
   tourDayId?: string | null;
   tourItemId?: string | null;
@@ -194,8 +179,7 @@ const tourBaseSelection = {
 
 export async function findTours(filters: TourFilters) {
   const conditions = buildTourConditions(filters);
-  const whereClause =
-    conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const sortColumn = {
     name: tours.name,
@@ -206,10 +190,7 @@ export async function findTours(filters: TourFilters) {
     publishedAt: tours.publishedAt,
   }[filters.sortBy];
 
-  const sortExpression =
-    filters.sortOrder === "asc"
-      ? asc(sortColumn)
-      : desc(sortColumn);
+  const sortExpression = filters.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
   const [rows, totalRows] = await Promise.all([
     db
@@ -221,10 +202,7 @@ export async function findTours(filters: TourFilters) {
       .limit(filters.limit)
       .offset((filters.page - 1) * filters.limit),
 
-    db
-      .select({ value: count() })
-      .from(tours)
-      .where(whereClause),
+    db.select({ value: count() }).from(tours).where(whereClause),
   ]);
 
   return {
@@ -234,21 +212,13 @@ export async function findTours(filters: TourFilters) {
 }
 
 export async function findTourById(id: string) {
-  const [tour] = await db
-    .select()
-    .from(tours)
-    .where(eq(tours.id, id))
-    .limit(1);
+  const [tour] = await db.select().from(tours).where(eq(tours.id, id)).limit(1);
 
   return tour ?? null;
 }
 
 export async function findTourBySlug(slug: string) {
-  const [tour] = await db
-    .select()
-    .from(tours)
-    .where(eq(tours.slug, slug))
-    .limit(1);
+  const [tour] = await db.select().from(tours).where(eq(tours.slug, slug)).limit(1);
 
   return tour ?? null;
 }
@@ -265,43 +235,15 @@ async function findTourDetail(condition: SQL) {
     return null;
   }
 
-  const [days, costs] =
-    await Promise.all([
-      db
-        .select()
-        .from(tourDays)
-        .where(
-          eq(
-            tourDays.tourId,
-            tour.id,
-          ),
-        )
-        .orderBy(
-          asc(
-            tourDays.dayNumber,
-          ),
-          asc(tourDays.id),
-        ),
+  const [days, costs] = await Promise.all([
+    db.select().from(tourDays).where(eq(tourDays.tourId, tour.id)).orderBy(asc(tourDays.dayNumber), asc(tourDays.id)),
 
-      db
-        .select()
-        .from(tourCosts)
-        .where(
-          eq(
-            tourCosts.tourId,
-            tour.id,
-          ),
-        )
-        .orderBy(
-          asc(
-            tourCosts.sortOrder,
-          ),
-          asc(
-            tourCosts.createdAt,
-          ),
-          asc(tourCosts.id),
-        ),
-    ]);
+    db
+      .select()
+      .from(tourCosts)
+      .where(eq(tourCosts.tourId, tour.id))
+      .orderBy(asc(tourCosts.sortOrder), asc(tourCosts.createdAt), asc(tourCosts.id)),
+  ]);
 
   if (days.length === 0) {
     return {
@@ -341,26 +283,15 @@ async function findTourDetail(condition: SQL) {
         },
       })
       .from(tourItems)
-      .leftJoin(
-        destinations,
-        eq(tourItems.destinationId, destinations.id),
-      )
+      .leftJoin(destinations, eq(tourItems.destinationId, destinations.id))
       .where(inArray(tourItems.tourDayId, dayIds))
-      .orderBy(
-        asc(tourItems.tourDayId),
-        asc(tourItems.sortOrder),
-        asc(tourItems.id),
-      ),
+      .orderBy(asc(tourItems.tourDayId), asc(tourItems.sortOrder), asc(tourItems.id)),
 
     db
       .select()
       .from(tourMeals)
       .where(inArray(tourMeals.tourDayId, dayIds))
-      .orderBy(
-        asc(tourMeals.tourDayId),
-        asc(tourMeals.sortOrder),
-        asc(tourMeals.id),
-      ),
+      .orderBy(asc(tourMeals.tourDayId), asc(tourMeals.sortOrder), asc(tourMeals.id)),
   ]);
 
   const mealIds = mealRows.map((meal) => meal.id);
@@ -383,51 +314,41 @@ async function findTourDetail(condition: SQL) {
             },
           })
           .from(tourMealCuisines)
-          .innerJoin(
-            cuisines,
-            eq(tourMealCuisines.cuisineId, cuisines.id),
-          )
+          .innerJoin(cuisines, eq(tourMealCuisines.cuisineId, cuisines.id))
           .where(inArray(tourMealCuisines.tourMealId, mealIds))
-          .orderBy(
-            asc(tourMealCuisines.tourMealId),
-            asc(tourMealCuisines.sortOrder),
-          );
+          .orderBy(asc(tourMealCuisines.tourMealId), asc(tourMealCuisines.sortOrder));
 
   const normalizedItems = itemRows.map((row) => {
     const destination = row.destination;
 
     return {
-        id: row.id,
-        tourDayId: row.tourDayId,
-        destinationId: row.destinationId,
-        title: row.title,
-        titleEn: row.titleEn,
-        description: row.description,
-        descriptionEn: row.descriptionEn,
-        startTime: row.startTime,
-        endTime: row.endTime,
-        sortOrder: row.sortOrder,
-        transportMethod: row.transportMethod,
-        transportNote: row.transportNote,
-        transportNoteEn: row.transportNoteEn,
-        estimatedTravelMinutes: row.estimatedTravelMinutes,
-        destination: destination
+      id: row.id,
+      tourDayId: row.tourDayId,
+      destinationId: row.destinationId,
+      title: row.title,
+      titleEn: row.titleEn,
+      description: row.description,
+      descriptionEn: row.descriptionEn,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      sortOrder: row.sortOrder,
+      transportMethod: row.transportMethod,
+      transportNote: row.transportNote,
+      transportNoteEn: row.transportNoteEn,
+      estimatedTravelMinutes: row.estimatedTravelMinutes,
+      destination: destination
         ? {
             id: destination.id,
             name: destination.name,
             nameEn: destination.nameEn,
             slug: destination.slug,
             coverImageUrl: destination.coverImageUrl,
-            }
-            : null,
-        };
-    });
+          }
+        : null,
+    };
+  });
 
-
-  const cuisinesByMealId = new Map<
-    string,
-    Array<(typeof cuisineRows)[number]>
-  >();
+  const cuisinesByMealId = new Map<string, Array<(typeof cuisineRows)[number]>>();
 
   for (const row of cuisineRows) {
     const current = cuisinesByMealId.get(row.tourMealId) ?? [];
@@ -440,10 +361,7 @@ async function findTourDetail(condition: SQL) {
     cuisines: cuisinesByMealId.get(meal.id) ?? [],
   }));
 
-  const itemsByDayId = new Map<
-    string,
-    Array<(typeof normalizedItems)[number]>
-  >();
+  const itemsByDayId = new Map<string, Array<(typeof normalizedItems)[number]>>();
 
   for (const item of normalizedItems) {
     const current = itemsByDayId.get(item.tourDayId) ?? [];
@@ -451,10 +369,7 @@ async function findTourDetail(condition: SQL) {
     itemsByDayId.set(item.tourDayId, current);
   }
 
-  const mealsByDayId = new Map<
-    string,
-    Array<(typeof normalizedMeals)[number]>
-  >();
+  const mealsByDayId = new Map<string, Array<(typeof normalizedMeals)[number]>>();
 
   for (const meal of normalizedMeals) {
     const current = mealsByDayId.get(meal.tourDayId) ?? [];
@@ -465,7 +380,8 @@ async function findTourDetail(condition: SQL) {
   return {
     ...tour,
     costs,
-    days: days.map((day) => ({...day,
+    days: days.map((day) => ({
+      ...day,
       items: itemsByDayId.get(day.id) ?? [],
       meals: mealsByDayId.get(day.id) ?? [],
     })),
@@ -482,10 +398,7 @@ export function findTourDetailBySlug(slug: string) {
 
 export async function createTourGraph(data: CreateTourGraph) {
   return db.transaction(async (transaction) => {
-    const [createdTour] = await transaction
-      .insert(tours)
-      .values(data.tour)
-      .returning();
+    const [createdTour] = await transaction.insert(tours).values(data.tour).returning();
 
     if (!createdTour) {
       throw new Error("Không thể tạo tour");
@@ -541,10 +454,7 @@ export async function createTourGraph(data: CreateTourGraph) {
   });
 }
 
-export async function updateTour(
-  id: string,
-  data: UpdateTourRecord,
-) {
+export async function updateTour(id: string, data: UpdateTourRecord) {
   const [tour] = await db
     .update(tours)
     .set({
@@ -558,49 +468,28 @@ export async function updateTour(
 }
 
 export async function deleteTour(id: string) {
-  const [tour] = await db
-    .delete(tours)
-    .where(eq(tours.id, id))
-    .returning({
-      id: tours.id,
-    });
+  const [tour] = await db.delete(tours).where(eq(tours.id, id)).returning({
+    id: tours.id,
+  });
 
   return tour ?? null;
 }
 
-export async function findTourCosts(
-  tourId: string,
-) {
+export async function findTourCosts(tourId: string) {
   return db
     .select()
     .from(tourCosts)
     .where(eq(tourCosts.tourId, tourId))
-    .orderBy(
-      asc(tourCosts.sortOrder),
-      asc(tourCosts.createdAt),
-      asc(tourCosts.id),
-    );
+    .orderBy(asc(tourCosts.sortOrder), asc(tourCosts.createdAt), asc(tourCosts.id));
 }
 
-export async function findTourCostById(
-  id: string,
-) {
-  const [cost] = await db
-    .select()
-    .from(tourCosts)
-    .where(eq(tourCosts.id, id))
-    .limit(1);
+export async function findTourCostById(id: string) {
+  const [cost] = await db.select().from(tourCosts).where(eq(tourCosts.id, id)).limit(1);
 
   return cost ?? null;
 }
 
-export async function createTourCost(
-  tourId: string,
-  data: Omit<
-    NewTourCost,
-    "tourId" | "createdAt" | "updatedAt"
-  >,
-) {
+export async function createTourCost(tourId: string, data: Omit<NewTourCost, "tourId" | "createdAt" | "updatedAt">) {
   const [cost] = await db
     .insert(tourCosts)
     .values({
@@ -612,14 +501,8 @@ export async function createTourCost(
   return cost ?? null;
 }
 
-export async function updateTourCost(
-  id: string,
-  data: UpdateTourCostRecord,
-) {
-  const {
-    nightCount,
-    ...restData
-  } = data;
+export async function updateTourCost(id: string, data: UpdateTourCostRecord) {
+  const { nightCount, ...restData } = data;
 
   const [cost] = await db
     .update(tourCosts)
@@ -628,10 +511,7 @@ export async function updateTourCost(
 
       ...(nightCount !== undefined
         ? {
-            nightCount:
-              nightCount === null
-                ? sql`NULL`
-                : nightCount,
+            nightCount: nightCount === null ? sql`NULL` : nightCount,
           }
         : {}),
 
@@ -643,27 +523,17 @@ export async function updateTourCost(
   return cost ?? null;
 }
 
-export async function deleteTourCost(
-  id: string,
-) {
-  const [cost] = await db
-    .delete(tourCosts)
-    .where(eq(tourCosts.id, id))
-    .returning({
-      id: tourCosts.id,
-      tourId: tourCosts.tourId,
-    });
+export async function deleteTourCost(id: string) {
+  const [cost] = await db.delete(tourCosts).where(eq(tourCosts.id, id)).returning({
+    id: tourCosts.id,
+    tourId: tourCosts.tourId,
+  });
 
   return cost ?? null;
 }
 
-export async function recalculateTourEstimatedPrice(
-  tourId: string,
-) {
-  const [tour, costs] = await Promise.all([
-    findTourById(tourId),
-    findTourCosts(tourId),
-  ]);
+export async function recalculateTourEstimatedPrice(tourId: string) {
+  const [tour, costs] = await Promise.all([findTourById(tourId), findTourCosts(tourId)]);
 
   if (!tour) {
     return null;
@@ -682,31 +552,18 @@ export async function recalculateTourEstimatedPrice(
     return updatedTour ?? null;
   }
 
-  const estimatedPrice =
-    calculateCostsTotal(
-      costs,
-      {
-        adultCount: 1,
-        childCount: 0,
-        roomCount: 1,
+  const estimatedPrice = calculateCostsTotal(costs, {
+    adultCount: 1,
+    childCount: 0,
+    roomCount: 1,
 
-        /**
-         * Tour 1 ngày có durationNights = 0.
-         *
-         * Calculator per_room đã tự bảo vệ
-         * minimum 1 nếu thực sự xuất hiện
-         * một cost per_room.
-         */
-        defaultNightCount:
-          tour.durationNights,
-      },
-    );
+    defaultNightCount: tour.durationNights,
+  });
 
   const [updatedTour] = await db
     .update(tours)
     .set({
-      estimatedPrice:
-        String(estimatedPrice),
+      estimatedPrice: String(estimatedPrice),
 
       updatedAt: new Date(),
     })
@@ -716,88 +573,46 @@ export async function recalculateTourEstimatedPrice(
   return updatedTour ?? null;
 }
 
-//Validation queries
-
-export async function tourDayBelongsToTour(
-  tourDayId: string,
-  tourId: string,
-) {
+export async function tourDayBelongsToTour(tourDayId: string, tourId: string) {
   const [day] = await db
     .select({
       id: tourDays.id,
     })
     .from(tourDays)
-    .where(
-      and(
-        eq(tourDays.id, tourDayId),
-        eq(tourDays.tourId, tourId),
-      ),
-    )
+    .where(and(eq(tourDays.id, tourDayId), eq(tourDays.tourId, tourId)))
     .limit(1);
 
   return Boolean(day);
 }
 
-export async function tourItemBelongsToTour(
-  tourItemId: string,
-  tourId: string,
-) {
+export async function tourItemBelongsToTour(tourItemId: string, tourId: string) {
   const [item] = await db
     .select({
       id: tourItems.id,
     })
     .from(tourItems)
-    .innerJoin(
-      tourDays,
-      eq(
-        tourItems.tourDayId,
-        tourDays.id,
-      ),
-    )
-    .where(
-      and(
-        eq(tourItems.id, tourItemId),
-        eq(tourDays.tourId, tourId),
-      ),
-    )
+    .innerJoin(tourDays, eq(tourItems.tourDayId, tourDays.id))
+    .where(and(eq(tourItems.id, tourItemId), eq(tourDays.tourId, tourId)))
     .limit(1);
 
   return Boolean(item);
 }
 
-export async function tourMealBelongsToTour(
-  tourMealId: string,
-  tourId: string,
-) {
+export async function tourMealBelongsToTour(tourMealId: string, tourId: string) {
   const [meal] = await db
     .select({
       id: tourMeals.id,
     })
     .from(tourMeals)
-    .innerJoin(
-      tourDays,
-      eq(
-        tourMeals.tourDayId,
-        tourDays.id,
-      ),
-    )
-    .where(
-      and(
-        eq(tourMeals.id, tourMealId),
-        eq(tourDays.tourId, tourId),
-      ),
-    )
+    .innerJoin(tourDays, eq(tourMeals.tourDayId, tourDays.id))
+    .where(and(eq(tourMeals.id, tourMealId), eq(tourDays.tourId, tourId)))
     .limit(1);
 
   return Boolean(meal);
 }
 
 export async function startLocationExists(id: string) {
-  const [location] = await db
-    .select({ id: locations.id })
-    .from(locations)
-    .where(eq(locations.id, id))
-    .limit(1);
+  const [location] = await db.select({ id: locations.id }).from(locations).where(eq(locations.id, id)).limit(1);
 
   return Boolean(location);
 }
@@ -807,10 +622,7 @@ export async function findExistingDestinationIds(ids: string[]) {
     return [];
   }
 
-  const rows = await db
-    .select({ id: destinations.id })
-    .from(destinations)
-    .where(inArray(destinations.id, ids));
+  const rows = await db.select({ id: destinations.id }).from(destinations).where(inArray(destinations.id, ids));
 
   return rows.map((row) => row.id);
 }
@@ -820,10 +632,7 @@ export async function findExistingCuisineIds(ids: string[]) {
     return [];
   }
 
-  const rows = await db
-    .select({ id: cuisines.id })
-    .from(cuisines)
-    .where(inArray(cuisines.id, ids));
+  const rows = await db.select({ id: cuisines.id }).from(cuisines).where(inArray(cuisines.id, ids));
 
   return rows.map((row) => row.id);
 }
@@ -839,42 +648,23 @@ export async function findMaxTourDayNumber(tourId: string) {
   return result?.value ?? null;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tour day                                                                   */
-/* -------------------------------------------------------------------------- */
-
 export async function findTourDayById(id: string) {
+  const [day] = await db.select().from(tourDays).where(eq(tourDays.id, id)).limit(1);
+
+  return day ?? null;
+}
+
+export async function findTourDayByNumber(tourId: string, dayNumber: number) {
   const [day] = await db
     .select()
     .from(tourDays)
-    .where(eq(tourDays.id, id))
+    .where(and(eq(tourDays.tourId, tourId), eq(tourDays.dayNumber, dayNumber)))
     .limit(1);
 
   return day ?? null;
 }
 
-export async function findTourDayByNumber(
-  tourId: string,
-  dayNumber: number,
-) {
-  const [day] = await db
-    .select()
-    .from(tourDays)
-    .where(
-      and(
-        eq(tourDays.tourId, tourId),
-        eq(tourDays.dayNumber, dayNumber),
-      ),
-    )
-    .limit(1);
-
-  return day ?? null;
-}
-
-export async function createTourDay(
-  tourId: string,
-  data: Omit<NewTourDay, "tourId">,
-) {
+export async function createTourDay(tourId: string, data: Omit<NewTourDay, "tourId">) {
   const [day] = await db
     .insert(tourDays)
     .values({
@@ -886,102 +676,73 @@ export async function createTourDay(
   return day;
 }
 
-export async function updateTourDay(
-  id: string,
-  data: UpdateTourDayRecord,
-) {
-  const [day] = await db
-    .update(tourDays)
-    .set(data)
-    .where(eq(tourDays.id, id))
-    .returning();
+export async function updateTourDay(id: string, data: UpdateTourDayRecord) {
+  const [day] = await db.update(tourDays).set(data).where(eq(tourDays.id, id)).returning();
 
   return day ?? null;
 }
 
 export async function deleteTourDay(id: string) {
-  const [day] = await db
-    .delete(tourDays)
-    .where(eq(tourDays.id, id))
-    .returning({
-      id: tourDays.id,
-    });
+  const [day] = await db.delete(tourDays).where(eq(tourDays.id, id)).returning({
+    id: tourDays.id,
+  });
 
   return day ?? null;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Tour item                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export async function findTourItemById(id: string) {
-  const [item] = await db
-    .select()
-    .from(tourItems)
-    .where(eq(tourItems.id, id))
-    .limit(1);
+  const [item] = await db.select().from(tourItems).where(eq(tourItems.id, id)).limit(1);
 
   return item ?? null;
 }
 
-export async function findTourItemBySortOrder(
-  tourDayId: string,
-  sortOrder: number,
-) {
+export async function findTourItemBySortOrder(tourDayId: string, sortOrder: number) {
   const [item] = await db
     .select()
     .from(tourItems)
-    .where(
-      and(
-        eq(tourItems.tourDayId, tourDayId),
-        eq(tourItems.sortOrder, sortOrder),
-      ),
-    )
+    .where(and(eq(tourItems.tourDayId, tourDayId), eq(tourItems.sortOrder, sortOrder)))
     .limit(1);
 
   return item ?? null;
 }
 
 export async function findTourItemDetailById(id: string) {
-    const [row] = await db
-        .select({
-        id: tourItems.id,
-        tourDayId: tourItems.tourDayId,
-        destinationId: tourItems.destinationId,
-        title: tourItems.title,
-        titleEn: tourItems.titleEn,
-        description: tourItems.description,
-        descriptionEn: tourItems.descriptionEn,
-        startTime: tourItems.startTime,
-        endTime: tourItems.endTime,
-        sortOrder: tourItems.sortOrder,
-        transportMethod: tourItems.transportMethod,
-        transportNote: tourItems.transportNote,
-        transportNoteEn: tourItems.transportNoteEn,
-        estimatedTravelMinutes: tourItems.estimatedTravelMinutes,
-        destination: {
-            id: destinations.id,
-            name: destinations.name,
-            nameEn: destinations.nameEn,
-            slug: destinations.slug,
-            coverImageUrl: destinations.coverImageUrl,
-        },
-        })
-        .from(tourItems)
-        .leftJoin(
-        destinations,
-        eq(tourItems.destinationId, destinations.id),
-        )
-        .where(eq(tourItems.id, id))
-        .limit(1);
+  const [row] = await db
+    .select({
+      id: tourItems.id,
+      tourDayId: tourItems.tourDayId,
+      destinationId: tourItems.destinationId,
+      title: tourItems.title,
+      titleEn: tourItems.titleEn,
+      description: tourItems.description,
+      descriptionEn: tourItems.descriptionEn,
+      startTime: tourItems.startTime,
+      endTime: tourItems.endTime,
+      sortOrder: tourItems.sortOrder,
+      transportMethod: tourItems.transportMethod,
+      transportNote: tourItems.transportNote,
+      transportNoteEn: tourItems.transportNoteEn,
+      estimatedTravelMinutes: tourItems.estimatedTravelMinutes,
+      destination: {
+        id: destinations.id,
+        name: destinations.name,
+        nameEn: destinations.nameEn,
+        slug: destinations.slug,
+        coverImageUrl: destinations.coverImageUrl,
+      },
+    })
+    .from(tourItems)
+    .leftJoin(destinations, eq(tourItems.destinationId, destinations.id))
+    .where(eq(tourItems.id, id))
+    .limit(1);
 
-    if (!row) {
-        return null;
-    }
+  if (!row) {
+    return null;
+  }
 
-    const destination = row.destination;
+  const destination = row.destination;
 
-    return {
+  return {
     id: row.id,
     tourDayId: row.tourDayId,
     destinationId: row.destinationId,
@@ -997,190 +758,147 @@ export async function findTourItemDetailById(id: string) {
     transportNoteEn: row.transportNoteEn,
     estimatedTravelMinutes: row.estimatedTravelMinutes,
     destination: destination
-        ? {
-            id: destination.id,
-            name: destination.name,
-            nameEn: destination.nameEn,
-            slug: destination.slug,
-            coverImageUrl: destination.coverImageUrl,
+      ? {
+          id: destination.id,
+          name: destination.name,
+          nameEn: destination.nameEn,
+          slug: destination.slug,
+          coverImageUrl: destination.coverImageUrl,
         }
-        : null,
-    };
+      : null,
+  };
 }
 
-export async function createTourItem(
-    tourDayId: string,
-    data: Omit<NewTourItem, "tourDayId">,
-    ) {
-    const [item] = await db
-        .insert(tourItems)
-        .values({
-        ...data,
-        tourDayId,
-        })
-        .returning();
+export async function createTourItem(tourDayId: string, data: Omit<NewTourItem, "tourDayId">) {
+  const [item] = await db
+    .insert(tourItems)
+    .values({
+      ...data,
+      tourDayId,
+    })
+    .returning();
 
-    return item;
+  return item;
 }
 
-export async function updateTourItem(
-    id: string,
-    data: UpdateTourItemRecord,
-    ) {
-    const [item] = await db
-        .update(tourItems)
-        .set(data)
-        .where(eq(tourItems.id, id))
-        .returning();
+export async function updateTourItem(id: string, data: UpdateTourItemRecord) {
+  const [item] = await db.update(tourItems).set(data).where(eq(tourItems.id, id)).returning();
 
-    return item ?? null;
+  return item ?? null;
 }
 
 export async function deleteTourItem(id: string) {
-    const [item] = await db
-        .delete(tourItems)
-        .where(eq(tourItems.id, id))
-        .returning({
-        id: tourItems.id,
-        });
+  const [item] = await db.delete(tourItems).where(eq(tourItems.id, id)).returning({
+    id: tourItems.id,
+  });
 
-    return item ?? null;
+  return item ?? null;
 }
-
 
 export async function findTourMealById(id: string) {
-    const [meal] = await db
-        .select()
-        .from(tourMeals)
-        .where(eq(tourMeals.id, id))
-        .limit(1);
+  const [meal] = await db.select().from(tourMeals).where(eq(tourMeals.id, id)).limit(1);
 
-    return meal ?? null;
+  return meal ?? null;
 }
 
-export async function findTourMealBySortOrder(
-    tourDayId: string,
-    sortOrder: number,
-    ) {
-    const [meal] = await db
-        .select()
-        .from(tourMeals)
-        .where(
-        and(
-            eq(tourMeals.tourDayId, tourDayId),
-            eq(tourMeals.sortOrder, sortOrder),
-        ),
-        )
-        .limit(1);
+export async function findTourMealBySortOrder(tourDayId: string, sortOrder: number) {
+  const [meal] = await db
+    .select()
+    .from(tourMeals)
+    .where(and(eq(tourMeals.tourDayId, tourDayId), eq(tourMeals.sortOrder, sortOrder)))
+    .limit(1);
 
-    return meal ?? null;
+  return meal ?? null;
 }
 
 export async function findTourMealDetailById(id: string) {
-    const meal = await findTourMealById(id);
+  const meal = await findTourMealById(id);
 
-    if (!meal) {
-        return null;
-    }
+  if (!meal) {
+    return null;
+  }
 
-    const mealCuisines = await db
-        .select({
-        tourMealId: tourMealCuisines.tourMealId,
-        cuisineId: tourMealCuisines.cuisineId,
-        sortOrder: tourMealCuisines.sortOrder,
-        note: tourMealCuisines.note,
-        cuisine: {
-            id: cuisines.id,
-            name: cuisines.name,
-            nameEn: cuisines.nameEn,
-            slug: cuisines.slug,
-            coverImageUrl: cuisines.coverImageUrl,
-        },
-        })
-        .from(tourMealCuisines)
-        .innerJoin(
-        cuisines,
-        eq(tourMealCuisines.cuisineId, cuisines.id),
-        )
-        .where(eq(tourMealCuisines.tourMealId, id))
-        .orderBy(asc(tourMealCuisines.sortOrder));
+  const mealCuisines = await db
+    .select({
+      tourMealId: tourMealCuisines.tourMealId,
+      cuisineId: tourMealCuisines.cuisineId,
+      sortOrder: tourMealCuisines.sortOrder,
+      note: tourMealCuisines.note,
+      cuisine: {
+        id: cuisines.id,
+        name: cuisines.name,
+        nameEn: cuisines.nameEn,
+        slug: cuisines.slug,
+        coverImageUrl: cuisines.coverImageUrl,
+      },
+    })
+    .from(tourMealCuisines)
+    .innerJoin(cuisines, eq(tourMealCuisines.cuisineId, cuisines.id))
+    .where(eq(tourMealCuisines.tourMealId, id))
+    .orderBy(asc(tourMealCuisines.sortOrder));
 
-    return {
-        ...meal,
-        cuisines: mealCuisines,
-    };
+  return {
+    ...meal,
+    cuisines: mealCuisines,
+  };
 }
 
 export async function createTourMeal(
-    tourDayId: string,
-    data: Omit<NewTourMeal, "tourDayId">,
-    cuisineLinks: Array<Omit<NewTourMealCuisine, "tourMealId">>,
-    ) {
-    return db.transaction(async (transaction) => {
-        const [meal] = await transaction
-        .insert(tourMeals)
-        .values({
-            ...data,
-            tourDayId,
-        })
-        .returning();
+  tourDayId: string,
+  data: Omit<NewTourMeal, "tourDayId">,
+  cuisineLinks: Array<Omit<NewTourMealCuisine, "tourMealId">>,
+) {
+  return db.transaction(async (transaction) => {
+    const [meal] = await transaction
+      .insert(tourMeals)
+      .values({
+        ...data,
+        tourDayId,
+      })
+      .returning();
 
-        if (!meal) {
-        throw new Error("Không thể tạo bữa ăn");
-        }
+    if (!meal) {
+      throw new Error("Không thể tạo bữa ăn");
+    }
 
-        if (cuisineLinks.length > 0) {
-        await transaction.insert(tourMealCuisines).values(
-            cuisineLinks.map((link) => ({
-            ...link,
-            tourMealId: meal.id,
-            })),
-        );
-        }
+    if (cuisineLinks.length > 0) {
+      await transaction.insert(tourMealCuisines).values(
+        cuisineLinks.map((link) => ({
+          ...link,
+          tourMealId: meal.id,
+        })),
+      );
+    }
 
-        return meal;
-    });
+    return meal;
+  });
 }
 
 export async function updateTourMeal(
   id: string,
   data: UpdateTourMealRecord,
-  cuisineLinks?: Array<
-    Omit<NewTourMealCuisine, "tourMealId">
-  >,
+  cuisineLinks?: Array<Omit<NewTourMealCuisine, "tourMealId">>,
 ) {
   return db.transaction(async (transaction) => {
     const [meal] =
       Object.keys(data).length > 0
-        ? await transaction
-            .update(tourMeals)
-            .set(data)
-            .where(eq(tourMeals.id, id))
-            .returning()
-        : await transaction
-            .select()
-            .from(tourMeals)
-            .where(eq(tourMeals.id, id))
-            .limit(1);
+        ? await transaction.update(tourMeals).set(data).where(eq(tourMeals.id, id)).returning()
+        : await transaction.select().from(tourMeals).where(eq(tourMeals.id, id)).limit(1);
 
     if (!meal) {
       return null;
     }
 
     if (cuisineLinks !== undefined) {
-      await transaction
-        .delete(tourMealCuisines)
-        .where(eq(tourMealCuisines.tourMealId, id));
+      await transaction.delete(tourMealCuisines).where(eq(tourMealCuisines.tourMealId, id));
 
       if (cuisineLinks.length > 0) {
-        await transaction
-          .insert(tourMealCuisines)
-          .values(
-            cuisineLinks.map((link) => ({
-              ...link,
-              tourMealId: id,
-            })),
-          );
+        await transaction.insert(tourMealCuisines).values(
+          cuisineLinks.map((link) => ({
+            ...link,
+            tourMealId: id,
+          })),
+        );
       }
     }
 
@@ -1189,12 +907,9 @@ export async function updateTourMeal(
 }
 
 export async function deleteTourMeal(id: string) {
-    const [meal] = await db
-        .delete(tourMeals)
-        .where(eq(tourMeals.id, id))
-        .returning({
-        id: tourMeals.id,
-        });
+  const [meal] = await db.delete(tourMeals).where(eq(tourMeals.id, id)).returning({
+    id: tourMeals.id,
+  });
 
-    return meal ?? null;
+  return meal ?? null;
 }

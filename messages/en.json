@@ -193,5 +193,259 @@
       "categories": "Categories",
       "viewGoogleMaps": "View on Google Maps"
     }
+  },
+  "Notifications": {
+    "metadata": {
+      "title": "Notifications",
+      "description": "Notifications from SmartTrip"
+    },
+    "center": "Notification center",
+    "title": "Your notifications",
+    "unreadCount": "{count} unread notifications",
+    "markAllRead": "Mark all as read",
+    "markOneRead": "Mark as read",
+    "emptyTitle": "No notifications yet",
+    "emptyDescription": "New notifications from SmartTrip will appear here.",
+    "page": "Page {current} of {total}",
+    "loadError": "Could not load notifications",
+    "updateError": "Could not update notifications"
+  },
+  "Community": {
+    "metadata": {
+      "title": "Community stories",
+      "description": "Read and share real travel experiences from the community."
+    },
+    "feed": {
+      "sortLatest": "Latest",
+      "sortPopular": "Most liked",
+      "sortSaved": "Saved",
+      "allDestinations": "All destinations",
+      "loading": "Loading experiences...",
+      "emptyTitle": "No stories yet",
+      "emptyDescription": "Be the first to share a memorable journey.",
+      "shareExperience": "Share an experience",
+      "loadMore": "Load more experiences",
+      "loading2": "Loading...",
+      "viewPost": "View post",
+      "days": "{count} days",
+      "visited": "Visited:",
+      "member": "Member",
+      "memberSmartTrip": "SmartTrip member",
+      "loadError": "Could not load community posts.",
+      "fallbackError": "Could not load the community."
+    },
+    "detail": {
+      "loading": "Loading experience...",
+      "defaultTitle": "Travel experience",
+      "days": "{count} days",
+      "likes": "{count} likes",
+      "comments": "{count} comments",
+      "saved": "Saved",
+      "savePost": "Save post",
+      "visitedPlaces": "Places visited",
+      "member": "Member",
+      "memberSmartTrip": "SmartTrip member",
+      "itinerarySnapshot": "Experienced itinerary",
+      "plannerSnapshot": "Planner Snapshot",
+      "snapshotNote": "This snapshot was saved with the community post. The \"Use this itinerary\" feature will be linked to the Planner in the next phase.",
+      "activities": "{count} activities",
+      "meals": "{count} meals",
+      "cuisine": "Cuisine",
+      "dayTitle": "Day {number}",
+      "editPost": "Edit post",
+      "deletePost": "Delete post",
+      "editLabel": "Edit",
+      "editPostTitle": "Post",
+      "editTitleLabel": "Title",
+      "editContentLabel": "Content",
+      "editRatingLabel": "Rating",
+      "saveChanges": "Save changes",
+      "confirmDeletePost": "Are you sure you want to delete this post?",
+      "confirmDeleteComment": "Delete this comment?",
+      "editCommentPrompt": "Edit comment:",
+      "errorEmpty": "Post not found.",
+      "errorLoad": "Could not load this post.",
+      "submitError": "Could not submit comment.",
+      "deleteCommentError": "Could not delete comment.",
+      "editCommentError": "Could not edit comment.",
+      "updatePostError": "Could not update post.",
+      "deletePostError": "Could not delete post.",
+      "starLabel": "{star} stars"
+    },
+    "comments": {
+      "title": "Comments",
+      "discussion": "Discussion",
+      "count": "{count} comments",
+      "empty": "No comments yet. Start the conversation.",
+      "replyingTo": "Replying to",
+      "reply": "Reply",
+      "edit": "Edit",
+      "delete": "Delete",
+      "send": "Send",
+      "placeholderGuest": "Sign in to join the conversation...",
+      "placeholderReply": "Replying to {name}...",
+      "placeholderDefault": "Share your thoughts or ask about the trip...",
+      "emptyCommentError": "Please enter a comment.",
+      "member": "member",
+      "memberFull": "SmartTrip member"
+    },
+    "create": {
+      "metadata": {
+        "title": "Share an experience"
+      },
+      "notDateSet": "No date set"
+    },
+    "report": {
+      "trigger": "Report",
+      "badge": "Report content",
+      "titlePost": "Report post",
+      "titleComment": "Report comment",
+      "description": "Your report will be reviewed by an administrator. Content is not automatically hidden by a single report.",
+      "closeDialog": "Close report dialog",
+      "successTitle": "Report submitted",
+      "close": "Close",
+      "reasonLegend": "Reason for report",
+      "detailsLabel": "Details",
+      "detailsOptional": " (optional)",
+      "detailsRequired": " *",
+      "cancel": "Cancel",
+      "submit": "Submit report",
+      "submitting": "Submitting...",
+      "errorSelectReason": "Please select a reason.",
+      "errorDescribeReason": "Please describe the reason.",
+      "errorTooLong": "Description must not exceed 1000 characters.",
+      "errorFallback": "Could not submit report.",
+      "serverError": "The server response was not in the expected format.",
+      "successFallback": "Report submitted.",
+      "placeholderOther": "Describe the issue you noticed...",
+      "placeholderDefault": "You may provide additional details to help the admin review...",
+      "reasons": {
+        "spam": {
+          "label": "Spam or advertising",
+          "description": "Repetitive content, inappropriate ads, or intentional disruption."
+        },
+        "harassment": {
+          "label": "Harassment or abuse",
+          "description": "Attacks, threats, humiliation, or targeting an individual."
+        },
+        "hate_speech": {
+          "label": "Hate speech",
+          "description": "Content that attacks a group based on protected characteristics."
+        },
+        "inappropriate_content": {
+          "label": "Inappropriate content",
+          "description": "Offensive images or content not suitable for this travel community."
+        },
+        "misinformation": {
+          "label": "Misinformation",
+          "description": "Information that appears false or likely to cause serious misunderstanding."
+        },
+        "other": {
+          "label": "Other",
+          "description": "An issue not covered by the categories above."
+        }
+      }
+    }
+  },
+  "Tours": {
+    "metadata": {
+      "title": "Journeys",
+      "description": "Explore travel itineraries designed for Hue, Da Nang and Hoi An."
+    },
+    "detail": {
+      "backToJourneys": "All journeys",
+      "overviewDuration": "Duration",
+      "overviewDeparture": "Departure point",
+      "overviewMeeting": "Meeting point",
+      "tbdMeeting": "To be announced",
+      "departsFrom": "Departs from {location}",
+      "itineraryEyebrow": "Day-by-day itinerary",
+      "itineraryTitle": "Where to go and what to do on this journey?",
+      "daysWithSchedule": "{count} days scheduled",
+      "dayLabel": "Day {number}",
+      "dayCode": "D{number}",
+      "noActivities": "No detailed activities for this day yet.",
+      "noItinerary": "The detailed itinerary is being updated.",
+      "travelAbout": "About {minutes} minutes",
+      "transport": "Transport",
+      "notesTitle": "Before you go",
+      "notes": [
+        "Opening hours and entrance fees may change over time.",
+        "Bring comfortable shoes and appropriate attire for spiritual sites.",
+        "The itinerary may be adjusted for weather or personal needs.",
+        "Costs shown are estimates only, not confirmed service bookings."
+      ],
+      "estimatedCost": "Estimated cost",
+      "perPersonRef": "Reference price per person",
+      "duration": "Duration",
+      "departure": "Departure",
+      "meeting": "Meeting point",
+      "relatedEyebrow": "You may also like",
+      "relatedTitle": "Similar journeys",
+      "flexible": "Flexible",
+      "mealIncluded": "Included",
+      "mealSelfPay": "Own expense",
+      "updatingPrice": "Updating"
+    },
+    "transport": {
+      "walking": "Walking",
+      "bicycle": "Bicycle",
+      "motobike": "Motorbike",
+      "car": "Car",
+      "bus": "Bus",
+      "train": "Train",
+      "airplane": "Airplane",
+      "boat": "Boat",
+      "other": "Other transport"
+    },
+    "meal": {
+      "breakfast": "Breakfast",
+      "lunch": "Lunch",
+      "dinner": "Dinner",
+      "snack": "Snack",
+      "default": "Meal"
+    },
+    "actions": {
+      "customizeAI": "Customize with AI",
+      "comingSoon": "Coming soon",
+      "aiTitle": "AI customization will be available in a future update",
+      "saved": "Saved",
+      "save": "Save",
+      "share": "Share",
+      "copied": "Copied",
+      "shareError": "Could not share",
+      "saveNote": "Quick saves are stored on this device. Itineraries built from tours will be saved to your account.",
+      "saveError": "Could not save journey:",
+      "shareError2": "Could not share journey:"
+    },
+    "costs": {
+      "estimatedCost": "Estimated cost",
+      "viewDetails": "View breakdown",
+      "eyebrow": "Tour costs",
+      "title": "Cost breakdown",
+      "description": "Reference estimate for 1 adult and 1 room.",
+      "close": "Close",
+      "noCostsTitle": "No cost breakdown available yet",
+      "noCostsDescription": "The current price is an older estimate. Detailed costs are being updated.",
+      "totalLabel": "Estimated total",
+      "totalNote": "Reference price per person",
+      "updatingPrice": "Updating"
+    }
+  },
+  "Profile": {
+    "metadata": {
+      "title": "My account",
+      "description": "Manage your personal information and SmartTrip account."
+    },
+    "settings": {
+      "nameMinError": "Full name must be at least 2 characters.",
+      "nameMaxError": "Full name must not exceed 80 characters.",
+      "nameInvalidError": "Full name must contain letters or numbers."
+    }
+  },
+  "Auth": {
+    "metadata": {
+      "title": "Sign in"
+    }
   }
 }

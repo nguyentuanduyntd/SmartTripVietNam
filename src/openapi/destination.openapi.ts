@@ -1,6 +1,14 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { apiErrorResponseSchema } from "@/src/schemas/common.schema";
-import {createDestinationRequestSchema,deleteDestinationResponseSchema,destinationIdParamsSchema,destinationListQuerySchema,destinationListResponseSchema,destinationResponseSchema,updateDestinationRequestSchema,} from "@/src/schemas/destination.schema";
+import {
+  createDestinationRequestSchema,
+  deleteDestinationResponseSchema,
+  destinationIdParamsSchema,
+  destinationListQuerySchema,
+  destinationListResponseSchema,
+  destinationResponseSchema,
+  updateDestinationRequestSchema,
+} from "@/src/schemas/destination.schema";
 
 export function registerDestinationOpenApi(registry: OpenAPIRegistry) {
   registry.registerPath({

@@ -1,84 +1,52 @@
 "use client";
 
 import { ArrowUp } from "lucide-react";
-import {
-    useCallback,
-    useEffect,
-    useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const SHOW_THRESHOLD = 400;
 
 export function ScrollToTopButton() {
-    const [isVisible, setIsVisible] =
-        useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
-    useEffect(() => {
-        function handleScroll() {
-            const scrollTop =
-                window.scrollY ||
-                document.documentElement
-                    .scrollTop ||
-                document.body.scrollTop ||
-                0;
+  useEffect(() => {
+    function handleScroll() {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
 
-            setIsVisible(
-                scrollTop >
-                    SHOW_THRESHOLD,
-            );
-        }
+      setIsVisible(scrollTop > SHOW_THRESHOLD);
+    }
 
-        // Kiểm tra ngay khi component mount
-        handleScroll();
+    handleScroll();
 
-        window.addEventListener(
-            "scroll",
-            handleScroll,
-            {
-                passive: true,
-            },
-        );
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
 
-        return () => {
-            window.removeEventListener(
-                "scroll",
-                handleScroll,
-            );
-        };
-    }, []);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
-    const scrollToTop =
-        useCallback(() => {
-            /*
-             * Trường hợp scroll chính là window
-             */
-            window.scrollTo({
-                top: 0,
-                left: 0,
-                behavior: "smooth",
-            });
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "smooth",
+    });
 
-            /*
-             * Fallback cho một số browser /
-             * trường hợp documentElement
-             * là scrolling element.
-             */
-            document.documentElement.scrollTo(
-                {
-                    top: 0,
-                    left: 0,
-                    behavior: "smooth",
-                },
-            );
-        }, []);
+    document.documentElement.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "smooth",
+    });
+  }, []);
 
-    return (
-        <button
-            type="button"
-            onClick={scrollToTop}
-            aria-label="Cuộn lên đầu trang"
-            title="Lên đầu trang"
-            className={`
+  return (
+    <button
+      type="button"
+      onClick={scrollToTop}
+      aria-label="Cuộn lên đầu trang"
+      title="Lên đầu trang"
+      className={`
                 fixed
                 bottom-6
                 right-5
@@ -100,16 +68,13 @@ export function ScrollToTopButton() {
                 sm:right-8
 
                 ${
-                    isVisible
-                        ? "visible translate-y-0 opacity-100"
-                        : "invisible pointer-events-none translate-y-4 opacity-0"
+                  isVisible
+                    ? "visible translate-y-0 opacity-100"
+                    : "invisible pointer-events-none translate-y-4 opacity-0"
                 }
             `}
-        >
-            <ArrowUp
-                className="h-5 w-5"
-                strokeWidth={2.5}
-            />
-        </button>
-    );
+    >
+      <ArrowUp className="h-5 w-5" strokeWidth={2.5} />
+    </button>
+  );
 }

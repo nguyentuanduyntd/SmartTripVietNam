@@ -33,21 +33,13 @@ import {
   AuthVisualPanel,
 } from "@/src/components/auth/AuthShell";
 import { HOME_CITIES } from "@/src/constants/home-data";
-import {
-  getPasswordChecks,
-  isPasswordValid,
-  isValidEmail,
-  normalizeEmail,
-} from "@/src/lib/auth/auth-form.utils";
+import { getPasswordChecks, isPasswordValid, isValidEmail, normalizeEmail } from "@/src/lib/auth/auth-form.utils";
 import { createClient } from "@/src/lib/supabase/client";
 
 function getRegisterErrorMessage(message: string) {
   const normalizedMessage = message.toLowerCase();
 
-  if (
-    normalizedMessage.includes("user already registered") ||
-    normalizedMessage.includes("already been registered")
-  ) {
+  if (normalizedMessage.includes("user already registered") || normalizedMessage.includes("already been registered")) {
     return "Email này đã được sử dụng. Bạn có thể đăng nhập bằng tài khoản hiện có.";
   }
 
@@ -58,17 +50,11 @@ function getRegisterErrorMessage(message: string) {
     return "Mật khẩu chưa đủ mạnh. Vui lòng sử dụng ít nhất 8 ký tự.";
   }
 
-  if (
-    normalizedMessage.includes("unable to validate email address") ||
-    normalizedMessage.includes("invalid email")
-  ) {
+  if (normalizedMessage.includes("unable to validate email address") || normalizedMessage.includes("invalid email")) {
     return "Địa chỉ email không hợp lệ.";
   }
 
-  if (
-    normalizedMessage.includes("signup is disabled") ||
-    normalizedMessage.includes("signups not allowed")
-  ) {
+  if (normalizedMessage.includes("signup is disabled") || normalizedMessage.includes("signups not allowed")) {
     return "Hệ thống hiện đang tạm khóa đăng ký tài khoản.";
   }
 
@@ -85,8 +71,7 @@ function getRegisterErrorMessage(message: string) {
 
 export default function RegisterPage() {
   const supabase = useMemo(() => createClient(), []);
-  const registerVisual =
-    HOME_CITIES.find((city) => city.id === "hue") ?? HOME_CITIES[0];
+  const registerVisual = HOME_CITIES.find((city) => city.id === "hue") ?? HOME_CITIES[0];
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -95,18 +80,11 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-  const [registrationEmail, setRegistrationEmail] = useState<string | null>(
-    null,
-  );
+  const [registrationEmail, setRegistrationEmail] = useState<string | null>(null);
 
-  const passwordChecks = useMemo(
-    () => getPasswordChecks(password),
-    [password],
-  );
+  const passwordChecks = useMemo(() => getPasswordChecks(password), [password]);
   const passwordValid = isPasswordValid(passwordChecks);
-  const passwordsMismatch = Boolean(
-    confirmPassword && password !== confirmPassword,
-  );
+  const passwordsMismatch = Boolean(confirmPassword && password !== confirmPassword);
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -207,31 +185,21 @@ export default function RegisterPage() {
           <div className="mx-auto grid h-20 w-20 place-items-center rounded-[26px] bg-[#e9f5ef] text-[#2f8f78]">
             <CheckCircle2 size={38} strokeWidth={1.8} />
           </div>
-          <p className="mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">
-            Gần hoàn tất
-          </p>
+          <p className="mt-7 text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">Gần hoàn tất</p>
           <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
             Kiểm tra email của bạn
           </h1>
-          <p className="mx-auto mt-5 max-w-md leading-7 text-[#687572]">
-            SmartTrip đã gửi email xác nhận tới
-          </p>
-          <p className="mt-2 break-all font-bold text-[#173a3b]">
-            {registrationEmail}
-          </p>
+          <p className="mx-auto mt-5 max-w-md leading-7 text-[#687572]">SmartTrip đã gửi email xác nhận tới</p>
+          <p className="mt-2 break-all font-bold text-[#173a3b]">{registrationEmail}</p>
           <div className="mt-7 rounded-2xl border border-[#ddd3c4] bg-white/65 px-5 py-4 text-sm leading-6 text-[#64736f]">
-            Nhấn vào liên kết trong email để xác nhận tài khoản. Sau đó bạn có
-            thể đăng nhập và bắt đầu tạo lịch trình.
+            Nhấn vào liên kết trong email để xác nhận tài khoản. Sau đó bạn có thể đăng nhập và bắt đầu tạo lịch trình.
           </div>
           <Link
             href="/auth/login"
             className="group mt-7 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#173a3b] px-6 font-bold text-white shadow-[0_16px_38px_rgba(23,58,59,0.2)] transition-all hover:-translate-y-0.5 hover:bg-[#21494a]"
           >
             Đến trang đăng nhập
-            <ArrowRight
-              size={19}
-              className="transition-transform group-hover:translate-x-1"
-            />
+            <ArrowRight size={19} className="transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
             href="/"
@@ -275,11 +243,7 @@ export default function RegisterPage() {
           description="Tạo tài khoản SmartTrip để lưu lại những hành trình bạn yêu thích."
         />
 
-        <form
-          className="mt-7 space-y-4"
-          onSubmit={handleRegister}
-          aria-busy={isSubmitting}
-        >
+        <form className="mt-7 space-y-4" onSubmit={handleRegister} aria-busy={isSubmitting}>
           <AuthTextField
             id="fullName"
             name="fullName"
@@ -362,21 +326,13 @@ export default function RegisterPage() {
 
           {error ? <AuthAlert>{error}</AuthAlert> : null}
 
-          <AuthSubmitButton
-            loading={isSubmitting}
-            loadingLabel="Đang tạo tài khoản..."
-            disabled={busy}
-          >
+          <AuthSubmitButton loading={isSubmitting} loadingLabel="Đang tạo tài khoản..." disabled={busy}>
             Tạo tài khoản
           </AuthSubmitButton>
         </form>
 
         <AuthDivider>Hoặc tiếp tục với</AuthDivider>
-        <GoogleAuthButton
-          onClick={handleGoogleRegister}
-          disabled={busy}
-          loading={isGoogleSubmitting}
-        />
+        <GoogleAuthButton onClick={handleGoogleRegister} disabled={busy} loading={isGoogleSubmitting} />
 
         <p className="mt-7 text-center text-sm text-[#687572]">
           Bạn đã có tài khoản?{" "}
@@ -388,8 +344,7 @@ export default function RegisterPage() {
           </Link>
         </p>
         <p className="mt-5 text-center text-[11px] leading-5 text-[#929996]">
-          Bằng việc tạo tài khoản, bạn đồng ý sử dụng SmartTrip cho mục đích lập
-          và quản lý hành trình cá nhân.
+          Bằng việc tạo tài khoản, bạn đồng ý sử dụng SmartTrip cho mục đích lập và quản lý hành trình cá nhân.
         </p>
       </AuthCard>
     </AuthSplitShell>

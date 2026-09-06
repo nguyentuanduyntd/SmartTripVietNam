@@ -1,74 +1,67 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
 import {
   DestinationFormDialog,
   type DestinationFormSubmitData,
 } from "@/src/components/admin/destinations/DestinationFormDialog";
-import {
-  AdminCreateButton,
-  AdminListPanel,
-} from "@/src/components/admin/shared/AdminListPanel";
+import { AdminCreateButton, AdminListPanel } from "@/src/components/admin/shared/AdminListPanel";
+import { AdminPagination } from "@/src/components/admin/shared/AdminPagination";
 import { saveEntityWithCover } from "@/src/components/admin/shared/saveEntityWithCover";
 import { useAdminList } from "@/src/components/admin/shared/useAdminList";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import {
-  DataTable,
-  type DataTableColumn,
-  type SortDirection,
-} from "@/src/components/ui/DataTable";
-import {
-  destinationsApi,
-  type Destination,
-} from "@/src/lib/api-client/destinations";
+import { DataTable, type DataTableColumn, type SortDirection } from "@/src/components/ui/DataTable";
+import { useDebounce } from "@/src/hooks/useDebounce";
+import { usePagination } from "@/src/hooks/usePagination";
+import { destinationsApi, type Destination } from "@/src/lib/api-client/destinations";
 import { ApiRequestError } from "@/src/lib/api-client/http";
-import {
-  locationsApi,
-  type Location,
-} from "@/src/lib/api-client/locations";
+import { locationsApi, type Location } from "@/src/lib/api-client/locations";
 
 type SortKey = "name" | "updatedAt";
+
+const PAGE_SIZE = 10;
 
 export function DestinationsPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDirection, setSortDirection] =
-    useState<SortDirection>(null);
-  const [filterValues, setFilterValues] = useState<
-    Record<string, string>
-  >({});
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [paginationTotal, setPaginationTotal] = useState(0);
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingDestination, setEditingDestination] =
-    useState<Destination | null>(null);
+  const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<
-    Record<string, string[]>
-  >();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>();
 
-  const [deleteTarget, setDeleteTarget] =
-    useState<Destination | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Destination | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const locationFilter = filterValues.locationId;
+  const { page, pageSize, totalPages, totalItems, startItem, endItem, nextPage, previousPage, resetPage } =
+    usePagination({
+      totalItems: paginationTotal,
+      pageSize: PAGE_SIZE,
+    });
 
-  const fetchDestinations = useCallback(
-    () =>
-      destinationsApi.list({
-        page: 1,
-        limit: 50,
-        locationId: locationFilter || undefined,
-      }),
-    [locationFilter],
-  );
+  const nameFilter = useDebounce(filterValues.name?.trim() ?? "", 350, resetPage);
+  const locationFilter = filterValues.locationId;
+  const categoryFilter = filterValues.categoryId;
+
+  const fetchDestinations = useCallback(async () => {
+    const result = await destinationsApi.list({
+      page,
+      limit: pageSize,
+      search: nameFilter || undefined,
+      locationId: locationFilter || undefined,
+      categoryId: categoryFilter || undefined,
+    });
+
+    setPaginationTotal(result.meta.total);
+
+    return result;
+  }, [categoryFilter, locationFilter, nameFilter, page, pageSize]);
 
   const {
     rows,
@@ -118,37 +111,18 @@ export function DestinationsPage() {
   const visibleRows = useMemo(() => {
     let result = rows;
 
-    if (filterValues.name) {
-      const keyword = filterValues.name.trim().toLowerCase();
-
-      result = result.filter((row) =>
-        row.name.toLowerCase().includes(keyword),
-      );
-    }
-
-    if (filterValues.categoryId) {
-      result = result.filter((row) =>
-        row.categories.some(
-          (category) =>
-            category.id === filterValues.categoryId,
-        ),
-      );
-    }
-
     if (sortKey && sortDirection) {
       result = [...result].sort((a, b) => {
         const valueA = sortKey === "name" ? a.name : a.updatedAt;
         const valueB = sortKey === "name" ? b.name : b.updatedAt;
         const comparison = valueA.localeCompare(valueB);
 
-        return sortDirection === "asc"
-          ? comparison
-          : -comparison;
+        return sortDirection === "asc" ? comparison : -comparison;
       });
     }
 
     return result;
-  }, [filterValues, rows, sortDirection, sortKey]);
+  }, [rows, sortDirection, sortKey]);
 
   function handleSortChange(key: string) {
     const nextKey = key as SortKey;
@@ -174,14 +148,25 @@ export function DestinationsPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
-    if (key === "locationId") {
+    if (key !== "name") {
       beginReload();
+      resetPage();
     }
 
     setFilterValues((current) => ({
       ...current,
       [key]: value,
     }));
+  }
+
+  function handlePreviousPage() {
+    beginReload();
+    previousPage();
+  }
+
+  function handleNextPage() {
+    beginReload();
+    nextPage();
   }
 
   function openCreateForm() {
@@ -205,11 +190,7 @@ export function DestinationsPage() {
     setErrorMessage(null);
   }
 
-  async function handleSubmitForm({
-    input,
-    coverFile,
-    removeCover,
-  }: DestinationFormSubmitData) {
+  async function handleSubmitForm({ input, coverFile, removeCover }: DestinationFormSubmitData) {
     setSubmitting(true);
     setFieldErrors(undefined);
     setErrorMessage(null);
@@ -221,9 +202,7 @@ export function DestinationsPage() {
         removeCover,
         uploadFolder: "destination-cover",
         save: (payload) =>
-          editingDestination
-            ? destinationsApi.update(editingDestination.id, payload)
-            : destinationsApi.create(payload),
+          editingDestination ? destinationsApi.update(editingDestination.id, payload) : destinationsApi.create(payload),
       });
 
       closeForm();
@@ -233,11 +212,7 @@ export function DestinationsPage() {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
       } else {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Không thể lưu địa danh, vui lòng thử lại",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "Không thể lưu địa danh, vui lòng thử lại");
       }
     } finally {
       setSubmitting(false);
@@ -255,11 +230,7 @@ export function DestinationsPage() {
       setDeleteTarget(null);
       await reloadDestinations();
     } catch (error) {
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.message
-          : "Không xóa được địa danh",
-      );
+      setErrorMessage(error instanceof ApiRequestError ? error.message : "Không xóa được địa danh");
     } finally {
       setDeleting(false);
     }
@@ -277,9 +248,7 @@ export function DestinationsPage() {
       render: (row) => (
         <div>
           <div className="font-medium">{row.name}</div>
-          <div className="font-mono text-[11px] text-admin-muted">
-            {row.slug}
-          </div>
+          <div className="font-mono text-[11px] text-admin-muted">{row.slug}</div>
         </div>
       ),
     },
@@ -293,10 +262,7 @@ export function DestinationsPage() {
           label: location.name,
         })),
       },
-      render: (row) =>
-        locations.find(
-          (location) => location.id === row.locationId,
-        )?.name ?? "—",
+      render: (row) => locations.find((location) => location.id === row.locationId)?.name ?? "—",
     },
     {
       key: "categoryId",
@@ -307,9 +273,7 @@ export function DestinationsPage() {
       },
       render: (row) => (
         <div className="flex flex-wrap gap-1">
-          {row.categories.length === 0 && (
-            <span className="text-admin-muted">—</span>
-          )}
+          {row.categories.length === 0 && <span className="text-admin-muted">—</span>}
 
           {row.categories.map((category) => (
             <span
@@ -368,10 +332,7 @@ export function DestinationsPage() {
         title="Địa danh"
         subtitle={`Huế · Đà Nẵng · Hội An — ${total} địa danh đang quản lý`}
         action={
-          <AdminCreateButton
-            onClick={openCreateForm}
-            disabled={submitting || deleting}
-          >
+          <AdminCreateButton onClick={openCreateForm} disabled={submitting || deleting}>
             Thêm địa danh
           </AdminCreateButton>
         }
@@ -390,6 +351,17 @@ export function DestinationsPage() {
           emptyLabel="Không tìm thấy địa danh phù hợp"
         />
       </AdminListPanel>
+
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        startItem={startItem}
+        endItem={endItem}
+        loading={loading}
+        onPreviousPage={handlePreviousPage}
+        onNextPage={handleNextPage}
+      />
 
       {formOpen ? (
         <DestinationFormDialog

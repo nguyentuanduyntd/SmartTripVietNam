@@ -2,10 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-export function successResponse<T>(
-  data: T,
-  init?: { status?: number; message?: string },
-) {
+export function successResponse<T>(data: T, init?: { status?: number; message?: string }) {
   return NextResponse.json(
     {
       success: true as const,
@@ -33,7 +30,6 @@ export function errorResponse(
   );
 }
 
-/** Chuyển ZodError thành map lỗi theo từng field, dùng cho response 400. */
 export function zodErrorToFieldErrors(error: ZodError): Record<string, string[]> {
   const fieldErrors: Record<string, string[]> = {};
 

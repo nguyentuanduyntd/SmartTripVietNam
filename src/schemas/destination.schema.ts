@@ -27,12 +27,9 @@ const longitudeSchema = z.number().min(-180).max(180).nullable().optional();
 const imageUrlSchema = z.url().nullable().optional();
 const imagePublicIdSchema = z.string().trim().max(300).nullable().optional();
 
-const categoryIdsSchema = z
-  .array(z.string().uuid("Category ID không đúng định dạng UUID"))
-  .optional()
-  .meta({
-    description: "Danh sách ID danh mục gắn với destination",
-  });
+const categoryIdsSchema = z.array(z.string().uuid("Category ID không đúng định dạng UUID")).optional().meta({
+  description: "Danh sách ID danh mục gắn với destination",
+});
 
 export const createDestinationRequestSchema = z
   .object({

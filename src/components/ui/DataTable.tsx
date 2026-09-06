@@ -9,10 +9,8 @@ export type DataTableColumn<T> = {
   key: string;
   header: string;
   sortable?: boolean;
-  /** Có ô lọc riêng cho cột này không, và loại input. */
-  filter?:
-    | { type: "text"; placeholder?: string }
-    | { type: "select"; options: { label: string; value: string }[] };
+
+  filter?: { type: "text"; placeholder?: string } | { type: "select"; options: { label: string; value: string }[] };
   render: (row: T) => React.ReactNode;
   widthClassName?: string;
 };
@@ -29,11 +27,6 @@ type DataTableProps<T> = {
   emptyLabel?: string;
 };
 
-/**
- * Bảng dữ liệu dùng chung cho toàn bộ admin. Mỗi cột có thể bật:
- * - sortable: nút mũi tên lên/xuống cạnh tiêu đề
- * - filter: icon phễu mở popover lọc riêng cho cột đó (text hoặc select)
- */
 export function DataTable<T>({
   columns,
   rows,
@@ -84,14 +77,10 @@ export function DataTable<T>({
                   {col.filter && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setOpenFilterKey(isFilterOpen ? null : col.key)
-                      }
+                      onClick={() => setOpenFilterKey(isFilterOpen ? null : col.key)}
                       aria-label={`Lọc theo ${col.header}`}
                       className={`rounded p-0.5 hover:bg-admin-line/50 ${
-                        hasActiveFilter
-                          ? "text-admin-gold"
-                          : "text-admin-muted hover:text-admin-ink"
+                        hasActiveFilter ? "text-admin-gold" : "text-admin-muted hover:text-admin-ink"
                       }`}
                     >
                       <Filter size={13} strokeWidth={1.75} />
@@ -107,18 +96,14 @@ export function DataTable<T>({
                         type="text"
                         value={filterValues[col.key] ?? ""}
                         placeholder={col.filter.placeholder ?? "Nhập để lọc…"}
-                        onChange={(e) =>
-                          onFilterChange?.(col.key, e.target.value)
-                        }
+                        onChange={(e) => onFilterChange?.(col.key, e.target.value)}
                         className="w-full rounded border border-admin-line bg-admin-paper px-2 py-1 text-xs text-admin-ink outline-none focus:border-admin-gold"
                       />
                     )}
                     {col.filter.type === "select" && (
                       <select
                         value={filterValues[col.key] ?? ""}
-                        onChange={(e) =>
-                          onFilterChange?.(col.key, e.target.value)
-                        }
+                        onChange={(e) => onFilterChange?.(col.key, e.target.value)}
                         className="w-full rounded border border-admin-line bg-admin-paper px-2 py-1 text-xs text-admin-ink outline-none focus:border-admin-gold"
                       >
                         <option value="">Tất cả</option>
@@ -139,10 +124,7 @@ export function DataTable<T>({
       <tbody>
         {rows.length === 0 && (
           <tr>
-            <td
-              colSpan={columns.length}
-              className="px-4 py-10 text-center text-sm text-admin-muted"
-            >
+            <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-admin-muted">
               {emptyLabel}
             </td>
           </tr>

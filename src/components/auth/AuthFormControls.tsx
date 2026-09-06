@@ -1,19 +1,7 @@
 "use client";
 
-import {
-  useState,
-  type ButtonHTMLAttributes,
-  type InputHTMLAttributes,
-  type ReactNode,
-} from "react";
-import {
-  ArrowRight,
-  Check,
-  Eye,
-  EyeOff,
-  LockKeyhole,
-  type LucideIcon,
-} from "lucide-react";
+import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { ArrowRight, Check, Eye, EyeOff, LockKeyhole, type LucideIcon } from "lucide-react";
 
 import type { PasswordChecks } from "@/src/lib/auth/auth-form.utils";
 
@@ -43,10 +31,7 @@ export function AuthTextField({
       </div>
 
       <div className="relative">
-        <Icon
-          size={19}
-          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#82908d]"
-        />
+        <Icon size={19} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#82908d]" />
 
         <input
           id={id}
@@ -63,10 +48,7 @@ export function AuthTextField({
   );
 }
 
-type AuthPasswordFieldProps = Omit<
-  InputHTMLAttributes<HTMLInputElement>,
-  "type"
-> & {
+type AuthPasswordFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   label: ReactNode;
   labelAction?: ReactNode;
   invalid?: boolean;
@@ -129,13 +111,7 @@ export function AuthPasswordField({
   );
 }
 
-export function AuthAlert({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function AuthAlert({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div
       role="alert"
@@ -169,10 +145,7 @@ export function AuthSubmitButton({
     >
       {loading ? loadingLabel : children}
       {!loading && showArrow ? (
-        <ArrowRight
-          size={19}
-          className="transition-transform group-hover:translate-x-1"
-        />
+        <ArrowRight size={19} className="transition-transform group-hover:translate-x-1" />
       ) : null}
     </button>
   );
@@ -182,9 +155,7 @@ export function AuthDivider({ children }: { children: ReactNode }) {
   return (
     <div className="my-7 flex items-center gap-4">
       <span className="h-px flex-1 bg-[#ddd2c1]" />
-      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#87918e]">
-        {children}
-      </span>
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#87918e]">{children}</span>
       <span className="h-px flex-1 bg-[#ddd2c1]" />
     </div>
   );
@@ -194,11 +165,7 @@ type GoogleAuthButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   loading?: boolean;
 };
 
-export function GoogleAuthButton({
-  loading = false,
-  className = "",
-  ...props
-}: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ loading = false, className = "", ...props }: GoogleAuthButtonProps) {
   return (
     <button
       type="button"
@@ -221,24 +188,12 @@ export function PasswordRequirements({ checks }: { checks: PasswordChecks }) {
   );
 }
 
-function PasswordRule({
-  valid,
-  children,
-}: {
-  valid: boolean;
-  children: ReactNode;
-}) {
+function PasswordRule({ valid, children }: { valid: boolean; children: ReactNode }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 font-semibold ${
-        valid ? "text-[#388372]" : "text-[#969d9a]"
-      }`}
-    >
+    <span className={`inline-flex items-center gap-1.5 font-semibold ${valid ? "text-[#388372]" : "text-[#969d9a]"}`}>
       <span
         className={`grid h-4 w-4 place-items-center rounded-full ${
-          valid
-            ? "bg-[#dff0e9] text-[#388372]"
-            : "bg-[#ece8df] text-[#a3a39e]"
+          valid ? "bg-[#dff0e9] text-[#388372]" : "bg-[#ece8df] text-[#a3a39e]"
         }`}
       >
         <Check size={10} strokeWidth={3} />

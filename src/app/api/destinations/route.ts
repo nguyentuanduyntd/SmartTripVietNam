@@ -1,7 +1,13 @@
 import { requireAdmin } from "@/src/lib/auth/require-admin";
-import {createDestinationRequestSchema,destinationListQuerySchema,} from "@/src/schemas/destination.schema";
-import {DestinationSlugConflictError,InvalidCategoryIdsError,LocationNotFoundForDestinationError,createDestinationService,listDestinations,} from "@/src/services/destination.service";
-import {errorResponse,successResponse,zodErrorToFieldErrors,} from "@/src/utils/api_response";
+import { createDestinationRequestSchema, destinationListQuerySchema } from "@/src/schemas/destination.schema";
+import {
+  DestinationSlugConflictError,
+  InvalidCategoryIdsError,
+  LocationNotFoundForDestinationError,
+  createDestinationService,
+  listDestinations,
+} from "@/src/services/destination.service";
+import { errorResponse, successResponse, zodErrorToFieldErrors } from "@/src/utils/api_response";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -15,11 +21,7 @@ export async function GET(request: Request) {
   });
 
   if (!parsedQuery.success) {
-    return errorResponse(
-      "Query không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedQuery.error),
-    );
+    return errorResponse("Query không hợp lệ", 400, zodErrorToFieldErrors(parsedQuery.error));
   }
 
   const { page, limit, ...filters } = parsedQuery.data;
@@ -43,11 +45,7 @@ export async function POST(request: Request) {
   const parsed = createDestinationRequestSchema.safeParse(body);
 
   if (!parsed.success) {
-    return errorResponse(
-      "Dữ liệu không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsed.error),
-    );
+    return errorResponse("Dữ liệu không hợp lệ", 400, zodErrorToFieldErrors(parsed.error));
   }
 
   try {

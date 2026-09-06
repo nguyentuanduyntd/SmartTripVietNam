@@ -3,34 +3,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, ReceiptText, Trash2 } from "lucide-react";
 
-import {
-  AdminCreateButton,
-  AdminListPanel,
-} from "@/src/components/admin/shared/AdminListPanel";
+import { AdminCreateButton, AdminListPanel } from "@/src/components/admin/shared/AdminListPanel";
+import { AdminPagination } from "@/src/components/admin/shared/AdminPagination";
 import { saveEntityWithCover } from "@/src/components/admin/shared/saveEntityWithCover";
 import { useAdminList } from "@/src/components/admin/shared/useAdminList";
-import {
-  TourFormDialog,
-  type TourFormSubmitData,
-} from "@/src/components/admin/tours/TourFormDialog";
+import { TourFormDialog, type TourFormSubmitData } from "@/src/components/admin/tours/TourFormDialog";
 import { TourCostsDialog } from "./TourCostsDialog";
 import { AdminTopbar } from "@/src/components/layout/AdminTopbar";
 import { ConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import {
-  DataTable,
-  type DataTableColumn,
-  type SortDirection,
-} from "@/src/components/ui/DataTable";
+import { DataTable, type DataTableColumn, type SortDirection } from "@/src/components/ui/DataTable";
+import { useDebounce } from "@/src/hooks/useDebounce";
+import { usePagination } from "@/src/hooks/usePagination";
 import { ApiRequestError } from "@/src/lib/api-client/http";
 import { locationsApi, type Location } from "@/src/lib/api-client/locations";
-import {
-  toursApi,
-  type Tour,
-  type TourListParams,
-  type TourStatus,
-} from "@/src/lib/api-client/tours";
+import { toursApi, type Tour, type TourListParams, type TourStatus } from "@/src/lib/api-client/tours";
 
 type SortKey = "name" | "durationDays" | "estimatedPrice" | "updatedAt";
+
+const PAGE_SIZE = 10;
 
 const STATUS_LABEL: Record<TourStatus, string> = {
   draft: "Nháp",
@@ -39,8 +29,7 @@ const STATUS_LABEL: Record<TourStatus, string> = {
 };
 
 const STATUS_BADGE_CLASS: Record<TourStatus, string> = {
-  draft:
-    "border border-dashed border-admin-muted text-admin-muted bg-transparent",
+  draft: "border border-dashed border-admin-muted text-admin-muted bg-transparent",
   published: "border border-admin-seal text-admin-seal bg-admin-seal-light",
   hidden: "border border-admin-muted text-admin-muted bg-admin-line/40",
 };
@@ -74,6 +63,7 @@ export function ToursPage() {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [paginationTotal, setPaginationTotal] = useState(0);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingTour, setEditingTour] = useState<Tour | null>(null);
@@ -85,26 +75,33 @@ export function ToursPage() {
 
   const [costsTarget, setCostsTarget] = useState<Tour | null>(null);
 
-  const nameFilter = filterValues.name;
+  const { page, pageSize, totalPages, totalItems, startItem, endItem, nextPage, previousPage, resetPage } =
+    usePagination({
+      totalItems: paginationTotal,
+      pageSize: PAGE_SIZE,
+    });
+
+  const nameFilter = useDebounce(filterValues.name?.trim() ?? "", 350, resetPage);
   const locationFilter = filterValues.startLocationId;
   const statusFilter = filterValues.status as TourStatus | undefined;
 
-  const sortByParam: TourListParams["sortBy"] =
-    sortKey && sortDirection ? sortKey : undefined;
+  const sortByParam: TourListParams["sortBy"] = sortKey && sortDirection ? sortKey : undefined;
 
-  const fetchTours = useCallback(
-    () =>
-      toursApi.list({
-        page: 1,
-        limit: 50,
-        search: nameFilter || undefined,
-        startLocationId: locationFilter || undefined,
-        status: statusFilter || undefined,
-        sortBy: sortByParam,
-        sortOrder: sortByParam ? (sortDirection ?? undefined) : undefined,
-      }),
-    [nameFilter, locationFilter, statusFilter, sortByParam, sortDirection],
-  );
+  const fetchTours = useCallback(async () => {
+    const result = await toursApi.list({
+      page,
+      limit: pageSize,
+      search: nameFilter || undefined,
+      startLocationId: locationFilter || undefined,
+      status: statusFilter || undefined,
+      sortBy: sortByParam,
+      sortOrder: sortByParam ? (sortDirection ?? undefined) : undefined,
+    });
+
+    setPaginationTotal(result.meta.total);
+
+    return result;
+  }, [locationFilter, nameFilter, page, pageSize, sortByParam, sortDirection, statusFilter]);
 
   const {
     rows,
@@ -140,6 +137,7 @@ export function ToursPage() {
     const nextKey = key as SortKey;
 
     beginReload();
+    resetPage();
 
     if (sortKey !== nextKey) {
       setSortKey(nextKey);
@@ -162,12 +160,25 @@ export function ToursPage() {
   }
 
   function handleFilterChange(key: string, value: string) {
-    beginReload();
+    if (key !== "name") {
+      beginReload();
+      resetPage();
+    }
 
     setFilterValues((current) => ({
       ...current,
       [key]: value,
     }));
+  }
+
+  function handlePreviousPage() {
+    beginReload();
+    previousPage();
+  }
+
+  function handleNextPage() {
+    beginReload();
+    nextPage();
   }
 
   function openCreateForm() {
@@ -205,11 +216,7 @@ export function ToursPage() {
     await reloadTours();
   }
 
-  async function handleSubmitForm({
-    input,
-    coverFile,
-    removeCover,
-  }: TourFormSubmitData) {
+  async function handleSubmitForm({ input, coverFile, removeCover }: TourFormSubmitData) {
     setSubmitting(true);
     setFieldErrors(undefined);
     setErrorMessage(null);
@@ -220,10 +227,7 @@ export function ToursPage() {
         coverFile,
         removeCover,
         uploadFolder: "tour-cover",
-        save: (payload) =>
-          editingTour
-            ? toursApi.update(editingTour.id, payload)
-            : toursApi.create(payload),
+        save: (payload) => (editingTour ? toursApi.update(editingTour.id, payload) : toursApi.create(payload)),
       });
 
       closeForm();
@@ -233,11 +237,7 @@ export function ToursPage() {
         setFieldErrors(error.fieldErrors);
         setErrorMessage(error.message);
       } else {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Không thể lưu tour, vui lòng thử lại",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "Không thể lưu tour, vui lòng thử lại");
       }
     } finally {
       setSubmitting(false);
@@ -255,11 +255,7 @@ export function ToursPage() {
       setDeleteTarget(null);
       await reloadTours();
     } catch (error) {
-      setErrorMessage(
-        error instanceof ApiRequestError
-          ? error.message
-          : "Không xóa được tour",
-      );
+      setErrorMessage(error instanceof ApiRequestError ? error.message : "Không xóa được tour");
     } finally {
       setDeleting(false);
     }
@@ -277,9 +273,7 @@ export function ToursPage() {
       render: (row) => (
         <div>
           <div className="font-medium">{row.name}</div>
-          <div className="font-mono text-[11px] text-admin-muted">
-            {row.slug}
-          </div>
+          <div className="font-mono text-[11px] text-admin-muted">{row.slug}</div>
         </div>
       ),
     },
@@ -313,15 +307,11 @@ export function ToursPage() {
       render: (row) => (
         <button
           type="button"
-          onClick={() =>
-            openCostsDialog(row)
-          }
+          onClick={() => openCostsDialog(row)}
           className="font-mono text-[12px] underline decoration-admin-line underline-offset-4 transition hover:text-admin-gold hover:decoration-admin-gold"
           title="Xem chi tiết dự toán"
         >
-          {formatPrice(
-            row.estimatedPrice,
-          )}
+          {formatPrice(row.estimatedPrice)}
         </button>
       ),
     },
@@ -330,9 +320,7 @@ export function ToursPage() {
       header: "Trạng thái",
       filter: {
         type: "select",
-        options: (
-          Object.entries(STATUS_LABEL) as [TourStatus, string][]
-        ).map(([value, label]) => ({ value, label })),
+        options: (Object.entries(STATUS_LABEL) as [TourStatus, string][]).map(([value, label]) => ({ value, label })),
       },
       render: (row) => <StatusBadge status={row.status} />,
     },
@@ -352,64 +340,40 @@ export function ToursPage() {
       widthClassName: "w-28",
       render: (row) => (
         <div className="flex justify-end gap-3 text-admin-muted">
-          {/* Chi phí */}
+          {}
           <button
             type="button"
-            onClick={() =>
-              openCostsDialog(row)
-            }
-            disabled={
-              submitting ||
-              deleting
-            }
+            onClick={() => openCostsDialog(row)}
+            disabled={submitting || deleting}
             aria-label={`Quản lý chi phí ${row.name}`}
             title="Quản lý chi phí"
             className="transition hover:text-admin-gold disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <ReceiptText
-              size={16}
-              strokeWidth={1.75}
-            />
+            <ReceiptText size={16} strokeWidth={1.75} />
           </button>
 
-          {/* Sửa */}
+          {}
           <button
             type="button"
-            onClick={() =>
-              openEditForm(row)
-            }
-            disabled={
-              submitting ||
-              deleting
-            }
+            onClick={() => openEditForm(row)}
+            disabled={submitting || deleting}
             aria-label={`Sửa ${row.name}`}
             title="Sửa tour"
             className="transition hover:text-admin-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Pencil
-              size={16}
-              strokeWidth={1.75}
-            />
+            <Pencil size={16} strokeWidth={1.75} />
           </button>
 
-          {/* Xóa */}
+          {}
           <button
             type="button"
-            onClick={() =>
-              setDeleteTarget(row)
-            }
-            disabled={
-              submitting ||
-              deleting
-            }
+            onClick={() => setDeleteTarget(row)}
+            disabled={submitting || deleting}
             aria-label={`Xóa ${row.name}`}
             title="Xóa tour"
             className="transition hover:text-admin-seal disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Trash2
-              size={16}
-              strokeWidth={1.75}
-            />
+            <Trash2 size={16} strokeWidth={1.75} />
           </button>
         </div>
       ),
@@ -422,10 +386,7 @@ export function ToursPage() {
         title="Tour mẫu"
         subtitle={`Huế · Đà Nẵng · Hội An — ${total} tour đang quản lý`}
         action={
-          <AdminCreateButton
-            onClick={openCreateForm}
-            disabled={submitting || deleting}
-          >
+          <AdminCreateButton onClick={openCreateForm} disabled={submitting || deleting}>
             Thêm tour
           </AdminCreateButton>
         }
@@ -445,6 +406,17 @@ export function ToursPage() {
         />
       </AdminListPanel>
 
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        startItem={startItem}
+        endItem={endItem}
+        loading={loading}
+        onPreviousPage={handlePreviousPage}
+        onNextPage={handleNextPage}
+      />
+
       {formOpen ? (
         <TourFormDialog
           open
@@ -458,14 +430,7 @@ export function ToursPage() {
       ) : null}
 
       {costsTarget ? (
-        <TourCostsDialog
-          open
-          tour={costsTarget}
-          onClose={closeCostsDialog}
-          onChanged={
-            handleCostsChanged
-          }
-        />
+        <TourCostsDialog open tour={costsTarget} onClose={closeCostsDialog} onChanged={handleCostsChanged} />
       ) : null}
 
       <ConfirmDialog

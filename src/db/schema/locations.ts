@@ -1,21 +1,19 @@
-import { pgTable,text, timestamp,uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-export const locations = pgTable("locations",{
+export const locations = pgTable("locations", {
+  id: uuid("id").primaryKey().defaultRandom(),
 
-    id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
 
-    name: text("name").notNull(),
+  nameEn: text("name_en"),
 
-    nameEn: text("name_en"),
+  slug: text("slug").notNull().unique(),
 
-    slug: text("slug").notNull().unique(),
+  description: text("description"),
+  descriptionEn: text("description_en"),
 
-    description: text("description"),
-    descriptionEn: text("description_en"),
-
-    createdAt: timestamp("created_at", {withTimezone: true}).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at",{withTimezone: true}).defaultNow().notNull(),
-
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Location = typeof locations.$inferSelect;

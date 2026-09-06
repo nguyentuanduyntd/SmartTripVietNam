@@ -1,7 +1,4 @@
-import type {
-  CostCategory,
-  TravelerScope,
-} from "@/src/constants/itinerary";
+import type { CostCategory, TravelerScope } from "@/src/constants/itinerary";
 import {
   getTravelerCostMultiplier,
   toSafeCostNumber,
@@ -38,11 +35,7 @@ function getQuantity(cost: CostCalculationInput) {
 export function formatCostFormula(
   cost: DisplayableCost,
   context: CostCalculationContext,
-  {
-    currencyFallback = "0 ₫",
-    groupLabel = "nhóm/lượt",
-    alwaysShowQuantity = false,
-  }: CostFormulaOptions = {},
+  { currencyFallback = "0 ₫", groupLabel = "nhóm/lượt", alwaysShowQuantity = false }: CostFormulaOptions = {},
 ) {
   const quantity = getQuantity(cost);
   const unitPrice = formatVnd(cost.unitPrice, currencyFallback);
@@ -54,9 +47,7 @@ export function formatCostFormula(
 
       return [
         unitPrice,
-        alwaysShowQuantity || quantity !== 1
-          ? `× ${formatQuantity(quantity)}`
-          : null,
+        alwaysShowQuantity || quantity !== 1 ? `× ${formatQuantity(quantity)}` : null,
         `× ${travelerCount} ${TRAVELER_LABELS[scope]}`,
       ]
         .filter(Boolean)
@@ -64,10 +55,7 @@ export function formatCostFormula(
     }
 
     case "per_room": {
-      const nightCount = Math.max(
-        cost.nightCount ?? context.defaultNightCount,
-        1,
-      );
+      const nightCount = Math.max(cost.nightCount ?? context.defaultNightCount, 1);
 
       return `${unitPrice} × ${context.roomCount} phòng × ${nightCount} đêm`;
     }
@@ -79,16 +67,10 @@ export function formatCostFormula(
 
     case "fixed":
     default:
-      return quantity !== 1
-        ? `${unitPrice} × ${formatQuantity(quantity)}`
-        : unitPrice;
+      return quantity !== 1 ? `${unitPrice} × ${formatQuantity(quantity)}` : unitPrice;
   }
 }
 
-export function formatStayFormula(stay: {
-  pricePerRoomNight: string | number;
-  roomCount: number;
-  nightCount: number;
-}) {
+export function formatStayFormula(stay: { pricePerRoomNight: string | number; roomCount: number; nightCount: number }) {
   return `${formatVnd(stay.pricePerRoomNight, "0 ₫")} × ${stay.roomCount} phòng × ${stay.nightCount} đêm`;
 }

@@ -1,7 +1,13 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { apiErrorResponseSchema } from "@/src/schemas/common.schema";
-import {createLocationRequestSchema,deleteLocationResponseSchema,locationDeleteConflictSchema,
-  locationIdParamsSchema,locationListResponseSchema,locationResponseSchema,updateLocationRequestSchema,
+import {
+  createLocationRequestSchema,
+  deleteLocationResponseSchema,
+  locationDeleteConflictSchema,
+  locationIdParamsSchema,
+  locationListResponseSchema,
+  locationResponseSchema,
+  updateLocationRequestSchema,
 } from "@/src/schemas/location.schema";
 
 export function registerLocationOpenApi(registry: OpenAPIRegistry) {
@@ -26,7 +32,9 @@ export function registerLocationOpenApi(registry: OpenAPIRegistry) {
     request: {
       body: {
         required: true,
-        content: { "application/json": { schema: createLocationRequestSchema } },
+        content: {
+          "application/json": { schema: createLocationRequestSchema },
+        },
       },
     },
     responses: {
@@ -80,7 +88,9 @@ export function registerLocationOpenApi(registry: OpenAPIRegistry) {
       params: locationIdParamsSchema,
       body: {
         required: true,
-        content: { "application/json": { schema: updateLocationRequestSchema } },
+        content: {
+          "application/json": { schema: updateLocationRequestSchema },
+        },
       },
     },
     responses: {
@@ -112,7 +122,9 @@ export function registerLocationOpenApi(registry: OpenAPIRegistry) {
     responses: {
       200: {
         description: "Xóa thành công",
-        content: { "application/json": { schema: deleteLocationResponseSchema } },
+        content: {
+          "application/json": { schema: deleteLocationResponseSchema },
+        },
       },
       404: {
         description: "Không tìm thấy location",
@@ -120,7 +132,9 @@ export function registerLocationOpenApi(registry: OpenAPIRegistry) {
       },
       409: {
         description: "Còn destination liên kết, không thể xóa",
-        content: { "application/json": { schema: locationDeleteConflictSchema } },
+        content: {
+          "application/json": { schema: locationDeleteConflictSchema },
+        },
       },
     },
   });

@@ -27,10 +27,7 @@ export async function GET() {
     );
   }
 
-  const {
-    data: profile,
-    error: profileError,
-  } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, full_name, role")
     .eq("id", user.id)

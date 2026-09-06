@@ -1,9 +1,7 @@
-import type { OpenAPIRegistry } from"@asteasolutions/zod-to-openapi";
-import {avatarSuccessResponseSchema,updateAvatarRequestSchema,} from "@/src/schemas/profile_avatar.schema";
+import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { avatarSuccessResponseSchema, updateAvatarRequestSchema } from "@/src/schemas/profile_avatar.schema";
 import { apiErrorResponseSchema } from "../schemas/common.schema";
-export function registerProfileAvatarOpenApi(
-  registry: OpenAPIRegistry,
-) {
+export function registerProfileAvatarOpenApi(registry: OpenAPIRegistry) {
   registry.registerPath({
     method: "post",
     path: "/profile/avatar",

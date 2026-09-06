@@ -1,7 +1,4 @@
-import {
-  uploadsApi,
-  type UploadType,
-} from "@/src/lib/api-client/uploads";
+import { uploadsApi, type UploadType } from "@/src/lib/api-client/uploads";
 
 type CoverImageInput = {
   coverImageUrl?: string | null;

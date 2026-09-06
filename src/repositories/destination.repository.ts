@@ -1,523 +1,237 @@
 import "server-only";
 
-import {
-    and,
-    asc,
-    count,
-    eq,
-    ilike,
-    inArray,
-    or,
-    type SQL,
-} from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 
 import { db } from "@/src/db";
 
-import {
-    destinationCategories,
-} from "@/src/db/schema/destination_categories";
+import { destinationCategories } from "@/src/db/schema/destination_categories";
 
-import {
-    destinations,
-    destinationsToCategoies,
-} from "@/src/db/schema/destinations";
+import { destinations, destinationsToCategoies } from "@/src/db/schema/destinations";
 
 export type DestinationFilters = {
-    locationId?: string;
+  locationId?: string;
 
-    categoryId?: string;
+  categoryId?: string;
 
-    search?: string;
+  search?: string;
 
-    page: number;
+  page: number;
 
-    limit: number;
+  limit: number;
 };
 
-function buildFilterConditions(
-    filters: DestinationFilters,
-): SQL[] {
-    const conditions: SQL[] =
-        [];
+function buildFilterConditions(filters: DestinationFilters): SQL[] {
+  const conditions: SQL[] = [];
 
-    if (
-        filters.locationId
-    ) {
-        conditions.push(
-            eq(
-                destinations.locationId,
-                filters.locationId,
-            ),
-        );
-    }
+  if (filters.locationId) {
+    conditions.push(eq(destinations.locationId, filters.locationId));
+  }
 
-    /*
-     * Cho phép search bằng cả:
-     *
-     * VI: Cầu Rồng
-     * EN: Dragon Bridge
-     */
-    if (filters.search) {
-        const keyword =
-            `%${filters.search}%`;
+  if (filters.search) {
+    const keyword = `%${filters.search}%`;
 
-        const searchCondition =
-            or(
-                ilike(
-                    destinations.name,
-                    keyword,
-                ),
+    const searchCondition = or(
+      ilike(destinations.name, keyword),
 
-                ilike(
-                    destinations.nameEn,
-                    keyword,
-                ),
-            );
-
-        if (
-            searchCondition
-        ) {
-            conditions.push(
-                searchCondition,
-            );
-        }
-    }
-
-    return conditions;
-}
-
-export async function findDestinations(
-    filters: DestinationFilters,
-) {
-    const conditions =
-        buildFilterConditions(
-            filters,
-        );
-
-    /*
-     * Lọc category cần join riêng
-     * vì quan hệ many-to-many.
-     */
-    let destinationIdsForCategory:
-        | string[]
-        | null = null;
-
-    if (
-        filters.categoryId
-    ) {
-        const rows =
-            await db
-                .select({
-                    destinationId:
-                        destinationsToCategoies.destinationId,
-                })
-                .from(
-                    destinationsToCategoies,
-                )
-                .where(
-                    eq(
-                        destinationsToCategoies.categoryId,
-                        filters.categoryId,
-                    ),
-                );
-
-        destinationIdsForCategory =
-            rows.map(
-                (row) =>
-                    row.destinationId,
-            );
-
-        if (
-            destinationIdsForCategory.length ===
-            0
-        ) {
-            return {
-                rows: [],
-                total: 0,
-            };
-        }
-
-        conditions.push(
-            inArray(
-                destinations.id,
-                destinationIdsForCategory,
-            ),
-        );
-    }
-
-    const whereClause =
-        conditions.length > 0
-            ? and(
-                  ...conditions,
-              )
-            : undefined;
-
-    const [
-        rows,
-        [{ value: total }],
-    ] =
-        await Promise.all([
-            db
-                .select()
-                .from(
-                    destinations,
-                )
-                .where(
-                    whereClause,
-                )
-                .orderBy(
-                    asc(
-                        destinations.name,
-                    ),
-                )
-                .limit(
-                    filters.limit,
-                )
-                .offset(
-                    (filters.page -
-                        1) *
-                        filters.limit,
-                ),
-
-            db
-                .select({
-                    value:
-                        count(),
-                })
-                .from(
-                    destinations,
-                )
-                .where(
-                    whereClause,
-                ),
-        ]);
-
-    return {
-        rows,
-        total,
-    };
-}
-
-export async function findDestinationById(
-    id: string,
-) {
-    const [destination] =
-        await db
-            .select()
-            .from(
-                destinations,
-            )
-            .where(
-                eq(
-                    destinations.id,
-                    id,
-                ),
-            )
-            .limit(1);
-
-    return (
-        destination ??
-        null
+      ilike(destinations.nameEn, keyword),
     );
+
+    if (searchCondition) {
+      conditions.push(searchCondition);
+    }
+  }
+
+  return conditions;
 }
 
-export async function findDestinationBySlug(
-    slug: string,
-) {
-    const [destination] =
-        await db
-            .select()
-            .from(
-                destinations,
-            )
-            .where(
-                eq(
-                    destinations.slug,
-                    slug,
-                ),
-            )
-            .limit(1);
+export async function findDestinations(filters: DestinationFilters) {
+  const conditions = buildFilterConditions(filters);
 
-    return (
-        destination ??
-        null
-    );
+  let destinationIdsForCategory: string[] | null = null;
+
+  if (filters.categoryId) {
+    const rows = await db
+      .select({
+        destinationId: destinationsToCategoies.destinationId,
+      })
+      .from(destinationsToCategoies)
+      .where(eq(destinationsToCategoies.categoryId, filters.categoryId));
+
+    destinationIdsForCategory = rows.map((row) => row.destinationId);
+
+    if (destinationIdsForCategory.length === 0) {
+      return {
+        rows: [],
+        total: 0,
+      };
+    }
+
+    conditions.push(inArray(destinations.id, destinationIdsForCategory));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [rows, [{ value: total }]] = await Promise.all([
+    db
+      .select()
+      .from(destinations)
+      .where(whereClause)
+      .orderBy(asc(destinations.name))
+      .limit(filters.limit)
+      .offset((filters.page - 1) * filters.limit),
+
+    db
+      .select({
+        value: count(),
+      })
+      .from(destinations)
+      .where(whereClause),
+  ]);
+
+  return {
+    rows,
+    total,
+  };
 }
 
-/**
- * Trả về map:
- *
- * destinationId
- *   -> danh sách category
- */
-export async function findCategoriesByDestinationIds(
-    destinationIds: string[],
-) {
-    if (
-        destinationIds.length ===
-        0
-    ) {
-        return new Map<
-            string,
-            (
-                typeof destinationCategories.$inferSelect
-            )[]
-        >();
-    }
+export async function findDestinationById(id: string) {
+  const [destination] = await db.select().from(destinations).where(eq(destinations.id, id)).limit(1);
 
-    const rows =
-        await db
-            .select({
-                destinationId:
-                    destinationsToCategoies.destinationId,
+  return destination ?? null;
+}
 
-                category:
-                    destinationCategories,
-            })
-            .from(
-                destinationsToCategoies,
-            )
-            .innerJoin(
-                destinationCategories,
+export async function findDestinationBySlug(slug: string) {
+  const [destination] = await db.select().from(destinations).where(eq(destinations.slug, slug)).limit(1);
 
-                eq(
-                    destinationsToCategoies.categoryId,
-                    destinationCategories.id,
-                ),
-            )
-            .where(
-                inArray(
-                    destinationsToCategoies.destinationId,
-                    destinationIds,
-                ),
-            );
+  return destination ?? null;
+}
 
-    const map =
-        new Map<
-            string,
-            (
-                typeof destinationCategories.$inferSelect
-            )[]
-        >();
+export async function findCategoriesByDestinationIds(destinationIds: string[]) {
+  if (destinationIds.length === 0) {
+    return new Map<string, (typeof destinationCategories.$inferSelect)[]>();
+  }
 
-    for (const row of rows) {
-        const list =
-            map.get(
-                row.destinationId,
-            ) ?? [];
+  const rows = await db
+    .select({
+      destinationId: destinationsToCategoies.destinationId,
 
-        list.push(
-            row.category,
-        );
+      category: destinationCategories,
+    })
+    .from(destinationsToCategoies)
+    .innerJoin(
+      destinationCategories,
 
-        map.set(
-            row.destinationId,
-            list,
-        );
-    }
+      eq(destinationsToCategoies.categoryId, destinationCategories.id),
+    )
+    .where(inArray(destinationsToCategoies.destinationId, destinationIds));
 
-    return map;
+  const map = new Map<string, (typeof destinationCategories.$inferSelect)[]>();
+
+  for (const row of rows) {
+    const list = map.get(row.destinationId) ?? [];
+
+    list.push(row.category);
+
+    map.set(row.destinationId, list);
+  }
+
+  return map;
 }
 
 export type NewDestinationInput = {
-    locationId: string;
+  locationId: string;
 
-    name: string;
-    nameEn?: string | null;
+  name: string;
+  nameEn?: string | null;
 
-    slug: string;
+  slug: string;
 
-    address?: string | null;
+  address?: string | null;
 
-    description?: string | null;
-    descriptionEn?: string | null;
+  description?: string | null;
+  descriptionEn?: string | null;
 
-    history?: string | null;
-    historyEn?: string | null;
+  history?: string | null;
+  historyEn?: string | null;
 
-    latitude?: number | null;
-    longitude?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 
-    coverImageUrl?: string | null;
-    coverImagePublicId?: string | null;
+  coverImageUrl?: string | null;
+  coverImagePublicId?: string | null;
 };
 
-export async function createDestination(
-    data: NewDestinationInput,
-    categoryIds: string[],
-) {
-    return db.transaction(
-        async (tx) => {
-            const [
-                destination,
-            ] =
-                await tx
-                    .insert(
-                        destinations,
-                    )
-                    .values(
-                        data,
-                    )
-                    .returning();
+export async function createDestination(data: NewDestinationInput, categoryIds: string[]) {
+  return db.transaction(async (tx) => {
+    const [destination] = await tx.insert(destinations).values(data).returning();
 
-            if (
-                categoryIds.length >
-                0
-            ) {
-                await tx
-                    .insert(
-                        destinationsToCategoies,
-                    )
-                    .values(
-                        categoryIds.map(
-                            (
-                                categoryId,
-                            ) => ({
-                                destinationId:
-                                    destination.id,
+    if (categoryIds.length > 0) {
+      await tx.insert(destinationsToCategoies).values(
+        categoryIds.map((categoryId) => ({
+          destinationId: destination.id,
 
-                                categoryId,
-                            }),
-                        ),
-                    );
-            }
-
-            return destination;
-        },
-    );
-}
-
-export async function updateDestination(
-    id: string,
-    data: Partial<NewDestinationInput>,
-    categoryIds?: string[],
-) {
-    return db.transaction(
-        async (tx) => {
-            const [
-                destination,
-            ] =
-                await tx
-                    .update(
-                        destinations,
-                    )
-                    .set({
-                        ...data,
-
-                        updatedAt:
-                            new Date(),
-                    })
-                    .where(
-                        eq(
-                            destinations.id,
-                            id,
-                        ),
-                    )
-                    .returning();
-
-            if (
-                !destination
-            ) {
-                return null;
-            }
-
-            if (
-                categoryIds !==
-                undefined
-            ) {
-                await tx
-                    .delete(
-                        destinationsToCategoies,
-                    )
-                    .where(
-                        eq(
-                            destinationsToCategoies.destinationId,
-                            id,
-                        ),
-                    );
-
-                if (
-                    categoryIds.length >
-                    0
-                ) {
-                    await tx
-                        .insert(
-                            destinationsToCategoies,
-                        )
-                        .values(
-                            categoryIds.map(
-                                (
-                                    categoryId,
-                                ) => ({
-                                    destinationId:
-                                        id,
-
-                                    categoryId,
-                                }),
-                            ),
-                        );
-                }
-            }
-
-            return destination;
-        },
-    );
-}
-
-export async function deleteDestination(
-    id: string,
-) {
-    const [
-        destination,
-    ] =
-        await db
-            .delete(
-                destinations,
-            )
-            .where(
-                eq(
-                    destinations.id,
-                    id,
-                ),
-            )
-            .returning({
-                id:
-                    destinations.id,
-            });
-
-    return (
-        destination ??
-        null
-    );
-}
-
-export async function findExistingCategoryIds(
-    categoryIds: string[],
-) {
-    if (
-        categoryIds.length ===
-        0
-    ) {
-        return [];
+          categoryId,
+        })),
+      );
     }
 
-    const rows =
-        await db
-            .select({
-                id:
-                    destinationCategories.id,
-            })
-            .from(
-                destinationCategories,
-            )
-            .where(
-                inArray(
-                    destinationCategories.id,
-                    categoryIds,
-                ),
-            );
+    return destination;
+  });
+}
 
-    return rows.map(
-        (row) => row.id,
-    );
+export async function updateDestination(id: string, data: Partial<NewDestinationInput>, categoryIds?: string[]) {
+  return db.transaction(async (tx) => {
+    const [destination] = await tx
+      .update(destinations)
+      .set({
+        ...data,
+
+        updatedAt: new Date(),
+      })
+      .where(eq(destinations.id, id))
+      .returning();
+
+    if (!destination) {
+      return null;
+    }
+
+    if (categoryIds !== undefined) {
+      await tx.delete(destinationsToCategoies).where(eq(destinationsToCategoies.destinationId, id));
+
+      if (categoryIds.length > 0) {
+        await tx.insert(destinationsToCategoies).values(
+          categoryIds.map((categoryId) => ({
+            destinationId: id,
+
+            categoryId,
+          })),
+        );
+      }
+    }
+
+    return destination;
+  });
+}
+
+export async function deleteDestination(id: string) {
+  const [destination] = await db.delete(destinations).where(eq(destinations.id, id)).returning({
+    id: destinations.id,
+  });
+
+  return destination ?? null;
+}
+
+export async function findExistingCategoryIds(categoryIds: string[]) {
+  if (categoryIds.length === 0) {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      id: destinationCategories.id,
+    })
+    .from(destinationCategories)
+    .where(inArray(destinationCategories.id, categoryIds));
+
+  return rows.map((row) => row.id);
 }

@@ -1,14 +1,7 @@
 import { requireAdmin } from "@/src/lib/auth/require-admin";
-import {
-  createTourItemRequestSchema,
-  tourDayIdParamsSchema,
-} from "@/src/schemas/tour.schema";
+import { createTourItemRequestSchema, tourDayIdParamsSchema } from "@/src/schemas/tour.schema";
 import { createTourItemService } from "@/src/services/tour.service";
-import {
-  errorResponse,
-  successResponse,
-  zodErrorToFieldErrors,
-} from "@/src/utils/api_response";
+import { errorResponse, successResponse, zodErrorToFieldErrors } from "@/src/utils/api_response";
 import { handleTourServiceError } from "@/src/utils/tour_api_response";
 
 type RouteContext = {
@@ -17,47 +10,29 @@ type RouteContext = {
   }>;
 };
 
-export async function POST(
-  request: Request,
-  context: RouteContext,
-) {
+export async function POST(request: Request, context: RouteContext) {
   const authResult = await requireAdmin();
 
   if (!authResult.ok) {
-    return errorResponse(
-      authResult.message,
-      authResult.status,
-    );
+    return errorResponse(authResult.message, authResult.status);
   }
 
   const { id } = await context.params;
   const parsedId = tourDayIdParamsSchema.safeParse({ id });
 
   if (!parsedId.success) {
-    return errorResponse(
-      "Tour day ID không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedId.error),
-    );
+    return errorResponse("Tour day ID không hợp lệ", 400, zodErrorToFieldErrors(parsedId.error));
   }
 
   const body = await request.json().catch(() => null);
-  const parsedBody =
-    createTourItemRequestSchema.safeParse(body);
+  const parsedBody = createTourItemRequestSchema.safeParse(body);
 
   if (!parsedBody.success) {
-    return errorResponse(
-      "Dữ liệu không hợp lệ",
-      400,
-      zodErrorToFieldErrors(parsedBody.error),
-    );
+    return errorResponse("Dữ liệu không hợp lệ", 400, zodErrorToFieldErrors(parsedBody.error));
   }
 
   try {
-    const item = await createTourItemService(
-      parsedId.data.id,
-      parsedBody.data,
-    );
+    const item = await createTourItemService(parsedId.data.id, parsedBody.data);
 
     return successResponse(item, {
       status: 201,

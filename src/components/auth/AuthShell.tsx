@@ -4,27 +4,17 @@ import { ArrowLeft, Landmark, type LucideIcon } from "lucide-react";
 
 import { CloudinaryVisual } from "@/src/components/home/CloudinaryVisual";
 
-export function AuthBrand({
-  light = false,
-  className = "",
-}: {
-  light?: boolean;
-  className?: string;
-}) {
+export function AuthBrand({ light = false, className = "" }: { light?: boolean; className?: string }) {
   return (
     <Link
       href="/"
       aria-label="Quay về trang chủ"
-      className={`inline-flex w-fit items-center gap-3 ${
-        light ? "text-white" : "text-[#173a3b]"
-      } ${className}`}
+      className={`inline-flex w-fit items-center gap-3 ${light ? "text-white" : "text-[#173a3b]"} ${className}`}
     >
       <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f25f4b] text-white shadow-[0_14px_35px_rgba(242,95,75,0.28)]">
         <Landmark size={22} strokeWidth={1.8} />
       </span>
-      <span className="font-display text-2xl font-semibold">
-        Rực Rỡ Miền Trung
-      </span>
+      <span className="font-display text-2xl font-semibold">Rực Rỡ Miền Trung</span>
     </Link>
   );
 }
@@ -56,9 +46,7 @@ export function AuthCard({
     <div
       className={`rounded-[34px] border border-white/80 bg-[#fffaf1]/95 shadow-[0_28px_90px_rgba(30,56,52,0.13)] backdrop-blur ${
         compact ? "p-6 sm:p-9" : "p-7 sm:p-10"
-      } ${
-        centered ? "text-center" : ""
-      } ${className}`}
+      } ${centered ? "text-center" : ""} ${className}`}
     >
       {children}
     </div>
@@ -76,9 +64,7 @@ export function AuthHeader({
 }) {
   return (
     <div>
-      <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">
-        {eyebrow}
-      </p>
+      <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#e55c49]">{eyebrow}</p>
       <h1 className="mt-3 font-display text-4xl font-semibold tracking-[-0.035em] text-[#173a3b] sm:text-5xl">
         {title}
       </h1>
@@ -163,20 +149,13 @@ export function AuthVisualPanel({
               <span className="block italic text-[#f6d796]">{accentTitle}</span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-lg leading-8 text-white/72">
-              {description}
-            </p>
+            <p className="mt-6 max-w-xl text-lg leading-8 text-white/72">{description}</p>
 
             <div className="mt-9 grid max-w-xl grid-cols-3 gap-3">
               {features.map(({ icon: Icon, label }, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur"
-                >
+                <div key={index} className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
                   <Icon size={21} className="text-[#f6ca73]" />
-                  <p className="mt-3 text-sm font-semibold text-white">
-                    {label}
-                  </p>
+                  <p className="mt-3 text-sm font-semibold text-white">{label}</p>
                 </div>
               ))}
             </div>

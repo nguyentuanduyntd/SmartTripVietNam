@@ -7,54 +7,53 @@ import { registerCuisineOpenApi } from "@/src/openapi/cuisine.openapi";
 
 let registered = false;
 
-function registerOpenApiRoutes(){
-    if(registered){
-        return;
-    }
-    registerProfileAvatarOpenApi(openApiRegistry);
-    registerLocationOpenApi(openApiRegistry);
-    registerDestinationOpenApi(openApiRegistry);
-    registerCuisineOpenApi(openApiRegistry);
+function registerOpenApiRoutes() {
+  if (registered) {
+    return;
+  }
+  registerProfileAvatarOpenApi(openApiRegistry);
+  registerLocationOpenApi(openApiRegistry);
+  registerDestinationOpenApi(openApiRegistry);
+  registerCuisineOpenApi(openApiRegistry);
 
-    registered =true;
-
+  registered = true;
 }
 
-export function generateOpenApiDocument(){
-    registerOpenApiRoutes();
+export function generateOpenApiDocument() {
+  registerOpenApiRoutes();
 
-    const generator = new OpenApiGeneratorV31(openApiRegistry.definitions,);
+  const generator = new OpenApiGeneratorV31(openApiRegistry.definitions);
 
-    return generator.generateDocument({
-        openapi: "3.1.0",
-        info: {
-            title: "SmartTripVietNam API",
-            version: "1.0.0",
-            description: "Tài liệu API cho hệ thống SmartTripVietNam",
-        },
-        servers:[{
-            url:
-            process.env.NEXT_PUBLIC_APP_URL ??
-            "http://localhost:3000",
-            description: "Application server",
-        },],
-         tags: [
-        {
-            name: "Profile",
-            description: "Các chức năng liên quan đến hồ sơ người dùng",
-        },
-        {
-            name: "Destinations",
-            description: "Quản lý địa điểm du lịch và hình ảnh",
-        },
-        {
-            name: "Locations",
-            description: "Quản lý khu vực du lịch (Huế, Đà Nẵng, Hội An)",
-        },
-        {
-            name: "Cuisines",
-            description: "Quản lý món ăn đặc trưng và hình ảnh",
-        },
-        ],
-    });
+  return generator.generateDocument({
+    openapi: "3.1.0",
+    info: {
+      title: "SmartTripVietNam API",
+      version: "1.0.0",
+      description: "Tài liệu API cho hệ thống SmartTripVietNam",
+    },
+    servers: [
+      {
+        url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+        description: "Application server",
+      },
+    ],
+    tags: [
+      {
+        name: "Profile",
+        description: "Các chức năng liên quan đến hồ sơ người dùng",
+      },
+      {
+        name: "Destinations",
+        description: "Quản lý địa điểm du lịch và hình ảnh",
+      },
+      {
+        name: "Locations",
+        description: "Quản lý khu vực du lịch (Huế, Đà Nẵng, Hội An)",
+      },
+      {
+        name: "Cuisines",
+        description: "Quản lý món ăn đặc trưng và hình ảnh",
+      },
+    ],
+  });
 }

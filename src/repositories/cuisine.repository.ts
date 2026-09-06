@@ -5,26 +5,25 @@ import { destinations } from "@/src/db/schema/destinations";
 import { cuisines, cuisinesToDestinations } from "@/src/db/schema/cuisines";
 
 export type CuisineFilters = {
-    destinationId?: string;
-    search?: string;
-    page: number;
-    limit: number;
+  destinationId?: string;
+  search?: string;
+  page: number;
+  limit: number;
 };
 
 function buildFilterConditions(filters: CuisineFilters): SQL[] {
-    const conditions: SQL[] = [];
+  const conditions: SQL[] = [];
 
-    if (filters.search) {
-        conditions.push(ilike(cuisines.name, `%${filters.search}%`));
-    }
+  if (filters.search) {
+    conditions.push(ilike(cuisines.name, `%${filters.search}%`));
+  }
 
-    return conditions;
+  return conditions;
 }
 
 export async function findCuisines(filters: CuisineFilters) {
   const conditions = buildFilterConditions(filters);
 
-  // Lọc theo destination cần join riêng vì quan hệ nhiều-nhiều.
   if (filters.destinationId) {
     const rows = await db
       .select({ cuisineId: cuisinesToDestinations.cuisineId })
@@ -55,26 +54,17 @@ export async function findCuisines(filters: CuisineFilters) {
 }
 
 export async function findCuisineById(id: string) {
-  const [cuisine] = await db
-    .select()
-    .from(cuisines)
-    .where(eq(cuisines.id, id))
-    .limit(1);
+  const [cuisine] = await db.select().from(cuisines).where(eq(cuisines.id, id)).limit(1);
 
   return cuisine ?? null;
 }
 
 export async function findCuisineBySlug(slug: string) {
-  const [cuisine] = await db
-    .select()
-    .from(cuisines)
-    .where(eq(cuisines.slug, slug))
-    .limit(1);
+  const [cuisine] = await db.select().from(cuisines).where(eq(cuisines.slug, slug)).limit(1);
 
   return cuisine ?? null;
 }
 
-/** Trả về map cuisineId -> danh sách destination, dùng để đính kèm vào response. */
 export async function findDestinationsByCuisineIds(cuisineIds: string[]) {
   if (cuisineIds.length === 0) {
     return new Map<string, { id: string; name: string; slug: string }[]>();
@@ -90,10 +80,7 @@ export async function findDestinationsByCuisineIds(cuisineIds: string[]) {
       },
     })
     .from(cuisinesToDestinations)
-    .innerJoin(
-      destinations,
-      eq(cuisinesToDestinations.destinationId, destinations.id),
-    )
+    .innerJoin(destinations, eq(cuisinesToDestinations.destinationId, destinations.id))
     .where(inArray(cuisinesToDestinations.cuisineId, cuisineIds));
 
   const map = new Map<string, { id: string; name: string; slug: string }[]>();
@@ -117,10 +104,7 @@ export type NewCuisineInput = {
   coverImagePublicId?: string | null;
 };
 
-export async function createCuisine(
-  data: NewCuisineInput,
-  destinationIds: string[],
-) {
+export async function createCuisine(data: NewCuisineInput, destinationIds: string[]) {
   return db.transaction(async (tx) => {
     const [cuisine] = await tx.insert(cuisines).values(data).returning();
 
@@ -137,11 +121,7 @@ export async function createCuisine(
   });
 }
 
-export async function updateCuisine(
-  id: string,
-  data: Partial<NewCuisineInput>,
-  destinationIds?: string[],
-) {
+export async function updateCuisine(id: string, data: Partial<NewCuisineInput>, destinationIds?: string[]) {
   return db.transaction(async (tx) => {
     const [cuisine] = await tx
       .update(cuisines)
@@ -154,9 +134,7 @@ export async function updateCuisine(
     }
 
     if (destinationIds !== undefined) {
-      await tx
-        .delete(cuisinesToDestinations)
-        .where(eq(cuisinesToDestinations.cuisineId, id));
+      await tx.delete(cuisinesToDestinations).where(eq(cuisinesToDestinations.cuisineId, id));
 
       if (destinationIds.length > 0) {
         await tx.insert(cuisinesToDestinations).values(
@@ -173,10 +151,7 @@ export async function updateCuisine(
 }
 
 export async function deleteCuisine(id: string) {
-  const [cuisine] = await db
-    .delete(cuisines)
-    .where(eq(cuisines.id, id))
-    .returning({ id: cuisines.id });
+  const [cuisine] = await db.delete(cuisines).where(eq(cuisines.id, id)).returning({ id: cuisines.id });
 
   return cuisine ?? null;
 }

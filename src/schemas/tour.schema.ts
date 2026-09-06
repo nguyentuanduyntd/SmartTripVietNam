@@ -1,4 +1,4 @@
-import {z} from "zod";
+import { z } from "zod";
 import { COST_CALCULATION_UNITS, COST_CATEGORIES, TRAVELER_SCOPES } from "../constants/itinerary";
 import { MEAL_TYPES, TOUR_STATUSES, TRANSPORT_METHODS } from "../constants/tour_community";
 import { locationSlugSchema } from "./location.schema";
@@ -7,320 +7,213 @@ const MAX_PRICE = 999_999_999_999;
 
 const uuidSchema = (fieldName: string) => z.string().uuid(`${fieldName} không đúng định dạng UUID`);
 
-const requiredNameSchema = z.string().trim().min(2, "Tên phải có ít nhất 2 ký tự").max(200, "Tên không được vượt quá 200 ký tự");
+const requiredNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Tên phải có ít nhất 2 ký tự")
+  .max(200, "Tên không được vượt quá 200 ký tự");
 
 const optionalTextSchema = z.string().trim().max(500, "Nội dung không được vượt quá 500 ký tự").nullable().optional();
 
-const optionalLongTextSchema = z.string().trim().max(10_000, "Nội dung không được vượt quá 10000 ký tự").nullable().optional();
+const optionalLongTextSchema = z
+  .string()
+  .trim()
+  .max(10_000, "Nội dung không được vượt quá 10000 ký tự")
+  .nullable()
+  .optional();
 
 const optionalImageUrlSchema = z.url().nullable().optional();
 
 const optionalImagePublicIdSchema = z.string().trim().max(300).nullable().optional();
 
-const optionalTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/, "Thời gian phải có định dạng HH:mm hoặc HH:mm:ss").nullable().optional();
+const optionalTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/, "Thời gian phải có định dạng HH:mm hoặc HH:mm:ss")
+  .nullable()
+  .optional();
 
-const estimatedPriceSchema = z.union([
-  z.string().trim().regex(/^\d{1,12}$/, "Giá tour phải là chuỗi số từ 1 đến 12 chữ số"),
-  z.number().int("Giá tour phải là số nguyên").min(0, "Giá tour không được âm").max(MAX_PRICE, "Giá tour vượt quá giới hạn").transform(String),
-]).nullable().optional();
+const estimatedPriceSchema = z
+  .union([
+    z
+      .string()
+      .trim()
+      .regex(/^\d{1,12}$/, "Giá tour phải là chuỗi số từ 1 đến 12 chữ số"),
+    z
+      .number()
+      .int("Giá tour phải là số nguyên")
+      .min(0, "Giá tour không được âm")
+      .max(MAX_PRICE, "Giá tour vượt quá giới hạn")
+      .transform(String),
+  ])
+  .nullable()
+  .optional();
 
 const costUnitPriceSchema = z.union([
-  z.string().trim().regex(/^\d{1,12}$/,"Đơn giá phải là chuỗi số từ 1 đến 12 chữ số",),
-  z.number().int("Đơn giá phải là số nguyên").min(0,"Đơn giá không được âm",).max(MAX_PRICE,"Đơn giá vượt quá giới hạn",).transform(String),]);
+  z
+    .string()
+    .trim()
+    .regex(/^\d{1,12}$/, "Đơn giá phải là chuỗi số từ 1 đến 12 chữ số"),
+  z
+    .number()
+    .int("Đơn giá phải là số nguyên")
+    .min(0, "Đơn giá không được âm")
+    .max(MAX_PRICE, "Đơn giá vượt quá giới hạn")
+    .transform(String),
+]);
 
 const costQuantitySchema = z.union([
-  z.string().trim().regex(/^\d{1,8}(?:\.\d{1,2})?$/,"Số lượng phải là số dương và tối đa 2 chữ số thập phân",)
-    .refine((value) =>Number(value) > 0,"Số lượng phải lớn hơn 0",),
-  z.number().positive("Số lượng phải lớn hơn 0",).max(99_999_999.99,"Số lượng vượt quá giới hạn",)
-    .refine((value) =>Number.isInteger(value * 100,),"Số lượng chỉ được có tối đa 2 chữ số thập phân",).transform(String),
-    ]);
-
-const optionalCostTargetIdSchema = z
+  z
     .string()
-    .uuid(
-        "ID liên kết không đúng định dạng UUID",
-    )
-    .nullable()
-    .optional();
+    .trim()
+    .regex(/^\d{1,8}(?:\.\d{1,2})?$/, "Số lượng phải là số dương và tối đa 2 chữ số thập phân")
+    .refine((value) => Number(value) > 0, "Số lượng phải lớn hơn 0"),
+  z
+    .number()
+    .positive("Số lượng phải lớn hơn 0")
+    .max(99_999_999.99, "Số lượng vượt quá giới hạn")
+    .refine((value) => Number.isInteger(value * 100), "Số lượng chỉ được có tối đa 2 chữ số thập phân")
+    .transform(String),
+]);
+
+const optionalCostTargetIdSchema = z.string().uuid("ID liên kết không đúng định dạng UUID").nullable().optional();
 
 const tourCostFields = {
-  tourDayId:
-      optionalCostTargetIdSchema,
-
-  tourItemId:
-      optionalCostTargetIdSchema,
-
-  tourMealId:
-      optionalCostTargetIdSchema,
+  tourDayId: optionalCostTargetIdSchema,
+  tourItemId: optionalCostTargetIdSchema,
+  tourMealId: optionalCostTargetIdSchema,
   title: z
-        .string()
-        .trim()
-        .min(
-            1,
-            "Tên khoản chi phí không được để trống",
-        )
-        .max(
-            200,
-            "Tên khoản chi phí không được vượt quá 200 ký tự",
-        ),
-
-    category: z.enum(
-        COST_CATEGORIES,
-    ),
-
-    calculationUnit: z.enum(
-        COST_CALCULATION_UNITS,
-    ),
-
-    travelerScope: z
-        .enum(TRAVELER_SCOPES)
-        .default("all"),
-
-    unitPrice: costUnitPriceSchema,
-
-    quantity:
-        costQuantitySchema.default("1"),
-
-    nightCount: z
-        .number()
-        .int(
-            "Số đêm phải là số nguyên",
-        )
-        .min(
-            1,
-            "Số đêm phải lớn hơn 0",
-        )
-        .nullable()
-        .optional(),
-
-    note: optionalTextSchema,
-
-    sortOrder: z
-        .number()
-        .int(
-            "Thứ tự phải là số nguyên",
-        )
-        .min(
-            0,
-            "Thứ tự không được âm",
-        )
-        .default(0),
-}
-
-type TourCostValidationData = {
-    tourDayId?: string | null;
-    tourItemId?: string | null;
-    tourMealId?: string | null;
-
-    calculationUnit?: string;
-
-    nightCount?: number | null;
+    .string()
+    .trim()
+    .min(1, "Tên khoản chi phí không được để trống")
+    .max(200, "Tên khoản chi phí không được vượt quá 200 ký tự"),
+  category: z.enum(COST_CATEGORIES),
+  calculationUnit: z.enum(COST_CALCULATION_UNITS),
+  travelerScope: z.enum(TRAVELER_SCOPES).default("all"),
+  unitPrice: costUnitPriceSchema,
+  quantity: costQuantitySchema.default("1"),
+  nightCount: z.number().int("Số đêm phải là số nguyên").min(1, "Số đêm phải lớn hơn 0").nullable().optional(),
+  note: optionalTextSchema,
+  sortOrder: z.number().int("Thứ tự phải là số nguyên").min(0, "Thứ tự không được âm").default(0),
 };
 
-function validateTourCostRules(
-    data: TourCostValidationData,
-    context: z.RefinementCtx,
-) {
-    const targetIds = [
-        data.tourDayId,
-        data.tourItemId,
-        data.tourMealId,
-    ].filter(
-        (value) =>
-            value !== null &&
-            value !== undefined,
-    );
+type TourCostValidationData = {
+  tourDayId?: string | null;
+  tourItemId?: string | null;
+  tourMealId?: string | null;
+  calculationUnit?: string;
+  nightCount?: number | null;
+};
 
-    /*
-     * Không cho phép một khoản cost vừa thuộc
-     * activity vừa thuộc meal/ngày.
-     */
-    if (targetIds.length > 1) {
-        context.addIssue({
-            code: "custom",
-            path: ["tourDayId"],
-            message:
-                "Một khoản chi phí chỉ được liên kết với tối đa một ngày, hoạt động hoặc bữa ăn",
-        });
-    }
+function validateTourCostRules(data: TourCostValidationData, context: z.RefinementCtx) {
+  const targetIds = [data.tourDayId, data.tourItemId, data.tourMealId].filter(
+    (value) => value !== null && value !== undefined,
+  );
 
-    /*
-     * nightCount chỉ có nghĩa với per_room.
-     *
-     * Ví dụ:
-     * Khách sạn
-     * 900.000 × 1 phòng × 3 đêm
-     */
-    if (
-        data.calculationUnit &&
-        data.calculationUnit !==
-            "per_room" &&
-        data.nightCount !== null &&
-        data.nightCount !== undefined
-    ) {
-        context.addIssue({
-            code: "custom",
-            path: ["nightCount"],
-            message:
-                "Số đêm chỉ được sử dụng với cách tính theo phòng",
-        });
-    }
+  if (targetIds.length > 1) {
+    context.addIssue({
+      code: "custom",
+      path: ["tourDayId"],
+      message: "Một khoản chi phí chỉ được liên kết với tối đa một ngày, hoạt động hoặc bữa ăn",
+    });
+  }
+
+  if (
+    data.calculationUnit &&
+    data.calculationUnit !== "per_room" &&
+    data.nightCount !== null &&
+    data.nightCount !== undefined
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["nightCount"],
+      message: "Số đêm chỉ được sử dụng với cách tính theo phòng",
+    });
+  }
 }
 
-export const createTourCostRequestSchema =
-    z
-        .object(
-            tourCostFields,
-        )
-        .strict()
-        .superRefine(
-            (
-                data,
-                context,
-            ) => {
-                validateTourCostRules(
-                    data,
-                    context,
-                );
-            },
-        );
+export const createTourCostRequestSchema = z
+  .object(tourCostFields)
+  .strict()
+  .superRefine((data, context) => {
+    validateTourCostRules(data, context);
+  });
 
-export const updateTourCostRequestSchema =
-    z
-        .object({
-            tourDayId:
-                tourCostFields.tourDayId,
+export const updateTourCostRequestSchema = z
+  .object({
+    tourDayId: tourCostFields.tourDayId,
+    tourItemId: tourCostFields.tourItemId,
+    tourMealId: tourCostFields.tourMealId,
+    title: tourCostFields.title.optional(),
+    category: tourCostFields.category.optional(),
+    calculationUnit: tourCostFields.calculationUnit.optional(),
+    travelerScope: z.enum(TRAVELER_SCOPES).optional(),
+    unitPrice: tourCostFields.unitPrice.optional(),
+    quantity: costQuantitySchema.optional(),
+    nightCount: tourCostFields.nightCount,
+    note: tourCostFields.note,
+    sortOrder: z.number().int("Thứ tự phải là số nguyên").min(0, "Thứ tự không được âm").optional(),
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Cần cung cấp ít nhất một trường để cập nhật",
+  })
+  .superRefine((data, context) => {
+    validateTourCostRules(data, context);
+  });
 
-            tourItemId:
-                tourCostFields.tourItemId,
-
-            tourMealId:
-                tourCostFields.tourMealId,
-
-            title:
-                tourCostFields.title
-                    .optional(),
-
-            category:
-                tourCostFields.category
-                    .optional(),
-
-            calculationUnit:
-                tourCostFields
-                    .calculationUnit
-                    .optional(),
-
-            travelerScope:
-                z
-                    .enum(
-                        TRAVELER_SCOPES,
-                    )
-                    .optional(),
-
-            unitPrice:
-                tourCostFields
-                    .unitPrice
-                    .optional(),
-
-            quantity:
-                costQuantitySchema
-                    .optional(),
-
-            nightCount:
-                tourCostFields
-                    .nightCount,
-
-            note:
-                tourCostFields.note,
-
-            sortOrder:
-                z
-                    .number()
-                    .int(
-                        "Thứ tự phải là số nguyên",
-                    )
-                    .min(
-                        0,
-                        "Thứ tự không được âm",
-                    )
-                    .optional(),
-        })
-        .strict()
-        .refine(
-            (data) =>
-                Object.values(
-                    data,
-                ).some(
-                    (value) =>
-                        value !==
-                        undefined,
-                ),
-            {
-                message:
-                    "Cần cung cấp ít nhất một trường để cập nhật",
-            },
-        )
-        .superRefine(
-            (
-                data,
-                context,
-            ) => {
-                validateTourCostRules(
-                    data,
-                    context,
-                );
-            },
-        );
-
-function normalizeTime(value: string){
-    return value.length === 5 ? `${value}:00` : value;
+function normalizeTime(value: string) {
+  return value.length === 5 ? `${value}:00` : value;
 }
 
-function isValidTimeRange(startTime: string | null | undefined,endTime: string | null | undefined){
-    if(!startTime || !endTime)
-    {
-        return true;
-    }
-    return normalizeTime(startTime) < normalizeTime(endTime);
-} 
-
-function hasDuplicateValues(values: Array<string | number>){
-    return new Set(values).size !== values.length;
+function isValidTimeRange(startTime: string | null | undefined, endTime: string | null | undefined) {
+  if (!startTime || !endTime) {
+    return true;
+  }
+  return normalizeTime(startTime) < normalizeTime(endTime);
 }
 
-export const tourMealCuisineInputSchema = z.object({
+function hasDuplicateValues(values: Array<string | number>) {
+  return new Set(values).size !== values.length;
+}
+
+export const tourMealCuisineInputSchema = z
+  .object({
     cuisineId: uuidSchema("Cuisine ID"),
     sortOrder: z.number().int().min(0, "Thứ tự món ăn không được âm"),
     note: optionalTextSchema,
-}).strict();
+  })
+  .strict();
 
-const tourItemFields ={
-    destinationId: uuidSchema("Destination ID").nullable().optional(),
-    title: requiredNameSchema,
-    titleEn: requiredNameSchema.nullable().optional(),
-    description: optionalLongTextSchema,
-    descriptionEn: optionalLongTextSchema,
-    startTime: optionalTimeSchema,
-    endTime: optionalTimeSchema,
-    sortOrder: z.number().int().min(0, "Thứ tự hoạt động không được âm"),
-    transportMethod: z.enum(TRANSPORT_METHODS).nullable().optional(),
-    transportNote: optionalTextSchema,
-    transportNoteEn: optionalTextSchema,
-    estimatedTravelMinutes: z.number().int().min(0, "Thời gian di chuyển không được âm").nullable().optional(),
+const tourItemFields = {
+  destinationId: uuidSchema("Destination ID").nullable().optional(),
+  title: requiredNameSchema,
+  titleEn: requiredNameSchema.nullable().optional(),
+  description: optionalLongTextSchema,
+  descriptionEn: optionalLongTextSchema,
+  startTime: optionalTimeSchema,
+  endTime: optionalTimeSchema,
+  sortOrder: z.number().int().min(0, "Thứ tự hoạt động không được âm"),
+  transportMethod: z.enum(TRANSPORT_METHODS).nullable().optional(),
+  transportNote: optionalTextSchema,
+  transportNoteEn: optionalTextSchema,
+  estimatedTravelMinutes: z.number().int().min(0, "Thời gian di chuyển không được âm").nullable().optional(),
 };
 
-export const createTourItemRequestSchema = z.object(tourItemFields).strict()
-    .superRefine((data, context) => {
-        if (!isValidTimeRange(data.startTime, data.endTime)) {
-        context.addIssue({
-            code: "custom",
-            path: ["endTime"],
-            message: "Thời gian kết thúc phải lớn hơn thời gian bắt đầu",
-        });
+export const createTourItemRequestSchema = z
+  .object(tourItemFields)
+  .strict()
+  .superRefine((data, context) => {
+    if (!isValidTimeRange(data.startTime, data.endTime)) {
+      context.addIssue({
+        code: "custom",
+        path: ["endTime"],
+        message: "Thời gian kết thúc phải lớn hơn thời gian bắt đầu",
+      });
     }
-});
+  });
 
-export const updateTourItemRequestSchema = z.object({
+export const updateTourItemRequestSchema = z
+  .object({
     destinationId: tourItemFields.destinationId,
     title: tourItemFields.title.optional(),
     titleEn: tourItemFields.titleEn,
@@ -333,18 +226,20 @@ export const updateTourItemRequestSchema = z.object({
     transportNote: tourItemFields.transportNote,
     transportNoteEn: tourItemFields.transportNoteEn,
     estimatedTravelMinutes: tourItemFields.estimatedTravelMinutes,
-}).strict().refine((data) => Object.values(data).some((value) => value !== undefined),{
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Cần cung cấp ít nhất một trường để cập nhật",
-    },
-).superRefine((data, context) => {
-    if(!isValidTimeRange(data.startTime, data.endTime)){
-        context.addIssue({
-            code: "custom",
-            path: ["endTime"],
-            message: "Thời gian kết thúc phải lớn hơn thời gian bắt đầu",
-        });
+  })
+  .superRefine((data, context) => {
+    if (!isValidTimeRange(data.startTime, data.endTime)) {
+      context.addIssue({
+        code: "custom",
+        path: ["endTime"],
+        message: "Thời gian kết thúc phải lớn hơn thời gian bắt đầu",
+      });
     }
-});
+  });
 
 const tourMealFields = {
   mealType: z.enum(MEAL_TYPES),
@@ -357,10 +252,13 @@ const tourMealFields = {
   sortOrder: z.number().int().min(0, "Thứ tự bữa ăn không được âm"),
 };
 
-export const createTourMealRequestSchema = z.object({
+export const createTourMealRequestSchema = z
+  .object({
     ...tourMealFields,
     cuisines: z.array(tourMealCuisineInputSchema).default([]),
-}).strict().superRefine((data, context) => {
+  })
+  .strict()
+  .superRefine((data, context) => {
     const cuisineIds = data.cuisines.map((item) => item.cuisineId);
     const sortOrders = data.cuisines.map((item) => item.sortOrder);
 
@@ -379,9 +277,10 @@ export const createTourMealRequestSchema = z.object({
         message: "Thứ tự món ăn trong cùng bữa không được trùng nhau",
       });
     }
-});
+  });
 
-export const updateTourMealRequestSchema = z.object({
+export const updateTourMealRequestSchema = z
+  .object({
     mealType: tourMealFields.mealType.optional(),
     startTime: tourMealFields.startTime,
     venueName: tourMealFields.venueName,
@@ -391,10 +290,12 @@ export const updateTourMealRequestSchema = z.object({
     isIncluded: z.boolean().optional(),
     sortOrder: tourMealFields.sortOrder.optional(),
     cuisines: z.array(tourMealCuisineInputSchema).optional(),
-}).strict().refine((data) => Object.values(data).some((value) => value !== undefined),{
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Cần cung cấp ít nhất một trường để cập nhật",
-    },
-).superRefine((data, context) => {
+  })
+  .superRefine((data, context) => {
     if (!data.cuisines) {
       return;
     }
@@ -417,7 +318,7 @@ export const updateTourMealRequestSchema = z.object({
         message: "Thứ tự món ăn trong cùng bữa không được trùng nhau",
       });
     }
-});
+  });
 
 const tourDayFields = {
   dayNumber: z.number().int().min(1, "Số ngày phải lớn hơn 0"),
@@ -427,11 +328,14 @@ const tourDayFields = {
   descriptionEn: optionalLongTextSchema,
 };
 
-export const createTourDayRequestSchema = z.object({
+export const createTourDayRequestSchema = z
+  .object({
     ...tourDayFields,
     items: z.array(createTourItemRequestSchema).default([]),
     meals: z.array(createTourMealRequestSchema).default([]),
-}).strict().superRefine((data, context) => {
+  })
+  .strict()
+  .superRefine((data, context) => {
     const itemSortOrders = data.items.map((item) => item.sortOrder);
     const mealSortOrders = data.meals.map((meal) => meal.sortOrder);
 
@@ -450,27 +354,30 @@ export const createTourDayRequestSchema = z.object({
         message: "Thứ tự bữa ăn trong cùng một ngày không được trùng nhau",
       });
     }
-});
+  });
 
 export const createStandaloneTourDayRequestSchema = z.object(tourDayFields).strict();
 
-export const updateTourDayRequestSchema = z.object({
+export const updateTourDayRequestSchema = z
+  .object({
     dayNumber: tourDayFields.dayNumber.optional(),
     title: tourDayFields.title.optional(),
     titleEn: tourDayFields.titleEn,
     description: tourDayFields.description,
     descriptionEn: tourDayFields.descriptionEn,
-}).strict().refine((data) => Object.values(data).some((value) => value !== undefined),{
-    message : "Cần cung cấp ít nhất một trường để cập nhật",
-    }
-);
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Cần cung cấp ít nhất một trường để cập nhật",
+  });
 
 export const tourSlugSchema = locationSlugSchema.meta({
   description: "Slug duy nhất của tour",
   example: "tinh-hoa-co-do-hue-2n1d",
 });
 
-export const createTourRequestSchema = z.object({
+export const createTourRequestSchema = z
+  .object({
     name: requiredNameSchema,
     nameEn: requiredNameSchema.nullable().optional(),
     slug: tourSlugSchema.optional(),
@@ -485,8 +392,10 @@ export const createTourRequestSchema = z.object({
     meetingPoint: optionalTextSchema,
     status: z.enum(TOUR_STATUSES).default("draft"),
     days: z.array(createTourDayRequestSchema).default([]),
-}).strict().superRefine((data, context) => {
-     if (data.durationNights > data.durationDays) {
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.durationNights > data.durationDays) {
       context.addIssue({
         code: "custom",
         path: ["durationNights"],
@@ -513,9 +422,10 @@ export const createTourRequestSchema = z.object({
         });
       }
     });
-});
+  });
 
-export const updateTourRequestSchema = z.object({
+export const updateTourRequestSchema = z
+  .object({
     name: requiredNameSchema.optional(),
     nameEn: requiredNameSchema.nullable().optional(),
     slug: tourSlugSchema.optional(),
@@ -529,12 +439,14 @@ export const updateTourRequestSchema = z.object({
     startLocationId: uuidSchema("Start location ID").optional(),
     meetingPoint: optionalTextSchema,
     status: z.enum(TOUR_STATUSES).optional(),
-}).strict().refine((data) => Object.values(data).some((value) => value !== undefined),{
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Cần cung cấp ít nhất một trường để cập nhật",
-    },
-);
+  });
 
-export const tourListQuerySchema = z.object({
+export const tourListQuerySchema = z
+  .object({
     search: z.string().trim().min(1).max(200).optional(),
     startLocationId: uuidSchema("Start location ID").optional(),
     status: z.enum(TOUR_STATUSES).optional(),
@@ -543,43 +455,36 @@ export const tourListQuerySchema = z.object({
     durationDays: z.coerce.number().int().min(1).optional(),
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
-    sortBy: z.enum(["name","estimatedPrice","durationDays","createdAt","updatedAt","publishedAt",]).default("createdAt"),
+    sortBy: z
+      .enum(["name", "estimatedPrice", "durationDays", "createdAt", "updatedAt", "publishedAt"])
+      .default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
-}).strict().superRefine((data, context) => {
-    if (
-      data.minPrice !== undefined &&
-      data.maxPrice !== undefined &&
-      data.minPrice > data.maxPrice
-    ) {
+  })
+  .strict()
+  .superRefine((data, context) => {
+    if (data.minPrice !== undefined && data.maxPrice !== undefined && data.minPrice > data.maxPrice) {
       context.addIssue({
         code: "custom",
         path: ["maxPrice"],
         message: "Giá tối đa phải lớn hơn hoặc bằng giá tối thiểu",
       });
     }
-});
+  });
 
-export const tourIdParamsSchema = z.object({
-    id: uuidSchema("Tour ID"),
-});
-
-export const tourSlugParamsSchema = z.object({
-  slug: tourSlugSchema,
-});
-
+export const tourIdParamsSchema = z.object({ id: uuidSchema("Tour ID") });
+export const tourSlugParamsSchema = z.object({ slug: tourSlugSchema });
 export const tourDayIdParamsSchema = z.object({
   id: uuidSchema("Tour day ID"),
 });
-
 export const tourItemIdParamsSchema = z.object({
   id: uuidSchema("Tour item ID"),
 });
-
 export const tourMealIdParamsSchema = z.object({
   id: uuidSchema("Tour meal ID"),
 });
-
-export const tourCostIdParamsSchema = z.object({ id: uuidSchema("Tour cost ID") });
+export const tourCostIdParamsSchema = z.object({
+  id: uuidSchema("Tour cost ID"),
+});
 
 export type CreateTourRequest = z.infer<typeof createTourRequestSchema>;
 export type UpdateTourRequest = z.infer<typeof updateTourRequestSchema>;

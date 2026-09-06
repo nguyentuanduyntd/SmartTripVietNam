@@ -1,194 +1,139 @@
-import {
-    apiFetch,
-    apiFetchPaginated,
-} from "./http";
+import { apiFetch, apiFetchPaginated } from "./http";
 
 export type DestinationCategory = {
-    id: string;
+  id: string;
 
-    name: string;
-    nameEn: string | null;
+  name: string;
+  nameEn: string | null;
 
-    slug: string;
+  slug: string;
 
-    icon: string | null;
+  icon: string | null;
 };
 
 export type Destination = {
-    id: string;
+  id: string;
 
-    locationId: string;
+  locationId: string;
 
-    name: string;
-    nameEn: string | null;
+  name: string;
+  nameEn: string | null;
 
-    slug: string;
+  slug: string;
 
-    address: string | null;
+  address: string | null;
 
-    description: string | null;
-    descriptionEn: string | null;
+  description: string | null;
+  descriptionEn: string | null;
 
-    history: string | null;
-    historyEn: string | null;
+  history: string | null;
+  historyEn: string | null;
 
-    latitude: number | null;
-    longitude: number | null;
+  latitude: number | null;
+  longitude: number | null;
 
-    coverImageUrl: string | null;
-    coverImagePublicId: string | null;
+  coverImageUrl: string | null;
+  coverImagePublicId: string | null;
 
-    createdAt: string;
-    updatedAt: string;
+  createdAt: string;
+  updatedAt: string;
 
-    categories: DestinationCategory[];
+  categories: DestinationCategory[];
 };
 
 export type DestinationListParams = {
-    page?: number;
-    limit?: number;
+  page?: number;
+  limit?: number;
 
-    search?: string;
+  search?: string;
 
-    locationId?: string;
-    categoryId?: string;
+  locationId?: string;
+  categoryId?: string;
 };
 
 export type DestinationInput = {
-    locationId: string;
+  locationId: string;
 
-    name: string;
-    nameEn?: string | null;
+  name: string;
+  nameEn?: string | null;
 
-    slug?: string;
+  slug?: string;
 
-    address?: string | null;
+  address?: string | null;
 
-    description?: string | null;
-    descriptionEn?: string | null;
+  description?: string | null;
+  descriptionEn?: string | null;
 
-    history?: string | null;
-    historyEn?: string | null;
+  history?: string | null;
+  historyEn?: string | null;
 
-    latitude?: number | null;
-    longitude?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 
-    categoryIds?: string[];
+  categoryIds?: string[];
 
-    coverImageUrl?: string | null;
-    coverImagePublicId?: string | null;
+  coverImageUrl?: string | null;
+  coverImagePublicId?: string | null;
 };
 
-function toQueryString(
-    params: DestinationListParams,
-) {
-    const query =
-        new URLSearchParams();
+function toQueryString(params: DestinationListParams) {
+  const query = new URLSearchParams();
 
-    if (params.page) {
-        query.set(
-            "page",
-            String(params.page),
-        );
-    }
+  if (params.page) {
+    query.set("page", String(params.page));
+  }
 
-    if (params.limit) {
-        query.set(
-            "limit",
-            String(params.limit),
-        );
-    }
+  if (params.limit) {
+    query.set("limit", String(params.limit));
+  }
 
-    if (params.search) {
-        query.set(
-            "search",
-            params.search,
-        );
-    }
+  if (params.search) {
+    query.set("search", params.search);
+  }
 
-    if (params.locationId) {
-        query.set(
-            "locationId",
-            params.locationId,
-        );
-    }
+  if (params.locationId) {
+    query.set("locationId", params.locationId);
+  }
 
-    if (params.categoryId) {
-        query.set(
-            "categoryId",
-            params.categoryId,
-        );
-    }
+  if (params.categoryId) {
+    query.set("categoryId", params.categoryId);
+  }
 
-    return query.toString();
+  return query.toString();
 }
 
 export const destinationsApi = {
-    list(
-        params: DestinationListParams = {},
-    ) {
-        const qs =
-            toQueryString(
-                params,
-            );
+  list(params: DestinationListParams = {}) {
+    const qs = toQueryString(params);
 
-        return apiFetchPaginated<
-            Destination[]
-        >(
-            `/api/destinations${
-                qs
-                    ? `?${qs}`
-                    : ""
-            }`,
-        );
-    },
+    return apiFetchPaginated<Destination[]>(`/api/destinations${qs ? `?${qs}` : ""}`);
+  },
 
-    get(id: string) {
-        return apiFetch<Destination>(
-            `/api/destinations/${id}`,
-        );
-    },
+  get(id: string) {
+    return apiFetch<Destination>(`/api/destinations/${id}`);
+  },
 
-    create(
-        input: DestinationInput,
-    ) {
-        return apiFetch<Destination>(
-            "/api/destinations",
-            {
-                method: "POST",
+  create(input: DestinationInput) {
+    return apiFetch<Destination>("/api/destinations", {
+      method: "POST",
 
-                body: JSON.stringify(
-                    input,
-                ),
-            },
-        );
-    },
+      body: JSON.stringify(input),
+    });
+  },
 
-    update(
-        id: string,
-        input: Partial<DestinationInput>,
-    ) {
-        return apiFetch<Destination>(
-            `/api/destinations/${id}`,
-            {
-                method: "PATCH",
+  update(id: string, input: Partial<DestinationInput>) {
+    return apiFetch<Destination>(`/api/destinations/${id}`, {
+      method: "PATCH",
 
-                body: JSON.stringify(
-                    input,
-                ),
-            },
-        );
-    },
+      body: JSON.stringify(input),
+    });
+  },
 
-    remove(id: string) {
-        return apiFetch<{
-            id: string;
-        }>(
-            `/api/destinations/${id}`,
-            {
-                method:
-                    "DELETE",
-            },
-        );
-    },
+  remove(id: string) {
+    return apiFetch<{
+      id: string;
+    }>(`/api/destinations/${id}`, {
+      method: "DELETE",
+    });
+  },
 };

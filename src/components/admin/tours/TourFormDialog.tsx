@@ -2,17 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 
-import {
-  CoverImageField,
-  useCoverImageField,
-} from "@/src/components/ui/CoverImageField";
+import { CoverImageField, useCoverImageField } from "@/src/components/ui/CoverImageField";
 import { Dialog } from "@/src/components/ui/Dialog";
-import {
-  FormField,
-  SelectInput,
-  TextArea,
-  TextInput,
-} from "@/src/components/ui/FormField";
+import { FormField, SelectInput, TextArea, TextInput } from "@/src/components/ui/FormField";
 import type { Location } from "@/src/lib/api-client/locations";
 import type { Tour, TourInput, TourStatus } from "@/src/lib/api-client/tours";
 
@@ -95,10 +87,6 @@ function toTourInput(form: TourFormState): TourInput {
     durationDays: Number.isNaN(durationDays) ? 0 : durationDays,
     durationNights: Number.isNaN(durationNights) ? 0 : durationNights,
 
-    /**
-     * Không gửi estimatedPrice từ form này. Giá tour được backend tự tính
-     * từ các khoản trong mục "Chi phí".
-     */
     startLocationId: form.startLocationId,
     meetingPoint: form.meetingPoint.trim() ? form.meetingPoint : null,
     status: form.status,
@@ -122,15 +110,10 @@ export function TourFormDialog({
   onSubmit,
   onClose,
 }: TourFormDialogProps) {
-  const [form, setForm] = useState<TourFormState>(() =>
-    createInitialForm(initialValue),
-  );
+  const [form, setForm] = useState<TourFormState>(() => createInitialForm(initialValue));
   const coverImage = useCoverImageField(initialValue?.coverImageUrl);
 
-  function updateField<Key extends keyof TourFormState>(
-    key: Key,
-    value: TourFormState[Key],
-  ) {
+  function updateField<Key extends keyof TourFormState>(key: Key, value: TourFormState[Key]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
@@ -183,13 +166,7 @@ export function TourFormDialog({
     >
       <form id="tour-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            htmlFor="tour-name"
-            label="Tên tour"
-            required
-            error={fieldErrors?.name}
-            className="sm:col-span-2"
-          >
+          <FormField htmlFor="tour-name" label="Tên tour" required error={fieldErrors?.name} className="sm:col-span-2">
             <TextInput
               id="tour-name"
               value={form.name}
@@ -219,12 +196,7 @@ export function TourFormDialog({
             />
           </FormField>
 
-          <FormField
-            htmlFor="tour-duration-days"
-            label="Số ngày"
-            required
-            error={fieldErrors?.durationDays}
-          >
+          <FormField htmlFor="tour-duration-days" label="Số ngày" required error={fieldErrors?.durationDays}>
             <TextInput
               id="tour-duration-days"
               type="number"
@@ -233,18 +205,11 @@ export function TourFormDialog({
               required
               disabled={submitting}
               invalid={Boolean(fieldErrors?.durationDays?.length)}
-              onChange={(event) =>
-                updateField("durationDays", event.target.value)
-              }
+              onChange={(event) => updateField("durationDays", event.target.value)}
             />
           </FormField>
 
-          <FormField
-            htmlFor="tour-duration-nights"
-            label="Số đêm"
-            required
-            error={fieldErrors?.durationNights}
-          >
+          <FormField htmlFor="tour-duration-nights" label="Số đêm" required error={fieldErrors?.durationNights}>
             <TextInput
               id="tour-duration-nights"
               type="number"
@@ -253,27 +218,18 @@ export function TourFormDialog({
               required
               disabled={submitting}
               invalid={Boolean(fieldErrors?.durationNights?.length)}
-              onChange={(event) =>
-                updateField("durationNights", event.target.value)
-              }
+              onChange={(event) => updateField("durationNights", event.target.value)}
             />
           </FormField>
 
-          <FormField
-            htmlFor="tour-start-location"
-            label="Điểm khởi hành"
-            required
-            error={fieldErrors?.startLocationId}
-          >
+          <FormField htmlFor="tour-start-location" label="Điểm khởi hành" required error={fieldErrors?.startLocationId}>
             <SelectInput
               id="tour-start-location"
               value={form.startLocationId}
               required
               disabled={submitting}
               invalid={Boolean(fieldErrors?.startLocationId?.length)}
-              onChange={(event) =>
-                updateField("startLocationId", event.target.value)
-              }
+              onChange={(event) => updateField("startLocationId", event.target.value)}
             >
               <option value="">— Chọn khu vực —</option>
 
@@ -290,9 +246,7 @@ export function TourFormDialog({
               id="tour-status"
               value={form.status}
               disabled={submitting}
-              onChange={(event) =>
-                updateField("status", event.target.value as TourStatus)
-              }
+              onChange={(event) => updateField("status", event.target.value as TourStatus)}
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -314,10 +268,8 @@ export function TourFormDialog({
 
               <p className="mt-1 text-xs leading-5 text-admin-muted">
                 Giá được tính tự động từ các khoản trong mục{" "}
-                <strong className="font-semibold text-admin-ink">
-                  Chi phí
-                </strong>
-                . Không nhập tổng giá trực tiếp tại đây.
+                <strong className="font-semibold text-admin-ink">Chi phí</strong>. Không nhập tổng giá trực tiếp tại
+                đây.
               </p>
             </div>
           </FormField>
@@ -328,36 +280,23 @@ export function TourFormDialog({
               value={form.meetingPoint}
               disabled={submitting}
               placeholder="Bến xe phía Nam, TP. Huế"
-              onChange={(event) =>
-                updateField("meetingPoint", event.target.value)
-              }
+              onChange={(event) => updateField("meetingPoint", event.target.value)}
             />
           </FormField>
         </div>
 
-        <FormField
-          htmlFor="tour-description"
-          label="Mô tả"
-          error={fieldErrors?.description}
-        >
+        <FormField htmlFor="tour-description" label="Mô tả" error={fieldErrors?.description}>
           <TextArea
             id="tour-description"
             rows={4}
             value={form.description}
             disabled={submitting}
             invalid={Boolean(fieldErrors?.description?.length)}
-            onChange={(event) =>
-              updateField("description", event.target.value)
-            }
+            onChange={(event) => updateField("description", event.target.value)}
           />
         </FormField>
 
-        <CoverImageField
-          inputId="tour-cover"
-          imageAlt="Ảnh bìa tour"
-          controller={coverImage}
-          disabled={submitting}
-        />
+        <CoverImageField inputId="tour-cover" imageAlt="Ảnh bìa tour" controller={coverImage} disabled={submitting} />
       </form>
     </Dialog>
   );
