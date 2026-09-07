@@ -15,7 +15,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { AddRestaurantToItineraryDialog } from "@/src/components/food/AddRestaurantToItineraryDialog";
-import { LocationMap } from "@/src/components/food/LocationMap";
+import { LocationMap } from "@/src/components/food/LocationMapClient";
 import { useDebounce } from "@/src/hooks/useDebounce";
 
 type RestaurantCuisine = {

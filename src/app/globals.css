@@ -112,6 +112,18 @@ button {
     border: 0 !important;
 }
 
+/*
+ * Fix: Tailwind v4 preflight reset `img { display: block; max-width: 100% }`
+ * làm Leaflet tile images không hiển thị vì Leaflet dùng `display: inline` cho tiles.
+ * Phải override lại để bản đồ hiện đúng.
+ */
+.leaflet-tile,
+.leaflet-tile-container img,
+.leaflet-pane img {
+    display: inline !important;
+    max-width: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
     html {
         scroll-behavior: auto;

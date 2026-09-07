@@ -2,20 +2,9 @@ import "server-only";
 
 import { buildAiItineraryJsonSchema } from "@/src/lib/ai/ai-itinerary-json-schema";
 import { generateGeminiJson } from "@/src/lib/ai/gemini";
-import {
-  AiItineraryGenerationProofError,
-  createAiItineraryGenerationProof,
-  verifyAiItineraryGenerationProof,
-} from "@/src/lib/ai/itinerary-generation-proof";
-import {
-  createAiItinerary,
-  findAiCuisinesByIds,
-  findAiDestinationsByIds,
-  findAiPlannerLocationById,
-} from "@/src/repositories/ai-itinerary.repository";
-
+import {AiItineraryGenerationProofError,createAiItineraryGenerationProof,verifyAiItineraryGenerationProof,} from "@/src/lib/ai/itinerary-generation-proof";
+import {createAiItinerary,findAiCuisinesByIds,findAiDestinationsByIds,findAiPlannerLocationById,} from "@/src/repositories/ai-itinerary.repository";
 import { aiItineraryPlanSchema, type AiItineraryPlan, type AiPlannerRequest } from "@/src/schemas/ai-itinerary.schema";
-
 import { retrieveTravelContextService } from "@/src/services/rag.service";
 
 export class AiItineraryServiceError extends Error {
@@ -492,11 +481,7 @@ ${ragContext}
 `.trim();
 }
 
-export async function generateAiItineraryService(
-  request: AiPlannerRequest,
-
-  userId: string,
-) {
+export async function generateAiItineraryService(request: AiPlannerRequest,userId: string,) {
   const totalStartedAt = nowMs();
 
   const locationStartedAt = nowMs();

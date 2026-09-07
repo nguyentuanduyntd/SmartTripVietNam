@@ -59,6 +59,17 @@ export function LocationMap({
         return;
       }
 
+      // Fix: Leaflet default icon bị vỡ trong Next.js do webpack đổi tên file.
+      // Gán lại icon mặc định bằng CDN để tránh lỗi 404 cho marker image.
+      const DefaultIcon = L.icon({
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+      });
+      L.Marker.prototype.options.icon = DefaultIcon;
+
       leafletRef.current = L;
 
       const initial = initialLocationRef.current;
