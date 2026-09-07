@@ -3,6 +3,7 @@
 import { CheckCircle2, Flag, Loader2, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 
 import { COMMUNITY_REPORT_REASONS, type CommunityReportReason } from "@/src/constants/tour_community";
 
@@ -40,39 +41,6 @@ type ReportResponseData = {
   createdAt: string;
 };
 
-const REPORT_REASON_LABELS: Record<
-  CommunityReportReason,
-  {
-    label: string;
-    description: string;
-  }
-> = {
-  spam: {
-    label: "Spam hoặc quảng cáo",
-    description: "Nội dung lặp lại, quảng cáo không phù hợp hoặc cố tình gây nhiễu.",
-  },
-  harassment: {
-    label: "Quấy rối hoặc xúc phạm",
-    description: "Công kích, đe dọa, làm nhục hoặc nhắm vào một cá nhân.",
-  },
-  hate_speech: {
-    label: "Ngôn từ thù ghét",
-    description: "Nội dung tấn công một nhóm người dựa trên đặc điểm được bảo vệ.",
-  },
-  inappropriate_content: {
-    label: "Nội dung không phù hợp",
-    description: "Hình ảnh hoặc nội dung phản cảm, không phù hợp với cộng đồng du lịch.",
-  },
-  misinformation: {
-    label: "Thông tin sai lệch",
-    description: "Thông tin có dấu hiệu sai sự thật hoặc có thể gây hiểu nhầm nghiêm trọng.",
-  },
-  other: {
-    label: "Lý do khác",
-    description: "Vấn đề khác chưa nằm trong các nhóm ở trên.",
-  },
-};
-
 async function readApiResponse<T>(response: Response): Promise<ApiEnvelope<T>> {
   try {
     return (await response.json()) as ApiEnvelope<T>;
@@ -92,6 +60,7 @@ export function CommunityReportDialog({
 }: CommunityReportDialogProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const tReport = useTranslations("Community.report");
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -105,7 +74,7 @@ export function CommunityReportDialog({
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const targetLabel = target.type === "post" ? "bài viết" : "bình luận";
+  const targetLabel = target.type === "post" ? tReport("titlePost") : tReport("titleComment");
 
   function resetForm() {
     setReason("");
@@ -160,19 +129,19 @@ export function CommunityReportDialog({
 
   async function submitReport() {
     if (!reason) {
-      setError("Vui lòng chọn lý do báo cáo.");
+      setError(tReport("errorSelectReason"));
       return;
     }
 
     const normalizedDetails = details.trim();
 
     if (reason === "other" && !normalizedDetails) {
-      setError("Vui lòng mô tả lý do báo cáo.");
+      setError(tReport("errorDescribeReason"));
       return;
     }
 
     if (normalizedDetails.length > 1000) {
-      setError("Mô tả báo cáo không được vượt quá 1000 ký tự.");
+      setError(tReport("errorTooLong"));
       return;
     }
 
@@ -210,12 +179,12 @@ export function CommunityReportDialog({
       }
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message ?? "Không thể gửi báo cáo.");
+        throw new Error(payload.message ?? tReport("errorFallback"));
       }
 
-      setSuccessMessage(payload.message ?? "Báo cáo đã được gửi.");
+      setSuccessMessage(payload.message ?? tReport("successFallback"));
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Không thể gửi báo cáo.");
+      setError(submitError instanceof Error ? submitError.message : tReport("errorFallback"));
     } finally {
       setIsSubmitting(false);
     }
@@ -229,7 +198,7 @@ export function CommunityReportDialog({
         className="inline-flex items-center gap-1 transition hover:text-[#c65344]"
       >
         <Flag size={12} />
-        Báo cáo
+        {tReport("trigger")}
       </button>
     ) : (
       <button
@@ -238,7 +207,7 @@ export function CommunityReportDialog({
         className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#efcfc8] bg-[#fffaf1] px-4 py-2 text-sm font-extrabold text-[#a95749] transition hover:border-[#e5b8af] hover:bg-[#fff0ed]"
       >
         <Flag size={17} />
-        Báo cáo
+        {tReport("trigger")}
       </button>
     );
 
@@ -267,16 +236,15 @@ export function CommunityReportDialog({
                   <div>
                     <div className="inline-flex items-center gap-2 rounded-full bg-[#fff0ed] px-3 py-1.5 text-xs font-extrabold text-[#b85547]">
                       <Flag size={14} />
-                      Báo cáo nội dung
+                      {tReport("badge")}
                     </div>
 
                     <h2 id={titleId} className="mt-3 font-display text-2xl font-semibold text-[#173a3b]">
-                      Báo cáo {targetLabel}
+                      {targetLabel}
                     </h2>
 
                     <p id={descriptionId} className="mt-2 text-sm leading-6 text-[#6a7975]">
-                      Báo cáo sẽ được chuyển đến quản trị viên để xem xét. Nội dung không tự động bị ẩn chỉ vì một báo
-                      cáo.
+                      {tReport("description")}
                     </p>
                   </div>
 
@@ -284,7 +252,7 @@ export function CommunityReportDialog({
                     type="button"
                     onClick={closeDialog}
                     disabled={isSubmitting}
-                    aria-label="Đóng hộp thoại báo cáo"
+                    aria-label={tReport("closeDialog")}
                     className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e1d7ca] bg-white text-[#65736f] transition hover:bg-[#f5eee5] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <X size={18} />
@@ -296,7 +264,7 @@ export function CommunityReportDialog({
                     <div className="rounded-[22px] border border-[#cfe3dd] bg-[#edf7f4] px-5 py-6 text-center">
                       <CheckCircle2 size={38} className="mx-auto text-[#34706b]" />
 
-                      <h3 className="mt-4 text-lg font-extrabold text-[#245c57]">Đã gửi báo cáo</h3>
+                      <h3 className="mt-4 text-lg font-extrabold text-[#245c57]">{tReport("successTitle")}</h3>
 
                       <p className="mt-2 text-sm leading-6 text-[#5f746f]">{successMessage}</p>
                     </div>
@@ -308,18 +276,18 @@ export function CommunityReportDialog({
                       }}
                       className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#173a3b] px-5 py-3 text-sm font-extrabold text-white transition hover:bg-[#214b4c]"
                     >
-                      Đóng
+                      {tReport("close")}
                     </button>
                   </div>
                 ) : (
                   <div className="px-5 py-6 sm:px-6">
                     <fieldset>
-                      <legend className="text-sm font-extrabold text-[#344d49]">Lý do báo cáo</legend>
+                      <legend className="text-sm font-extrabold text-[#344d49]">{tReport("reasonLegend")}</legend>
 
                       <div className="mt-3 space-y-2.5">
                         {COMMUNITY_REPORT_REASONS.map((value) => {
-                          const option = REPORT_REASON_LABELS[value];
-
+                          const label = tReport(`reasons.${value}.label`);
+                          const description = tReport(`reasons.${value}.description`);
                           const checked = reason === value;
 
                           return (
@@ -345,10 +313,10 @@ export function CommunityReportDialog({
                               />
 
                               <span className="min-w-0">
-                                <span className="block text-sm font-extrabold text-[#344d49]">{option.label}</span>
+                                <span className="block text-sm font-extrabold text-[#344d49]">{label}</span>
 
                                 <span className="mt-1 block text-xs leading-5 text-[#75827e]">
-                                  {option.description}
+                                  {description}
                                 </span>
                               </span>
                             </label>
@@ -360,8 +328,8 @@ export function CommunityReportDialog({
                     <div className="mt-5">
                       <div className="flex items-center justify-between gap-3">
                         <label htmlFor="community-report-details" className="text-sm font-extrabold text-[#344d49]">
-                          Chi tiết
-                          {reason === "other" ? " *" : " (không bắt buộc)"}
+                          {tReport("detailsLabel")}
+                          {reason === "other" ? tReport("detailsRequired") : tReport("detailsOptional")}
                         </label>
 
                         <span
@@ -384,8 +352,8 @@ export function CommunityReportDialog({
                         rows={4}
                         placeholder={
                           reason === "other"
-                            ? "Mô tả cụ thể vấn đề bạn nhận thấy..."
-                            : "Bạn có thể cung cấp thêm thông tin để quản trị viên dễ xem xét hơn..."
+                            ? tReport("placeholderOther")
+                            : tReport("placeholderDefault")
                         }
                         className="mt-2 w-full resize-y rounded-[18px] border border-[#ddd2c5] bg-white px-4 py-3 text-sm leading-6 text-[#3f5551] outline-none transition placeholder:text-[#9aa39f] focus:border-[#65928c] disabled:cursor-not-allowed disabled:bg-[#f5f0e8]"
                       />
@@ -407,7 +375,7 @@ export function CommunityReportDialog({
                         disabled={isSubmitting}
                         className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#dcd1c4] bg-white px-5 py-2.5 text-sm font-extrabold text-[#60716d] transition hover:bg-[#f5eee5] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Hủy
+                        {tReport("cancel")}
                       </button>
 
                       <button
@@ -418,7 +386,7 @@ export function CommunityReportDialog({
                       >
                         {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Flag size={16} />}
 
-                        {isSubmitting ? "Đang gửi..." : "Gửi báo cáo"}
+                        {isSubmitting ? tReport("submitting") : tReport("submit")}
                       </button>
                     </div>
                   </div>

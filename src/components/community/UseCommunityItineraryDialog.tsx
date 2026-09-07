@@ -5,6 +5,7 @@ import { CalendarDays, Copy, Loader2, UsersRound, X } from "lucide-react";
 import { useState } from "react";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { readCommunityApi } from "@/src/components/community/community-types";
 
@@ -24,6 +25,7 @@ export function UseCommunityItineraryDialog({
   defaultRoomCount,
 }: UseCommunityItineraryDialogProps) {
   const router = useRouter();
+  const t = useTranslations("Community.useItinerary");
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -53,12 +55,12 @@ export function UseCommunityItineraryDialog({
 
   async function submit() {
     if (!startDate) {
-      setError("Vui lòng chọn ngày khởi hành mới.");
+      setError(t("errorStartDate"));
       return;
     }
 
     if (!title.trim()) {
-      setError("Vui lòng nhập tên hành trình.");
+      setError(t("errorTitle"));
       return;
     }
 
@@ -109,7 +111,7 @@ export function UseCommunityItineraryDialog({
       if (!response.ok || !payload.success || !payload.data?.id) {
         const fieldError = payload.errors ? Object.values(payload.errors).flat().find(Boolean) : null;
 
-        throw new Error(fieldError ?? payload.message ?? "Không thể tạo lịch trình.");
+        throw new Error(fieldError ?? payload.message ?? t("errorCreate"));
       }
 
       router.push(`/planner/${payload.data.id}`);
@@ -118,7 +120,7 @@ export function UseCommunityItineraryDialog({
     } catch (submitError) {
       console.error("[USE COMMUNITY ITINERARY ERROR]", submitError);
 
-      setError(submitError instanceof Error ? submitError.message : "Không thể tạo lịch trình.");
+      setError(submitError instanceof Error ? submitError.message : t("errorCreate"));
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +134,7 @@ export function UseCommunityItineraryDialog({
         className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#173a3b] px-4 py-2 text-sm font-extrabold text-white shadow-[0_10px_28px_rgba(23,58,59,0.15)] transition hover:-translate-y-0.5 hover:bg-[#214b4c]"
       >
         <Copy size={17} />
-        Dùng lịch trình này
+        {t("trigger")}
       </button>
 
       {isOpen ? (
@@ -140,13 +142,12 @@ export function UseCommunityItineraryDialog({
           <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-[30px] bg-[#fffaf1] p-6 shadow-2xl sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">Community → Planner</p>
+                <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">{t("badge")}</p>
 
-                <h2 className="mt-2 font-display text-3xl font-semibold">Dùng lịch trình này</h2>
+                <h2 className="mt-2 font-display text-3xl font-semibold">{t("title")}</h2>
 
                 <p className="mt-2 text-sm leading-6 text-[#6d7a76]">
-                  Hệ thống sẽ tạo một bản sao riêng trong Planner của bạn. Bài gốc và Planner của người chia sẻ không bị
-                  thay đổi.
+                  {t("description")}
                 </p>
               </div>
 
@@ -154,14 +155,14 @@ export function UseCommunityItineraryDialog({
                 type="button"
                 onClick={close}
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#ddd2c4] bg-white text-[#667570]"
-                aria-label="Đóng"
+                aria-label={t("close")}
               >
                 <X size={17} />
               </button>
             </div>
 
             <label className="mt-6 block">
-              <span className="mb-2 block text-sm font-extrabold">Tên hành trình</span>
+              <span className="mb-2 block text-sm font-extrabold">{t("itineraryTitle")}</span>
 
               <input
                 type="text"
@@ -175,7 +176,7 @@ export function UseCommunityItineraryDialog({
             <label className="mt-4 block">
               <span className="mb-2 flex items-center gap-2 text-sm font-extrabold">
                 <CalendarDays size={16} className="text-[#d85b48]" />
-                Ngày khởi hành mới
+                {t("newStartDate")}
               </span>
 
               <input
@@ -189,12 +190,12 @@ export function UseCommunityItineraryDialog({
             <div className="mt-5">
               <p className="mb-3 flex items-center gap-2 text-sm font-extrabold">
                 <UsersRound size={16} />
-                Người tham gia
+                {t("participants")}
               </p>
 
               <div className="grid gap-3 sm:grid-cols-3">
                 <label>
-                  <span className="mb-2 block text-xs font-bold text-[#6d7b77]">Người lớn</span>
+                  <span className="mb-2 block text-xs font-bold text-[#6d7b77]">{t("adults")}</span>
 
                   <input
                     type="number"
@@ -207,7 +208,7 @@ export function UseCommunityItineraryDialog({
                 </label>
 
                 <label>
-                  <span className="mb-2 block text-xs font-bold text-[#6d7b77]">Trẻ em</span>
+                  <span className="mb-2 block text-xs font-bold text-[#6d7b77]">{t("children")}</span>
 
                   <input
                     type="number"
@@ -220,7 +221,7 @@ export function UseCommunityItineraryDialog({
                 </label>
 
                 <label>
-                  <span className="mb-2 block text-xs font-bold text-[#6d7b77]">Số phòng</span>
+                  <span className="mb-2 block text-xs font-bold text-[#6d7b77]">{t("rooms")}</span>
 
                   <input
                     type="number"
@@ -235,8 +236,7 @@ export function UseCommunityItineraryDialog({
             </div>
 
             <div className="mt-5 rounded-2xl bg-[#edf7f4] px-4 py-3 text-xs leading-5 text-[#5a746e]">
-              Ngày lưu trú sẽ được tính lại theo ngày khởi hành mới. Chi phí, hoạt động và bữa ăn được sao chép từ
-              snapshot Community để bạn tiếp tục chỉnh sửa.
+              {t("note")}
             </div>
 
             {error ? (
@@ -253,7 +253,7 @@ export function UseCommunityItineraryDialog({
             >
               {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Copy size={18} />}
 
-              {isSubmitting ? "Đang tạo lịch trình..." : "Tạo lịch trình của tôi"}
+              {isSubmitting ? t("creating") : t("create")}
             </button>
           </div>
         </div>

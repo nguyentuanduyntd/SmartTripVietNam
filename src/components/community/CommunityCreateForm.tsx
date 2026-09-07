@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { readCommunityApi } from "@/src/components/community/community-types";
 import { formatVietnameseDate } from "@/src/lib/formatters";
@@ -54,12 +55,13 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const MAX_IMAGES = 10;
 
-function formatDate(value: string | null) {
-  return formatVietnameseDate(value, "Chưa đặt ngày");
+function formatDate(value: string | null, fallback: string) {
+  return formatVietnameseDate(value, fallback);
 }
 
 export function CommunityCreateForm({ itineraries, locations, initialItineraryId }: CommunityCreateFormProps) {
   const router = useRouter();
+  const t = useTranslations("Community.create");
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -108,7 +110,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
     setSourceItineraryId(itinerary.id);
 
     if (!title.trim()) {
-      setTitle(`Trải nghiệm ${itinerary.title}`);
+      setTitle(t("itineraryTitle", { title: itinerary.title }));
     }
   }
 
@@ -116,7 +118,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
     const availableSlots = MAX_IMAGES - files.length;
 
     if (availableSlots <= 0) {
-      setError(`Mỗi bài chỉ được đăng tối đa ${MAX_IMAGES} ảnh.`);
+      setError(t("errorMaxImages", { max: MAX_IMAGES }));
       return;
     }
 
@@ -128,12 +130,12 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
       }
 
       if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-        setError("Chỉ chấp nhận ảnh JPEG, PNG, WebP hoặc AVIF.");
+        setError(t("errorImageType"));
         continue;
       }
 
       if (file.size > MAX_IMAGE_SIZE) {
-        setError(`Ảnh "${file.name}" vượt quá 5MB.`);
+        setError(t("errorImageSize", { name: file.name }));
         continue;
       }
 
@@ -173,22 +175,22 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
 
   async function submit() {
     if (title.trim().length < 3) {
-      setError("Tiêu đề phải có ít nhất 3 ký tự.");
+      setError(t("errorTitleShort"));
       return;
     }
 
     if (!content.trim()) {
-      setError("Vui lòng nhập cảm nhận về chuyến đi.");
+      setError(t("errorContent"));
       return;
     }
 
     if (mode === "planner" && !sourceItineraryId) {
-      setError("Vui lòng chọn một lịch trình của bạn.");
+      setError(t("errorSelectPlanner"));
       return;
     }
 
     if (tripStartDate && tripEndDate && tripStartDate > tripEndDate) {
-      setError("Ngày kết thúc không được trước ngày bắt đầu.");
+      setError(t("errorDateRange"));
       return;
     }
 
@@ -250,7 +252,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
       if (!response.ok || !api.success || !api.data?.id) {
         const fieldError = api.errors ? Object.values(api.errors).flat().find(Boolean) : null;
 
-        throw new Error(fieldError ?? api.message ?? "Không thể đăng trải nghiệm.");
+        throw new Error(fieldError ?? api.message ?? t("errorSubmit"));
       }
 
       router.push(`/community/${api.data.id}`);
@@ -258,7 +260,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
     } catch (submitError) {
       console.error("[CREATE COMMUNITY POST ERROR]", submitError);
 
-      setError(submitError instanceof Error ? submitError.message : "Không thể đăng trải nghiệm.");
+      setError(submitError instanceof Error ? submitError.message : t("errorSubmit"));
     } finally {
       setIsSubmitting(false);
     }
@@ -267,9 +269,9 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
   return (
     <section className="mt-8 grid gap-7 xl:grid-cols-[0.8fr_1.2fr]">
       <aside className="rounded-[30px] bg-[#173a3b] p-6 text-white shadow-[0_22px_60px_rgba(23,58,59,0.16)] sm:p-8">
-        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#f4a292]">Cách chia sẻ</p>
+        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#f4a292]">{t("howToShare")}</p>
 
-        <h2 className="mt-3 font-display text-3xl font-semibold">Bắt đầu từ đâu?</h2>
+        <h2 className="mt-3 font-display text-3xl font-semibold">{t("whereToStart")}</h2>
 
         <div className="mt-6 space-y-3">
           <button
@@ -285,9 +287,9 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
               </span>
 
               <div>
-                <p className="font-extrabold">Từ lịch trình của tôi</p>
+                <p className="font-extrabold">{t("fromPlanner")}</p>
                 <p className="mt-1 text-xs leading-5 text-white/65">
-                  Hệ thống tự lấy ngày đi, địa điểm, chi phí và tạo snapshot hành trình.
+                  {t("fromPlannerDesc")}
                 </p>
               </div>
             </div>
@@ -306,9 +308,9 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
               </span>
 
               <div>
-                <p className="font-extrabold">Tự viết trải nghiệm</p>
+                <p className="font-extrabold">{t("manualMode")}</p>
                 <p className="mt-1 text-xs leading-5 text-white/65">
-                  Phù hợp với chuyến đi không có Planner trong SmartTripVietNam.
+                  {t("manualModeDesc")}
                 </p>
               </div>
             </div>
@@ -316,12 +318,11 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
         </div>
 
         <div className="mt-8 rounded-[22px] bg-white/[0.07] p-5">
-          <p className="text-sm font-extrabold">Mẹo để bài chia sẻ hữu ích</p>
+          <p className="text-sm font-extrabold">{t("tips")}</p>
           <ul className="mt-3 space-y-2 text-xs leading-5 text-white/65">
-            <li>• Kể lại điều bạn thực sự thích hoặc chưa hài lòng.</li>
-            <li>• Nêu thời điểm đi nếu trải nghiệm phụ thuộc mùa.</li>
-            <li>• Chọn ảnh rõ địa điểm và khoảnh khắc đáng nhớ.</li>
-            <li>• Chi phí chỉ nên xem là mức tham khảo.</li>
+            {(t.raw("tipItems") as string[]).map((tip: string, index: number) => (
+              <li key={index}>• {tip}</li>
+            ))}
           </ul>
         </div>
       </aside>
@@ -331,20 +332,20 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
           <div>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d85b48]">Planner nguồn</p>
-                <h2 className="mt-1 font-display text-2xl font-semibold">Chọn lịch trình</h2>
+                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d85b48]">{t("plannerSource")}</p>
+                <h2 className="mt-1 font-display text-2xl font-semibold">{t("selectItinerary")}</h2>
               </div>
 
               <span className="rounded-full bg-[#edf7f4] px-3 py-1.5 text-xs font-bold text-[#34706b]">
-                {itineraries.length} lịch trình
+                {t("itinerariesCount", { count: itineraries.length })}
               </span>
             </div>
 
             {itineraries.length === 0 ? (
               <div className="mt-5 rounded-2xl border border-dashed border-[#cfbfab] bg-white/60 p-5 text-sm leading-6 text-[#6f7c78]">
-                Bạn chưa có Planner. Hãy chọn{" "}
+                {t("noPlanner")}{" "}
                 <button type="button" onClick={() => selectMode("manual")} className="font-extrabold text-[#d85b48]">
-                  Tự viết trải nghiệm
+                  {t("writeManually")}
                 </button>
                 .
               </div>
@@ -379,7 +380,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
                           <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#71807c]">
                             <span className="inline-flex items-center gap-1">
                               <CalendarDays size={12} />
-                              {formatDate(itinerary.startDate)}
+                              {formatDate(itinerary.startDate, t("notDateSet"))}
                             </span>
 
                             {itinerary.startLocationName ? (
@@ -399,21 +400,20 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
 
             {selectedItinerary ? (
               <div className="mt-4 rounded-2xl bg-[#f4eee5] px-4 py-3 text-xs leading-5 text-[#6d7b77]">
-                Khi đăng bài, backend sẽ tạo snapshot độc lập từ <strong>{selectedItinerary.title}</strong>. Planner gốc
-                vẫn là dữ liệu riêng của bạn.
+                {t("snapshotNote", { title: selectedItinerary.title })}
               </div>
             ) : null}
           </div>
         ) : (
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d85b48]">Thông tin chuyến đi</p>
-            <h2 className="mt-1 font-display text-2xl font-semibold">Nhập thông tin cơ bản</h2>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d85b48]">{t("tripInfo")}</p>
+            <h2 className="mt-1 font-display text-2xl font-semibold">{t("basicInfo")}</h2>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-bold">
                   <MapPin size={15} />
-                  Điểm đến
+                  {t("destination")}
                 </span>
 
                 <select
@@ -421,7 +421,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
                   onChange={(event) => setLocationId(event.target.value)}
                   className="h-12 w-full rounded-2xl border border-[#d9cebf] bg-white px-4 text-sm outline-none focus:border-[#4d8a84] focus:ring-4 focus:ring-[#4d8a84]/10"
                 >
-                  <option value="">Chưa chọn</option>
+                  <option value="">{t("notSelected")}</option>
                   {locations.map((location) => (
                     <option key={location.id} value={location.id}>
                       {location.name}
@@ -433,7 +433,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-bold">
                   <Route size={15} />
-                  Số ngày
+                  {t("dayCount")}
                 </span>
 
                 <input
@@ -442,7 +442,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
                   max={90}
                   value={dayCount}
                   onChange={(event) => setDayCount(event.target.value)}
-                  placeholder="Ví dụ: 3"
+                  placeholder={t("dayCountEx")}
                   className="h-12 w-full rounded-2xl border border-[#d9cebf] bg-white px-4 text-sm outline-none focus:border-[#4d8a84] focus:ring-4 focus:ring-[#4d8a84]/10"
                 />
               </label>
@@ -450,7 +450,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-bold">
                   <CalendarDays size={15} />
-                  Ngày bắt đầu
+                  {t("startDate")}
                 </span>
 
                 <input
@@ -464,7 +464,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
               <label className="block">
                 <span className="mb-2 flex items-center gap-2 text-sm font-bold">
                   <CalendarDays size={15} />
-                  Ngày kết thúc
+                  {t("endDate")}
                 </span>
 
                 <input
@@ -479,7 +479,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
             <label className="mt-4 block">
               <span className="mb-2 flex items-center gap-2 text-sm font-bold">
                 <WalletCards size={15} />
-                Chi phí tham khảo
+                {t("cost")}
               </span>
 
               <div className="relative">
@@ -488,11 +488,11 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
                   inputMode="numeric"
                   value={estimatedCost}
                   onChange={(event) => setEstimatedCost(event.target.value.replace(/[^\d]/g, ""))}
-                  placeholder="Ví dụ: 4200000"
+                  placeholder={t("costPlaceholder")}
                   className="h-12 w-full rounded-2xl border border-[#d9cebf] bg-white px-4 pr-16 text-sm outline-none focus:border-[#4d8a84] focus:ring-4 focus:ring-[#4d8a84]/10"
                 />
 
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7d8985]">VNĐ</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#7d8985]">{t("vndSuffix")}</span>
               </div>
             </label>
           </div>
@@ -501,14 +501,14 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
         <div className="my-7 h-px bg-[#e6dccf]" />
 
         <label className="block">
-          <span className="mb-2 block text-sm font-extrabold">Tiêu đề</span>
+          <span className="mb-2 block text-sm font-extrabold">{t("titleLabel")}</span>
 
           <input
             type="text"
             maxLength={160}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Ví dụ: Đà Nẵng 3N2Đ – chuyến đi mình muốn quay lại"
+            placeholder={t("titlePlaceholder")}
             className="h-12 w-full rounded-2xl border border-[#d9cebf] bg-white px-4 text-sm outline-none placeholder:text-[#9aa39f] focus:border-[#4d8a84] focus:ring-4 focus:ring-[#4d8a84]/10"
           />
 
@@ -516,14 +516,14 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
         </label>
 
         <label className="mt-4 block">
-          <span className="mb-2 block text-sm font-extrabold">Cảm nhận của bạn</span>
+          <span className="mb-2 block text-sm font-extrabold">{t("contentLabel")}</span>
 
           <textarea
             rows={8}
             maxLength={5000}
             value={content}
             onChange={(event) => setContent(event.target.value)}
-            placeholder="Điều gì đáng nhớ? Nên đi vào thời điểm nào? Món nào đáng thử? Có điều gì bạn muốn nhắn với người đi sau?"
+            placeholder={t("contentPlaceholder")}
             className="w-full resize-y rounded-2xl border border-[#d9cebf] bg-white px-4 py-3 text-sm leading-7 outline-none placeholder:text-[#9aa39f] focus:border-[#4d8a84] focus:ring-4 focus:ring-[#4d8a84]/10"
           />
 
@@ -531,7 +531,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
         </label>
 
         <div className="mt-5">
-          <p className="text-sm font-extrabold">Đánh giá tổng thể</p>
+          <p className="text-sm font-extrabold">{t("overallRating")}</p>
 
           <div className="mt-3 flex items-center gap-1">
             {[1, 2, 3, 4, 5].map((value) => (
@@ -553,8 +553,8 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
         <div className="mt-6">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-extrabold">Ảnh chuyến đi</p>
-              <p className="mt-1 text-xs text-[#788581]">JPEG, PNG, WebP, AVIF · tối đa 5MB/ảnh.</p>
+              <p className="text-sm font-extrabold">{t("photos")}</p>
+              <p className="mt-1 text-xs text-[#788581]">{t("photosNote")}</p>
             </div>
 
             <span className="text-xs font-bold text-[#788581]">
@@ -604,7 +604,7 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
               >
                 <span className="text-center">
                   <ImagePlus size={28} className="mx-auto" />
-                  <span className="mt-2 block text-xs font-extrabold">Thêm ảnh</span>
+                  <span className="mt-2 block text-xs font-extrabold">{t("addPhoto")}</span>
                 </span>
               </button>
             ) : null}
@@ -626,12 +626,12 @@ export function CommunityCreateForm({ itineraries, locations, initialItineraryId
           {isSubmitting ? (
             <>
               <Loader2 size={19} className="animate-spin" />
-              Đang đăng trải nghiệm...
+              {t("submitting")}
             </>
           ) : (
             <>
               <Camera size={19} />
-              Đăng trải nghiệm
+              {t("submit")}
             </>
           )}
         </button>

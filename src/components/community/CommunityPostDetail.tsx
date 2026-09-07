@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { CommunityImageCarousel } from "@/src/components/community/CommunityImageCarousel";
 import {
   readCommunityApi,
@@ -104,6 +105,8 @@ function Stars({
 
 export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDetailProps) {
   const router = useRouter();
+  const tDetail = useTranslations("Community.detail");
+  const tComments = useTranslations("Community.comments");
 
   const [post, setPost] = useState<CommunityPostDetailData | null>(null);
   const [comments, setComments] = useState<CommunityCommentThread[]>([]);
@@ -278,7 +281,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
     }
 
     if (!commentText.trim()) {
-      setError("Vui lòng nhập nội dung bình luận.");
+      setError(tComments("emptyCommentError"));
       return;
     }
 
@@ -300,7 +303,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
       const payload = await readCommunityApi<unknown>(response);
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message ?? "Không thể gửi bình luận.");
+        throw new Error(payload.message ?? tDetail("submitError"));
       }
 
       setCommentText("");
@@ -308,14 +311,14 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
 
       await Promise.all([loadComments(), loadPost()]);
     } catch (commentError) {
-      setError(commentError instanceof Error ? commentError.message : "Không thể gửi bình luận.");
+      setError(commentError instanceof Error ? commentError.message : tDetail("submitError"));
     } finally {
       setIsCommenting(false);
     }
   }
 
   async function deleteComment(commentId: string) {
-    if (!window.confirm("Xóa bình luận này?")) {
+    if (!window.confirm(tDetail("confirmDeleteComment"))) {
       return;
     }
 
@@ -326,7 +329,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
     const payload = await readCommunityApi<unknown>(response);
 
     if (!response.ok || !payload.success) {
-      setError(payload.message ?? "Không thể xóa bình luận.");
+      setError(payload.message ?? tDetail("deleteCommentError"));
       return;
     }
 
@@ -334,7 +337,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
   }
 
   async function editComment(commentId: string, currentContent: string) {
-    const nextContent = window.prompt("Sửa bình luận:", currentContent);
+    const nextContent = window.prompt(tDetail("editCommentPrompt"), currentContent);
 
     if (nextContent === null || !nextContent.trim() || nextContent.trim() === currentContent) {
       return;
@@ -353,7 +356,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
     const payload = await readCommunityApi<unknown>(response);
 
     if (!response.ok || !payload.success) {
-      setError(payload.message ?? "Không thể sửa bình luận.");
+      setError(payload.message ?? tDetail("editCommentError"));
       return;
     }
 
@@ -384,20 +387,20 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
       const payload = await readCommunityApi<unknown>(response);
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message ?? "Không thể cập nhật bài viết.");
+        throw new Error(payload.message ?? tDetail("updatePostError"));
       }
 
       setIsEditingPost(false);
       await loadPost();
     } catch (editError) {
-      setError(editError instanceof Error ? editError.message : "Không thể cập nhật bài viết.");
+      setError(editError instanceof Error ? editError.message : tDetail("updatePostError"));
     } finally {
       setIsSavingEdit(false);
     }
   }
 
   async function deletePost() {
-    if (!post || !window.confirm("Bạn chắc chắn muốn xóa bài chia sẻ này?")) {
+    if (!post || !window.confirm(tDetail("confirmDeletePost"))) {
       return;
     }
 
@@ -408,7 +411,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
     const payload = await readCommunityApi<unknown>(response);
 
     if (!response.ok || !payload.success) {
-      setError(payload.message ?? "Không thể xóa bài viết.");
+      setError(payload.message ?? tDetail("deletePostError"));
       return;
     }
 
@@ -421,7 +424,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
       <div className="mt-7 grid min-h-[420px] place-items-center rounded-[30px] border border-white/80 bg-[#fffaf1]">
         <div className="text-center">
           <Loader2 size={31} className="mx-auto animate-spin text-[#34706b]" />
-          <p className="mt-3 text-sm font-bold text-[#6c7a76]">Đang tải trải nghiệm...</p>
+          <p className="mt-3 text-sm font-bold text-[#6c7a76]">{tDetail("loading")}</p>
         </div>
       </div>
     );
@@ -439,7 +442,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
     return null;
   }
 
-  const title = post.title ?? "Chia sẻ trải nghiệm";
+  const title = post.title ?? tDetail("defaultTitle");
   const snapshot = post.itinerarySnapshot;
 
   return (
@@ -453,7 +456,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               {post.author.avatarUrl ? (
                 <img
                   src={post.author.avatarUrl}
-                  alt={post.author.fullName ?? "Thành viên"}
+                  alt={post.author.fullName ?? tDetail("member")}
                   className="h-12 w-12 rounded-full object-cover"
                 />
               ) : (
@@ -463,7 +466,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               )}
 
               <div>
-                <p className="font-extrabold">{post.author.fullName ?? "Thành viên SmartTrip"}</p>
+                <p className="font-extrabold">{post.author.fullName ?? tDetail("memberSmartTrip")}</p>
                 <p className="mt-1 text-xs text-[#7b8884]">{formatDateTime(post.createdAt)}</p>
               </div>
             </div>
@@ -477,7 +480,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                     type="button"
                     onClick={() => setIsEditingPost(true)}
                     className="grid h-10 w-10 place-items-center rounded-full border border-[#ded3c5] bg-white text-[#667570] transition hover:bg-[#f4eee5]"
-                    aria-label="Sửa bài"
+                    aria-label={tDetail("editPost")}
                   >
                     <Pencil size={16} />
                   </button>
@@ -486,7 +489,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                     type="button"
                     onClick={() => void deletePost()}
                     className="grid h-10 w-10 place-items-center rounded-full border border-[#f0c9c1] bg-[#fff0ed] text-[#c65344] transition hover:bg-[#ffe6e1]"
-                    aria-label="Xóa bài"
+                    aria-label={tDetail("deletePost")}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -510,7 +513,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
             {post.dayCount ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f5efe6] px-3 py-2 text-xs font-bold text-[#697773]">
                 <Route size={14} />
-                {post.dayCount} ngày
+                {post.dayCount} {tDetail("days", { count: post.dayCount })}
               </span>
             ) : null}
 
@@ -536,7 +539,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
 
           {post.destinations.length > 0 ? (
             <div className="mt-7 border-t border-[#e7ddcf] pt-6">
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#788581]">Những nơi đã ghé</p>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#788581]">{tDetail("visitedPlaces")}</p>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {post.destinations.map((destination) => (
@@ -562,7 +565,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               }`}
             >
               <Heart size={18} className={post.likedByMe ? "fill-current" : ""} />
-              {post.likeCount} lượt thích
+              {post.likeCount} {tDetail("likes", { count: post.likeCount })}
             </button>
 
             <a
@@ -570,7 +573,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#ded3c5] bg-white px-4 py-2 text-sm font-extrabold text-[#667570]"
             >
               <MessageCircle size={18} />
-              {post.commentCount} bình luận
+              {post.commentCount} {tDetail("comments", { count: post.commentCount })}
             </a>
 
             <button
@@ -583,7 +586,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               }`}
             >
               <Bookmark size={18} className={post.savedByMe ? "fill-current" : ""} />
-              {post.savedByMe ? "Đã lưu" : "Lưu bài"} · {post.saveCount}
+              {post.savedByMe ? tDetail("saved") : tDetail("savePost")} · {post.saveCount}
             </button>
 
             {!isOwner ? (
@@ -604,12 +607,12 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
         <section className="mt-7 rounded-[30px] border border-white/80 bg-[#fffaf1] p-6 shadow-[0_18px_55px_rgba(23,58,59,0.07)] sm:p-8">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">Planner Snapshot</p>
-              <h2 className="mt-2 font-display text-3xl font-semibold">Hành trình đã trải nghiệm</h2>
+              <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">{tDetail("plannerSnapshot")}</p>
+              <h2 className="mt-2 font-display text-3xl font-semibold">{tDetail("itinerarySnapshot")}</h2>
             </div>
 
             <span className="rounded-full bg-[#edf7f4] px-3 py-2 text-xs font-bold text-[#34706b]">
-              {snapshot.days.length} ngày
+              {tDetail("days", { count: snapshot.days.length })}
             </span>
           </div>
 
@@ -626,9 +629,9 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <p className="font-extrabold">{day.title ?? `Ngày ${day.dayNumber}`}</p>
+                    <p className="font-extrabold">{day.title ?? tDetail("dayTitle", { number: day.dayNumber })}</p>
                     <p className="mt-1 text-xs text-[#7a8783]">
-                      {day.items.length} hoạt động · {day.meals.length} bữa ăn
+                      {tDetail("activities", { count: day.items.length })} · {tDetail("meals", { count: day.meals.length })}
                     </p>
                   </div>
 
@@ -670,7 +673,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                       <div className="rounded-2xl border border-[#eadfd2] bg-[#fffaf1] p-4">
                         <div className="flex items-center gap-2 text-sm font-extrabold">
                           <Utensils size={16} className="text-[#d85b48]" />
-                          Ẩm thực
+                          {tDetail("cuisine")}
                         </div>
 
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -694,8 +697,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
           </div>
 
           <div className="mt-5 rounded-2xl bg-[#edf7f4] px-4 py-3 text-xs leading-5 text-[#5d746f]">
-            Snapshot này được lưu cùng bài Community. Chức năng <strong>“Dùng lịch trình này”</strong> sẽ được nối vào
-            Planner ở giai đoạn tiếp theo.
+            {tDetail("snapshotNote")}
           </div>
         </section>
       ) : null}
@@ -706,17 +708,17 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
       >
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">Thảo luận</p>
-            <h2 className="mt-1 font-display text-3xl font-semibold">Bình luận</h2>
+            <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#d85b48]">{tComments("discussion")}</p>
+            <h2 className="mt-1 font-display text-3xl font-semibold">{tComments("title")}</h2>
           </div>
 
-          <span className="text-sm font-bold text-[#74817d]">{post.commentCount} bình luận</span>
+          <span className="text-sm font-bold text-[#74817d]">{tComments("count", { count: post.commentCount })}</span>
         </div>
 
         {replyTo ? (
           <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-[#edf7f4] px-4 py-3 text-sm text-[#426e68]">
             <span>
-              Đang trả lời <strong>{replyTo.name}</strong>
+              {tComments("replyingTo")} <strong>{replyTo.name}</strong>
             </span>
 
             <button
@@ -738,9 +740,9 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
             placeholder={
               currentUserId
                 ? replyTo
-                  ? `Trả lời ${replyTo.name}...`
-                  : "Chia sẻ suy nghĩ hoặc hỏi thêm về chuyến đi..."
-                : "Đăng nhập để tham gia bình luận..."
+                  ? tComments("placeholderReply", { name: replyTo.name })
+                  : tComments("placeholderDefault")
+                : tComments("placeholderGuest")
             }
             disabled={!currentUserId}
             className="w-full resize-none border-0 bg-transparent text-sm leading-6 outline-none placeholder:text-[#9aa39f] disabled:cursor-not-allowed"
@@ -756,7 +758,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#173a3b] px-5 text-xs font-extrabold text-white disabled:opacity-60"
             >
               {isCommenting ? <Loader2 size={15} className="animate-spin" /> : <MessageCircle size={15} />}
-              Gửi
+              {tComments("send")}
             </button>
           </div>
         </div>
@@ -770,7 +772,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
         <div className="mt-6 space-y-5">
           {comments.length === 0 ? (
             <p className="rounded-2xl bg-[#f5efe6] px-5 py-5 text-sm text-[#6d7b77]">
-              Chưa có bình luận. Hãy bắt đầu cuộc trò chuyện.
+              {tComments("empty")}
             </p>
           ) : (
             comments.map((comment) => (
@@ -779,7 +781,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                   {comment.author.avatarUrl ? (
                     <img
                       src={comment.author.avatarUrl}
-                      alt={comment.author.fullName ?? "Thành viên"}
+                      alt={comment.author.fullName ?? tComments("member")}
                       className="h-10 w-10 shrink-0 rounded-full object-cover"
                     />
                   ) : (
@@ -790,7 +792,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
 
                   <div className="min-w-0 flex-1">
                     <div className="rounded-[18px] bg-white px-4 py-3">
-                      <p className="text-sm font-extrabold">{comment.author.fullName ?? "Thành viên SmartTrip"}</p>
+                      <p className="text-sm font-extrabold">{comment.author.fullName ?? tComments("memberFull")}</p>
 
                       <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#5f706c]">{comment.content}</p>
                     </div>
@@ -804,14 +806,14 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                           if (requireLogin()) {
                             setReplyTo({
                               id: comment.id,
-                              name: comment.author.fullName ?? "thành viên",
+                              name: comment.author.fullName ?? tComments("member"),
                             });
                           }
                         }}
                         className="inline-flex items-center gap-1 hover:text-[#34706b]"
                       >
                         <Reply size={13} />
-                        Trả lời
+                        {tComments("reply")}
                       </button>
 
                       {currentUserId !== comment.userId ? (
@@ -833,7 +835,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                             onClick={() => void editComment(comment.id, comment.content)}
                             className="hover:text-[#34706b]"
                           >
-                            Sửa
+                            {tComments("edit")}
                           </button>
 
                           <button
@@ -841,7 +843,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                             onClick={() => void deleteComment(comment.id)}
                             className="hover:text-[#c65344]"
                           >
-                            Xóa
+                            {tComments("delete")}
                           </button>
                         </>
                       ) : null}
@@ -854,7 +856,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                             {reply.author.avatarUrl ? (
                               <img
                                 src={reply.author.avatarUrl}
-                                alt={reply.author.fullName ?? "Thành viên"}
+                                alt={reply.author.fullName ?? tComments("member")}
                                 className="h-8 w-8 shrink-0 rounded-full object-cover"
                               />
                             ) : (
@@ -866,7 +868,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                             <div className="min-w-0 flex-1">
                               <div className="rounded-[16px] bg-[#f7f3ec] px-4 py-3">
                                 <p className="text-xs font-extrabold">
-                                  {reply.author.fullName ?? "Thành viên SmartTrip"}
+                                  {reply.author.fullName ?? tComments("memberFull")}
                                 </p>
 
                                 <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#5f706c]">
@@ -881,14 +883,14 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                                     if (requireLogin()) {
                                       setReplyTo({
                                         id: reply.id,
-                                        name: reply.author.fullName ?? "thành viên",
+                                        name: reply.author.fullName ?? tComments("member"),
                                       });
                                     }
                                   }}
                                   className="inline-flex items-center gap-1 hover:text-[#34706b]"
                                 >
                                   <Reply size={12} />
-                                  Trả lời
+                                  {tComments("reply")}
                                 </button>
 
                                 {currentUserId !== reply.userId ? (
@@ -910,7 +912,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                                       onClick={() => void editComment(reply.id, reply.content)}
                                       className="hover:text-[#34706b]"
                                     >
-                                      Sửa
+                                      {tComments("edit")}
                                     </button>
 
                                     <button
@@ -918,7 +920,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
                                       onClick={() => void deleteComment(reply.id)}
                                       className="hover:text-[#c65344]"
                                     >
-                                      Xóa
+                                      {tComments("delete")}
                                     </button>
                                   </>
                                 ) : null}
@@ -941,8 +943,8 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-[#fffaf1] p-6 shadow-2xl sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d85b48]">Chỉnh sửa</p>
-                <h2 className="mt-1 font-display text-3xl font-semibold">Bài chia sẻ</h2>
+                <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#d85b48]">{tDetail("editLabel")}</p>
+                <h2 className="mt-1 font-display text-3xl font-semibold">{tDetail("editPostTitle")}</h2>
               </div>
 
               <button
@@ -955,7 +957,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
             </div>
 
             <label className="mt-6 block">
-              <span className="mb-2 block text-sm font-extrabold">Tiêu đề</span>
+              <span className="mb-2 block text-sm font-extrabold">{tDetail("editTitleLabel")}</span>
               <input
                 value={editTitle}
                 maxLength={160}
@@ -965,7 +967,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
             </label>
 
             <label className="mt-4 block">
-              <span className="mb-2 block text-sm font-extrabold">Nội dung</span>
+              <span className="mb-2 block text-sm font-extrabold">{tDetail("editContentLabel")}</span>
               <textarea
                 rows={8}
                 value={editContent}
@@ -976,7 +978,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
             </label>
 
             <div className="mt-4">
-              <p className="mb-2 text-sm font-extrabold">Đánh giá</p>
+              <p className="mb-2 text-sm font-extrabold">{tDetail("editRatingLabel")}</p>
               <Stars value={editRating} interactive onChange={setEditRating} />
             </div>
 
@@ -987,7 +989,7 @@ export function CommunityPostDetail({ postId, currentUserId }: CommunityPostDeta
               className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#173a3b] px-6 text-sm font-extrabold text-white disabled:opacity-60"
             >
               {isSavingEdit ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}
-              Lưu thay đổi
+              {tDetail("saveChanges")}
             </button>
           </div>
         </div>
