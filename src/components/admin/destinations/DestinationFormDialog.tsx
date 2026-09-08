@@ -27,8 +27,12 @@ type DestinationFormDialogProps = {
 const EMPTY_FORM: DestinationInput = {
   locationId: "",
   name: "",
+  nameEn: "",
   address: "",
   description: "",
+  descriptionEn: "",
+  history: "",
+  historyEn: "",
 };
 
 function createInitialForm(initialValue: Destination | null): DestinationInput {
@@ -41,8 +45,12 @@ function createInitialForm(initialValue: Destination | null): DestinationInput {
   return {
     locationId: initialValue.locationId,
     name: initialValue.name,
+    nameEn: initialValue.nameEn ?? "",
     address: initialValue.address ?? "",
     description: initialValue.description ?? "",
+    descriptionEn: initialValue.descriptionEn ?? "",
+    history: initialValue.history ?? "",
+    historyEn: initialValue.historyEn ?? "",
   };
 }
 
@@ -114,17 +122,30 @@ export function DestinationFormDialog({
       }
     >
       <form id="destination-form" className="space-y-4" onSubmit={handleSubmit}>
-        <FormField htmlFor="destination-name" label="Tên địa danh" required error={fieldErrors?.name}>
-          <TextInput
-            id="destination-name"
-            value={form.name}
-            required
-            disabled={submitting}
-            invalid={Boolean(fieldErrors?.name?.length)}
-            placeholder="Chùa Thiên Mụ"
-            onChange={(event) => updateField("name", event.target.value)}
-          />
-        </FormField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField htmlFor="destination-name" label="Tên địa danh (Tiếng Việt)" required error={fieldErrors?.name}>
+            <TextInput
+              id="destination-name"
+              value={form.name}
+              required
+              disabled={submitting}
+              invalid={Boolean(fieldErrors?.name?.length)}
+              placeholder="Chùa Thiên Mụ"
+              onChange={(event) => updateField("name", event.target.value)}
+            />
+          </FormField>
+
+          <FormField htmlFor="destination-name-en" label="Tên địa danh (Tiếng Anh)" error={fieldErrors?.nameEn}>
+            <TextInput
+              id="destination-name-en"
+              value={form.nameEn ?? ""}
+              disabled={submitting}
+              invalid={Boolean(fieldErrors?.nameEn?.length)}
+              placeholder="Thien Mu Pagoda"
+              onChange={(event) => updateField("nameEn", event.target.value)}
+            />
+          </FormField>
+        </div>
 
         <FormField htmlFor="destination-location" label="Khu vực" required error={fieldErrors?.locationId}>
           <SelectInput
@@ -155,7 +176,7 @@ export function DestinationFormDialog({
           />
         </FormField>
 
-        <FormField htmlFor="destination-description" label="Mô tả" error={fieldErrors?.description}>
+        <FormField htmlFor="destination-description" label="Giới thiệu (Tiếng Việt)" error={fieldErrors?.description}>
           <TextArea
             id="destination-description"
             rows={4}
@@ -163,6 +184,39 @@ export function DestinationFormDialog({
             disabled={submitting}
             invalid={Boolean(fieldErrors?.description?.length)}
             onChange={(event) => updateField("description", event.target.value)}
+          />
+        </FormField>
+
+        <FormField htmlFor="destination-description-en" label="Giới thiệu (Tiếng Anh)" error={fieldErrors?.descriptionEn}>
+          <TextArea
+            id="destination-description-en"
+            rows={4}
+            value={form.descriptionEn ?? ""}
+            disabled={submitting}
+            invalid={Boolean(fieldErrors?.descriptionEn?.length)}
+            onChange={(event) => updateField("descriptionEn", event.target.value)}
+          />
+        </FormField>
+
+        <FormField htmlFor="destination-history" label="Lịch sử (Tiếng Việt)" error={fieldErrors?.history}>
+          <TextArea
+            id="destination-history"
+            rows={4}
+            value={form.history ?? ""}
+            disabled={submitting}
+            invalid={Boolean(fieldErrors?.history?.length)}
+            onChange={(event) => updateField("history", event.target.value)}
+          />
+        </FormField>
+
+        <FormField htmlFor="destination-history-en" label="Lịch sử (Tiếng Anh)" error={fieldErrors?.historyEn}>
+          <TextArea
+            id="destination-history-en"
+            rows={4}
+            value={form.historyEn ?? ""}
+            disabled={submitting}
+            invalid={Boolean(fieldErrors?.historyEn?.length)}
+            onChange={(event) => updateField("historyEn", event.target.value)}
           />
         </FormField>
 

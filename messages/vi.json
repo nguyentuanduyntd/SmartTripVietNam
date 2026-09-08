@@ -170,11 +170,14 @@
       "emptyTitle": "Không tìm thấy địa danh phù hợp",
       "emptyDescription": "Thử chọn khu vực khác hoặc xóa từ khóa tìm kiếm.",
       "resultCount": "{count} địa danh",
-      "loadingMore": "Đang tải…",
-      "loadMore": "Xem thêm ({loaded}/{total})",
+      "pageInfo": "Trang {page} / {totalPages}",
+      "pagination": {
+        "prev": "Trang trước",
+        "next": "Trang sau",
+        "pageLabel": "Điều hướng trang"
+      },
       "errors": {
-        "loadList": "Không tải được danh sách địa danh. Vui lòng thử lại.",
-        "loadMore": "Không tải thêm được địa danh. Vui lòng thử lại."
+        "loadList": "Không tải được danh sách địa danh. Vui lòng thử lại."
       }
     },
     "detail": {

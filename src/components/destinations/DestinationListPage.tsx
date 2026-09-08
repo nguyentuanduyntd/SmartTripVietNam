@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Search as SearchIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search as SearchIcon } from "lucide-react";
 
 import { useLocale, useTranslations } from "next-intl";
 
@@ -22,14 +22,15 @@ import { locationsApi, type Location } from "@/src/lib/api-client/locations";
 
 import { usePagination } from "@/src/hooks/usePagination";
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 10;
 
 interface DestinationQueryUpdate {
   location?: string;
   q?: string;
+  page?: number;
 }
 
-type ErrorKey = "loadList" | "loadMore";
+type ErrorKey = "loadList";
 
 export function DestinationsListPage() {
   const router = useRouter();
@@ -44,9 +45,12 @@ export function DestinationsListPage() {
 
   const searchInUrl = searchParams.get("q") ?? "";
 
-  const requestKey = JSON.stringify([activeLocationId, searchInUrl]);
+  const pageInUrl = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
 
-  const currentRequestKeyRef = useRef(requestKey);
+  // Derived filter key — khi filter thay đổi, reset page về 1
+  const filterKey = JSON.stringify([activeLocationId, searchInUrl]);
+
+  const currentFilterKeyRef = useRef(filterKey);
 
   const [locations, setLocations] = useState<Location[]>([]);
 
@@ -56,36 +60,50 @@ export function DestinationsListPage() {
 
   const {
     page,
+    totalPages,
     hasNextPage,
+    hasPreviousPage,
     nextPage: goToNextPage,
+    previousPage: goToPreviousPage,
+    goToPage,
     resetPage,
   } = usePagination({
     totalItems: total,
     pageSize: PAGE_SIZE,
+    initialPage: pageInUrl,
   });
-
-  const [loadingMore, setLoadingMore] = useState(false);
 
   const [errorKey, setErrorKey] = useState<ErrorKey | null>(null);
 
-  const [resolvedRequestKey, setResolvedRequestKey] = useState<string | null>(null);
+  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
 
-  const loading = resolvedRequestKey !== requestKey;
+  const requestKey = JSON.stringify([activeLocationId, searchInUrl, page]);
 
+  const loading = resolvedKey !== requestKey;
+
+  // Track filter changes — khi filter đổi, reset page về 1 trong URL
   useEffect(() => {
-    currentRequestKeyRef.current = requestKey;
-  }, [requestKey]);
+    if (currentFilterKeyRef.current === filterKey) {
+      return;
+    }
 
+    currentFilterKeyRef.current = filterKey;
+
+    resetPage();
+
+    // Cập nhật URL: xóa page param khi filter thay đổi
+    updateQuery({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  // Load locations once
   useEffect(() => {
     let active = true;
 
     locationsApi
       .list()
       .then((data) => {
-        if (!active) {
-          return;
-        }
-
+        if (!active) return;
         setLocations(data);
       })
       .catch((error: unknown) => {
@@ -97,119 +115,48 @@ export function DestinationsListPage() {
     };
   }, []);
 
+  // Load destinations whenever page or filters change
   useEffect(() => {
     let active = true;
 
     destinationsApi
       .list({
-        page: 1,
-
+        page,
         limit: PAGE_SIZE,
-
         locationId: activeLocationId || undefined,
-
         search: searchInUrl || undefined,
       })
       .then(({ data, meta }) => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
 
         setDestinations(data);
-
         setTotal(meta.total);
-
-        resetPage();
-
-        setLoadingMore(false);
-
         setErrorKey(null);
-
-        setResolvedRequestKey(requestKey);
+        setResolvedKey(requestKey);
       })
       .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
 
         console.error("Failed to load destinations:", error);
 
         setDestinations([]);
-
         setTotal(0);
-
-        resetPage();
-
-        setLoadingMore(false);
-
         setErrorKey("loadList");
-
-        setResolvedRequestKey(requestKey);
+        setResolvedKey(requestKey);
       });
 
     return () => {
       active = false;
     };
-  }, [activeLocationId, requestKey, resetPage, searchInUrl]);
-
-  async function loadMore() {
-    if (loadingMore || destinations.length >= total) {
-      return;
-    }
-
-    const requestKeyAtStart = requestKey;
-
-    const nextPageNumber = page + 1;
-
-    setLoadingMore(true);
-
-    setErrorKey(null);
-
-    try {
-      const { data } = await destinationsApi.list({
-        page: nextPageNumber,
-
-        limit: PAGE_SIZE,
-
-        locationId: activeLocationId || undefined,
-
-        search: searchInUrl || undefined,
-      });
-
-      if (currentRequestKeyRef.current !== requestKeyAtStart) {
-        return;
-      }
-
-      setDestinations((current) => {
-        const existingIds = new Set(current.map((destination) => destination.id));
-
-        const newItems = data.filter((destination) => !existingIds.has(destination.id));
-
-        return [...current, ...newItems];
-      });
-
-      goToNextPage();
-    } catch (error) {
-      if (currentRequestKeyRef.current !== requestKeyAtStart) {
-        return;
-      }
-
-      console.error("Failed to load more destinations:", error);
-
-      setErrorKey("loadMore");
-    } finally {
-      if (currentRequestKeyRef.current === requestKeyAtStart) {
-        setLoadingMore(false);
-      }
-    }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestKey]);
 
   function updateQuery(next: DestinationQueryUpdate) {
     const params = new URLSearchParams(searchParams.toString());
 
     const nextLocation = next.location !== undefined ? next.location : activeLocationId;
-
     const nextSearch = next.q !== undefined ? next.q : searchInUrl;
+    const nextPage = next.page !== undefined ? next.page : page;
 
     if (nextLocation) {
       params.set("location", nextLocation);
@@ -223,31 +170,30 @@ export function DestinationsListPage() {
       params.delete("q");
     }
 
+    if (nextPage > 1) {
+      params.set("page", String(nextPage));
+    } else {
+      params.delete("page");
+    }
+
     const query = params.toString();
-
     const nextUrl = `/destinations${query ? `?${query}` : ""}`;
-
     const currentQuery = searchParams.toString();
-
     const currentUrl = `/destinations${currentQuery ? `?${currentQuery}` : ""}`;
 
-    if (nextUrl === currentUrl) {
-      return;
-    }
+    if (nextUrl === currentUrl) return;
 
     setErrorKey(null);
 
-    resetPage();
-
-    setLoadingMore(false);
-
-    router.push(nextUrl, {
-      scroll: false,
-    });
+    router.push(nextUrl, { scroll: true });
   }
 
-  const errorMessage =
-    errorKey === "loadMore" ? t("errors.loadMore") : errorKey === "loadList" ? t("errors.loadList") : null;
+  function handlePageChange(nextPage: number) {
+    goToPage(nextPage);
+    updateQuery({ page: nextPage });
+  }
+
+  const errorMessage = errorKey === "loadList" ? t("errors.loadList") : null;
 
   return (
     <main className="overflow-x-hidden bg-[#fffaf1] text-[#173a3b]">
@@ -269,16 +215,11 @@ export function DestinationsListPage() {
                 type="button"
                 role="tab"
                 aria-selected={activeLocationId === ""}
-                onClick={() =>
-                  updateQuery({
-                    location: "",
-                  })
-                }
-                className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                  activeLocationId === ""
+                onClick={() => updateQuery({ location: "", page: 1 })}
+                className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${activeLocationId === ""
                     ? "bg-[#173a3b] text-white shadow-lg"
                     : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
-                }`}
+                  }`}
               >
                 {t("all")}
               </button>
@@ -289,20 +230,14 @@ export function DestinationsListPage() {
                   type="button"
                   role="tab"
                   aria-selected={activeLocationId === location.id}
-                  onClick={() =>
-                    updateQuery({
-                      location: location.id,
-                    })
-                  }
-                  className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${
-                    activeLocationId === location.id
+                  onClick={() => updateQuery({ location: location.id, page: 1 })}
+                  className={`rounded-full px-4 py-2.5 text-sm font-bold transition-all ${activeLocationId === location.id
                       ? "bg-[#173a3b] text-white shadow-lg"
                       : "border border-[#d3c8b7] bg-white/55 text-[#50605e] hover:bg-white"
-                  }`}
+                    }`}
                 >
                   {localizedText(locale, {
                     vi: location.name,
-
                     en: location.nameEn,
                   })}
                 </button>
@@ -314,11 +249,7 @@ export function DestinationsListPage() {
               defaultValue={searchInUrl}
               placeholder={t("searchPlaceholder")}
               ariaLabel={t("searchAria")}
-              onSubmit={(value) =>
-                updateQuery({
-                  q: value,
-                })
-              }
+              onSubmit={(value) => updateQuery({ q: value, page: 1 })}
             />
           </div>
         </div>
@@ -337,9 +268,7 @@ export function DestinationsListPage() {
 
           {loading ? (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({
-                length: 6,
-              }).map((_, index) => (
+              {Array.from({ length: PAGE_SIZE }).map((_, index) => (
                 <div
                   key={`destination-skeleton-${index}`}
                   className="h-[420px] animate-pulse rounded-[30px] bg-[#ede6d7]"
@@ -354,11 +283,15 @@ export function DestinationsListPage() {
             </div>
           ) : (
             <>
-              <p className="mb-6 text-sm font-semibold text-[#60706d]">
-                {t("resultCount", {
-                  count: total,
-                })}
-              </p>
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <p className="text-sm font-semibold text-[#60706d]">
+                  {t("resultCount", { count: total })}
+                </p>
+
+                <p className="text-xs font-semibold text-[#8a9491]">
+                  {t("pageInfo", { page, totalPages })}
+                </p>
+              </div>
 
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {destinations.map((destination) => (
@@ -370,23 +303,19 @@ export function DestinationsListPage() {
                 ))}
               </div>
 
-              {hasNextPage && destinations.length < total ? (
-                <div className="mt-10 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => void loadMore()}
-                    disabled={loadingMore}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#bfb2a1] px-6 py-3 font-bold text-[#315f5f] transition-colors hover:bg-[#173a3b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {loadingMore
-                      ? t("loadingMore")
-                      : t("loadMore", {
-                          loaded: destinations.length,
-
-                          total,
-                        })}
-                  </button>
-                </div>
+              {totalPages > 1 ? (
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  hasNextPage={hasNextPage}
+                  hasPreviousPage={hasPreviousPage}
+                  onPageChange={handlePageChange}
+                  onNext={() => handlePageChange(page + 1)}
+                  onPrevious={() => handlePageChange(page - 1)}
+                  prevLabel={t("pagination.prev")}
+                  nextLabel={t("pagination.next")}
+                  pageLabel={t("pagination.pageLabel")}
+                />
               ) : null}
             </>
           )}
@@ -395,6 +324,125 @@ export function DestinationsListPage() {
 
       <HomeFooter />
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pagination component
+// ---------------------------------------------------------------------------
+
+interface PaginationProps {
+  page: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  onPageChange: (page: number) => void;
+  onNext: () => void;
+  onPrevious: () => void;
+  prevLabel: string;
+  nextLabel: string;
+  pageLabel: string;
+}
+
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const pages: (number | "ellipsis")[] = [1];
+
+  if (current > 3) {
+    pages.push("ellipsis");
+  }
+
+  const rangeStart = Math.max(2, current - 1);
+  const rangeEnd = Math.min(total - 1, current + 1);
+
+  for (let i = rangeStart; i <= rangeEnd; i++) {
+    pages.push(i);
+  }
+
+  if (current < total - 2) {
+    pages.push("ellipsis");
+  }
+
+  pages.push(total);
+
+  return pages;
+}
+
+function Pagination({
+  page,
+  totalPages,
+  hasNextPage,
+  hasPreviousPage,
+  onPageChange,
+  onNext,
+  onPrevious,
+  prevLabel,
+  nextLabel,
+  pageLabel,
+}: PaginationProps) {
+  const pageNumbers = getPageNumbers(page, totalPages);
+
+  return (
+    <nav
+      aria-label={pageLabel}
+      className="mt-12 flex items-center justify-center gap-1.5"
+    >
+      {/* Prev */}
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={!hasPreviousPage}
+        aria-label={prevLabel}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d3c8b7] bg-white text-[#50605e] transition hover:border-[#9aada8] hover:bg-[#edf7f4] hover:text-[#173a3b] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <ChevronLeft size={18} />
+      </button>
+
+      {/* Page numbers */}
+      {pageNumbers.map((item, index) => {
+        if (item === "ellipsis") {
+          return (
+            <span
+              key={`ellipsis-${index}`}
+              className="grid h-10 w-10 place-items-center text-sm font-semibold text-[#8a9491]"
+              aria-hidden="true"
+            >
+              …
+            </span>
+          );
+        }
+
+        const isActive = item === page;
+
+        return (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPageChange(item)}
+            aria-current={isActive ? "page" : undefined}
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition ${isActive
+                ? "bg-[#173a3b] text-white shadow-[0_8px_20px_rgba(23,58,59,0.2)]"
+                : "border border-[#d3c8b7] bg-white text-[#50605e] hover:border-[#9aada8] hover:bg-[#edf7f4] hover:text-[#173a3b]"
+              }`}
+          >
+            {item}
+          </button>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={!hasNextPage}
+        aria-label={nextLabel}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#d3c8b7] bg-white text-[#50605e] transition hover:border-[#9aada8] hover:bg-[#edf7f4] hover:text-[#173a3b] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <ChevronRight size={18} />
+      </button>
+    </nav>
   );
 }
 
@@ -433,3 +481,4 @@ function SearchBox({ defaultValue, placeholder, ariaLabel, onSubmit }: SearchBox
     </form>
   );
 }
+

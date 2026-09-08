@@ -1,19 +1,9 @@
 "use client";
 import {
-  ChevronDown,
-  Crosshair,
-  ExternalLink,
-  Loader2,
-  LocateFixed,
-  MapPin,
-  Navigation,
-  Search,
-  Star,
-  UtensilsCrossed,
-  X,
+  ChevronDown, Crosshair, ExternalLink, Loader2, LocateFixed, MapPin, Navigation, Search, Star,
+  UtensilsCrossed, X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-
 import { AddRestaurantToItineraryDialog } from "@/src/components/food/AddRestaurantToItineraryDialog";
 import { LocationMap } from "@/src/components/food/LocationMapClient";
 import { useDebounce } from "@/src/hooks/useDebounce";
@@ -65,6 +55,12 @@ type ActiveLocation = {
 };
 
 type SortMode = "best_match" | "distance" | "rating";
+
+const DEFAULT_LOCATION: ActiveLocation = {
+  label: "Trung tâm Đà Nẵng",
+  latitude: 16.0544,
+  longitude: 108.2022,
+};
 
 function formatMoney(value?: number | null) {
   if (value === undefined || value === null) {
@@ -215,7 +211,7 @@ function RestaurantCard({
 }
 
 export function FoodDiscoveryPanel() {
-  const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null);
+  const [activeLocation, setActiveLocation] = useState<ActiveLocation>(DEFAULT_LOCATION);
 
   const [gpsLocation, setGpsLocation] = useState<{
     latitude: number;
@@ -234,12 +230,6 @@ export function FoodDiscoveryPanel() {
   const [selectedItineraryRestaurant, setSelectedItineraryRestaurant] = useState<RestaurantDiscoveryItem | null>(null);
 
   useEffect(() => {
-    const location = activeLocation;
-
-    if (!location) {
-      return;
-    }
-
     const controller = new AbortController();
 
     async function loadRestaurants(selectedLocation: ActiveLocation) {
@@ -287,7 +277,7 @@ export function FoodDiscoveryPanel() {
       }
     }
 
-    void loadRestaurants(location);
+    void loadRestaurants(activeLocation);
 
     return () => {
       controller.abort();
@@ -296,6 +286,12 @@ export function FoodDiscoveryPanel() {
 
   function requestGps() {
     setError(null);
+
+    if (!window.isSecureContext) {
+      setError("Định vị GPS chỉ hoạt động khi website chạy bằng HTTPS hoặc localhost.");
+
+      return;
+    }
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("Trình duyệt này không hỗ trợ định vị GPS.");
@@ -327,13 +323,21 @@ export function FoodDiscoveryPanel() {
       (geoError) => {
         console.warn("[FOOD GEOLOCATION ERROR]", geoError);
 
-        setError("Không lấy được vị trí thiết bị. Hãy kiểm tra quyền vị trí của trình duyệt rồi thử lại.");
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          setError("Bạn đã từ chối quyền vị trí. Hãy cho phép truy cập vị trí trong cài đặt trình duyệt rồi thử lại.");
+        } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
+          setError("Thiết bị chưa xác định được vị trí. Hãy bật dịch vụ vị trí của hệ điều hành rồi thử lại.");
+        } else if (geoError.code === geoError.TIMEOUT) {
+          setError("Quá thời gian lấy vị trí. Hãy kiểm tra kết nối mạng hoặc chọn trực tiếp một điểm trên bản đồ.");
+        } else {
+          setError("Không lấy được vị trí thiết bị. Hãy kiểm tra quyền vị trí của trình duyệt rồi thử lại.");
+        }
 
         setIsLocating(false);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10_000,
+        enableHighAccuracy: false,
+        timeout: 20_000,
         maximumAge: 30_000,
       },
     );
@@ -397,33 +401,19 @@ export function FoodDiscoveryPanel() {
                   ? "Đang xin quyền và lấy vị trí thiết bị..."
                   : gpsLocation
                     ? "GPS đã sẵn sàng. Khoảng cách bên dưới được tính từ vị trí của bạn."
-                    : "Trình duyệt sẽ hỏi quyền truy cập vị trí."}
+                    : "Bản đồ đang hiển thị trung tâm Đà Nẵng. Bạn có thể chọn vị trí hoặc bật GPS."}
               </p>
             </div>
 
             <div className="min-h-[360px] sm:min-h-[420px] lg:min-h-[460px]">
-              {activeLocation ? (
-                <LocationMap
-                  latitude={activeLocation.latitude}
-                  longitude={activeLocation.longitude}
-                  label={activeLocation.label}
-                  gpsLatitude={gpsLocation?.latitude}
-                  gpsLongitude={gpsLocation?.longitude}
-                  onSelectLocation={handleMapLocationSelect}
-                />
-              ) : (
-                <div className="grid h-full min-h-[360px] place-items-center rounded-[28px] border border-dashed border-white/20 bg-white/[0.06] px-6 text-center sm:min-h-[420px] lg:min-h-[460px]">
-                  <div className="max-w-sm">
-                    <span className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] border border-white/12 bg-white/10 text-[#f3bd59]">
-                      <LocateFixed size={28} aria-hidden="true" />
-                    </span>
-                    <h3 className="mt-5 font-display text-2xl font-semibold">Bản đồ đang chờ GPS</h3>
-                    <p className="mt-2 text-sm leading-6 text-white/60">
-                      Sau khi bạn cho phép truy cập vị trí, bản đồ và danh sách món ăn gần đó sẽ hiển thị tại đây.
-                    </p>
-                  </div>
-                </div>
-              )}
+              <LocationMap
+                latitude={activeLocation.latitude}
+                longitude={activeLocation.longitude}
+                label={activeLocation.label}
+                gpsLatitude={gpsLocation?.latitude}
+                gpsLongitude={gpsLocation?.longitude}
+                onSelectLocation={handleMapLocationSelect}
+              />
             </div>
           </div>
         </div>
@@ -434,120 +424,116 @@ export function FoodDiscoveryPanel() {
           </div>
         ) : null}
 
-        {activeLocation ? (
-          <>
-            <div className="mt-6 rounded-[26px] border border-[#e3d8ca] bg-[#f8f3ea] p-3 shadow-[0_10px_30px_rgba(30,55,51,0.04)] sm:p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="relative min-w-0 flex-1 lg:max-w-2xl">
-                  <Search
-                    size={18}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#71827e]"
-                  />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    aria-label="Tìm món ăn hoặc tên quán"
-                    placeholder="Tìm món hoặc tên quán..."
-                    className="h-12 w-full rounded-2xl border border-[#ddd2c2] bg-white pl-11 pr-11 text-sm font-semibold text-[#315f5f] outline-none transition placeholder:font-normal placeholder:text-[#96a09e] hover:border-[#cbbda9] focus:border-[#71a9a3] focus:ring-4 focus:ring-[#71a9a3]/10"
-                  />
-                  {search ? (
-                    <button
-                      type="button"
-                      aria-label="Xóa nội dung tìm kiếm"
-                      onClick={() => setSearch("")}
-                      className="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-[#7f8d89] transition hover:bg-[#f0ebe3] hover:text-[#315f5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71a9a3]"
-                    >
-                      <X size={14} />
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="flex min-w-0 flex-col gap-3 border-t border-[#e5dccf] pt-3 sm:flex-row sm:items-center sm:justify-between lg:flex-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                  <div
-                    className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold text-[#5e706b]"
-                    aria-live="polite"
-                  >
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <Crosshair size={14} aria-hidden="true" className="shrink-0 text-[#e05e4c]" />
-                      <span className="truncate">
-                        {isLoading
-                          ? "Đang cập nhật kết quả..."
-                          : result
-                            ? `${result.meta.totalMatched} quán trong bán kính`
-                            : "Chưa có dữ liệu"}
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
-                    {hasFilters ? (
-                      <button
-                        type="button"
-                        onClick={clearFilters}
-                        className="whitespace-nowrap rounded-lg px-2 py-2 text-xs font-bold text-[#d45d4b] transition hover:bg-[#fff1ec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e48b7e]"
-                      >
-                        Xóa bộ lọc
-                      </button>
-                    ) : null}
-
-                    <label className="relative">
-                      <span className="sr-only">Sắp xếp danh sách quán</span>
-                      <select
-                        value={sort}
-                        onChange={(event) => setSort(event.target.value as SortMode)}
-                        className="h-10 appearance-none rounded-xl border border-[#d8cdbc] bg-white pl-3.5 pr-9 text-xs font-bold text-[#50635e] outline-none transition hover:border-[#bfae97] focus:border-[#71a9a3] focus:ring-4 focus:ring-[#71a9a3]/10"
-                      >
-                        <option value="best_match">Phù hợp nhất</option>
-                        <option value="distance">Gần nhất</option>
-                        <option value="rating">Đánh giá cao</option>
-                      </select>
-                      <ChevronDown
-                        size={14}
-                        aria-hidden="true"
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#71827e]"
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
+        <div className="mt-6 rounded-[26px] border border-[#e3d8ca] bg-[#f8f3ea] p-3 shadow-[0_10px_30px_rgba(30,55,51,0.04)] sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1 lg:max-w-2xl">
+              <Search
+                size={18}
+                aria-hidden="true"
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#71827e]"
+              />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                aria-label="Tìm món ăn hoặc tên quán"
+                placeholder="Tìm món hoặc tên quán..."
+                className="h-12 w-full rounded-2xl border border-[#ddd2c2] bg-white pl-11 pr-11 text-sm font-semibold text-[#315f5f] outline-none transition placeholder:font-normal placeholder:text-[#96a09e] hover:border-[#cbbda9] focus:border-[#71a9a3] focus:ring-4 focus:ring-[#71a9a3]/10"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  aria-label="Xóa nội dung tìm kiếm"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-[#7f8d89] transition hover:bg-[#f0ebe3] hover:text-[#315f5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#71a9a3]"
+                >
+                  <X size={14} />
+                </button>
+              ) : null}
             </div>
 
-            {isLoading ? (
-              <div className="mt-10 flex min-h-[260px] items-center justify-center rounded-[30px] border border-dashed border-[#d9cdbd] bg-white/50">
-                <div className="text-center">
-                  <Loader2 size={28} className="mx-auto animate-spin text-[#34706b]" />
-                  <p className="mt-3 text-sm font-bold text-[#536762]">SmartTrip đang tìm quán phù hợp...</p>
-                </div>
-              </div>
-            ) : null}
-
-            {!isLoading && items.length > 0 ? (
-              <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {items.map((restaurant) => (
-                  <RestaurantCard
-                    key={restaurant.id}
-                    restaurant={restaurant}
-                    onAddToItinerary={() => setSelectedItineraryRestaurant(restaurant)}
-                  />
-                ))}
-              </div>
-            ) : null}
-
-            {!isLoading && !error && items.length === 0 ? (
-              <div className="mt-8 rounded-[30px] border border-[#e2d7c8] bg-white px-6 py-10 text-center sm:px-10">
-                <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#edf5f1] text-[#34706b]">
-                  <UtensilsCrossed size={23} />
+            <div className="flex min-w-0 flex-col gap-3 border-t border-[#e5dccf] pt-3 sm:flex-row sm:items-center sm:justify-between lg:flex-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+              <div
+                className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold text-[#5e706b]"
+                aria-live="polite"
+              >
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  <Crosshair size={14} aria-hidden="true" className="shrink-0 text-[#e05e4c]" />
+                  <span className="truncate">
+                    {isLoading
+                      ? "Đang cập nhật kết quả..."
+                      : result
+                        ? `${result.meta.totalMatched} quán trong bán kính`
+                        : "Chưa có dữ liệu"}
+                  </span>
                 </span>
-                <h3 className="mt-4 font-display text-2xl font-semibold text-[#173a3b]">
-                  Chưa có quán phù hợp quanh vị trí này
-                </h3>
-                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#6d7a77]">
-                  Thử thay đổi từ khóa tìm kiếm hoặc chạm vào một vị trí lân cận trên bản đồ để tìm lại.
-                </p>
               </div>
-            ) : null}
-          </>
+
+              <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                {hasFilters ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="whitespace-nowrap rounded-lg px-2 py-2 text-xs font-bold text-[#d45d4b] transition hover:bg-[#fff1ec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e48b7e]"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                ) : null}
+
+                <label className="relative">
+                  <span className="sr-only">Sắp xếp danh sách quán</span>
+                  <select
+                    value={sort}
+                    onChange={(event) => setSort(event.target.value as SortMode)}
+                    className="h-10 appearance-none rounded-xl border border-[#d8cdbc] bg-white pl-3.5 pr-9 text-xs font-bold text-[#50635e] outline-none transition hover:border-[#bfae97] focus:border-[#71a9a3] focus:ring-4 focus:ring-[#71a9a3]/10"
+                  >
+                    <option value="best_match">Phù hợp nhất</option>
+                    <option value="distance">Gần nhất</option>
+                    <option value="rating">Đánh giá cao</option>
+                  </select>
+                  <ChevronDown
+                    size={14}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#71827e]"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="mt-10 flex min-h-[260px] items-center justify-center rounded-[30px] border border-dashed border-[#d9cdbd] bg-white/50">
+            <div className="text-center">
+              <Loader2 size={28} className="mx-auto animate-spin text-[#34706b]" />
+              <p className="mt-3 text-sm font-bold text-[#536762]">SmartTrip đang tìm quán phù hợp...</p>
+            </div>
+          </div>
+        ) : null}
+
+        {!isLoading && items.length > 0 ? (
+          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                onAddToItinerary={() => setSelectedItineraryRestaurant(restaurant)}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {!isLoading && !error && items.length === 0 ? (
+          <div className="mt-8 rounded-[30px] border border-[#e2d7c8] bg-white px-6 py-10 text-center sm:px-10">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#edf5f1] text-[#34706b]">
+              <UtensilsCrossed size={23} />
+            </span>
+            <h3 className="mt-4 font-display text-2xl font-semibold text-[#173a3b]">
+              Chưa có quán phù hợp quanh vị trí này
+            </h3>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#6d7a77]">
+              Thử thay đổi từ khóa tìm kiếm hoặc chạm vào một vị trí lân cận trên bản đồ để tìm lại.
+            </p>
+          </div>
         ) : null}
       </div>
 
@@ -555,17 +541,17 @@ export function FoodDiscoveryPanel() {
         restaurant={
           selectedItineraryRestaurant
             ? {
-                id: selectedItineraryRestaurant.id,
-                name: selectedItineraryRestaurant.name,
-                address: selectedItineraryRestaurant.address,
-                priceMin: selectedItineraryRestaurant.priceMin,
-                priceMax: selectedItineraryRestaurant.priceMax,
-                cuisines: selectedItineraryRestaurant.cuisines.map((cuisine) => ({
-                  id: cuisine.id,
-                  name: cuisine.name,
-                  slug: cuisine.slug,
-                })),
-              }
+              id: selectedItineraryRestaurant.id,
+              name: selectedItineraryRestaurant.name,
+              address: selectedItineraryRestaurant.address,
+              priceMin: selectedItineraryRestaurant.priceMin,
+              priceMax: selectedItineraryRestaurant.priceMax,
+              cuisines: selectedItineraryRestaurant.cuisines.map((cuisine) => ({
+                id: cuisine.id,
+                name: cuisine.name,
+                slug: cuisine.slug,
+              })),
+            }
             : null
         }
         onClose={() => setSelectedItineraryRestaurant(null)}

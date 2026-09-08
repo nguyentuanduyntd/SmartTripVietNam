@@ -60,7 +60,7 @@ export function usePagination({ totalItems, pageSize = 10, initialPage = 1 }: Us
 
   const resetPage = useCallback(() => {
     setPage(initialPage);
-  }, []);
+  }, [initialPage, setPage]);
 
   const range = useMemo(() => {
     if (normalizedTotalItems === 0) {

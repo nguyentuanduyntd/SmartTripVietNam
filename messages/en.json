@@ -170,11 +170,14 @@
       "emptyTitle": "No matching destinations found",
       "emptyDescription": "Try another area or clear your search keywords.",
       "resultCount": "{count} destinations",
-      "loadingMore": "Loading…",
-      "loadMore": "Load more ({loaded}/{total})",
+      "pageInfo": "Page {page} of {totalPages}",
+      "pagination": {
+        "prev": "Previous page",
+        "next": "Next page",
+        "pageLabel": "Page navigation"
+      },
       "errors": {
-        "loadList": "Destinations could not be loaded. Please try again.",
-        "loadMore": "More destinations could not be loaded. Please try again."
+        "loadList": "Destinations could not be loaded. Please try again."
       }
     },
     "detail": {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -21,7 +21,8 @@ import { HotelChatCard } from "@/src/components/planner/ai/chat/HotelChatCard";
 import { WeatherChatCard } from "@/src/components/planner/ai/chat/WeatherChatCard";
 import { useTravelPlannerChat } from "@/src/components/planner/ai/chat/useTravelPlannerChat";
 import { findLocationLabel, formatCurrency } from "@/src/components/planner/ai/chat/travel-chat.utils";
-import type { AssistantChatMessage } from "@/src/components/planner/ai/chat/ai-travel-chat.types";
+import type { AssistantChatMessage, HotelChatMessage } from "@/src/components/planner/ai/chat/ai-travel-chat.types";
+import { AddHotelToItineraryDialog } from "@/src/components/planner/ai/chat/AddHotelToItineraryDialog";
 
 type TravelPlannerChatProps = {
   locations: LocationOption[];
@@ -45,6 +46,13 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
     saveGenerated,
     resetConversation,
   } = useTravelPlannerChat(locations);
+
+  // State for "Add hotel to itinerary" dialog
+  const [selectedHotelMsg, setSelectedHotelMsg] = useState<{
+    hotel: import("@/src/components/planner/ai/chat/ai-travel-chat.types").HotelSearchItem;
+    checkInDate: string;
+    checkOutDate: string;
+  } | null>(null);
 
   const locationLabel = findLocationLabel(state, locations);
 
@@ -89,6 +97,7 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
   }
 
   return (
+    <>
     <section className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[28px] border border-white/80 bg-[#fffaf1] shadow-[0_26px_80px_rgba(23,58,59,0.10)] sm:rounded-[32px]">
       <div className="shrink-0 border-b border-[#e7ded1] bg-white/95 px-5 py-4 backdrop-blur sm:px-7 sm:py-5">
         <div className="flex items-start justify-between gap-4">
@@ -181,6 +190,8 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
             }
 
             if (message.type === "hotels") {
+              const hotelMsg = message as HotelChatMessage;
+
               return (
                 <div key={message.id} className="flex items-start gap-3">
                   <AssistantAvatar />
@@ -188,7 +199,16 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
                   <div className="min-w-0 flex-1">
                     <p className="mb-2 text-xs font-bold text-[#667873]">SmartTrip AI · Lưu trú</p>
 
-                    <HotelChatCard result={message.result} />
+                    <HotelChatCard
+                      result={hotelMsg.result}
+                      onAddToItinerary={(hotel) =>
+                        setSelectedHotelMsg({
+                          hotel,
+                          checkInDate: hotelMsg.result.checkInDate,
+                          checkOutDate: hotelMsg.result.checkOutDate,
+                        })
+                      }
+                    />
                   </div>
                 </div>
               );
@@ -294,6 +314,15 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
         </form>
       </div>
     </section>
+
+      {/* Dialog thêm khách sạn vào lịch trình */}
+      <AddHotelToItineraryDialog
+        hotel={selectedHotelMsg?.hotel ?? null}
+        checkInDate={selectedHotelMsg?.checkInDate ?? ""}
+        checkOutDate={selectedHotelMsg?.checkOutDate ?? ""}
+        onClose={() => setSelectedHotelMsg(null)}
+      />
+    </>
   );
 }
 

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ExternalLink,
   MapPin,
+  Plus,
   ShieldCheck,
   Sparkles,
   WalletCards,
@@ -65,7 +66,13 @@ function getOverBudgetAmount(hotel: HotelSearchItem, maxPricePerNight?: number) 
 
   return difference > 0 ? difference : null;
 }
-export function HotelChatCard({ result }: { result: HotelSearchResult }) {
+export function HotelChatCard({
+  result,
+  onAddToItinerary,
+}: {
+  result: HotelSearchResult;
+  onAddToItinerary?: (hotel: HotelSearchItem) => void;
+}) {
   const [showNearBudget, setShowNearBudget] = useState(false);
 
   const nearBudgetItems = result.nearBudgetItems ?? [];
@@ -264,8 +271,20 @@ export function HotelChatCard({ result }: { result: HotelSearchResult }) {
                     ) : null}
                   </div>
 
-                  {googleMapsUrl ? (
-                    <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {onAddToItinerary ? (
+                      <button
+                        type="button"
+                        onClick={() => onAddToItinerary(hotel)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#c3d9d3] bg-[#edf7f4] px-3.5 py-2 text-xs font-extrabold text-[#2d6b65] transition hover:border-[#8fc2b8] hover:bg-[#daf0eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f9d95]"
+                        aria-label={`Thêm ${hotel.name} vào lịch trình`}
+                      >
+                        <Plus size={13} />
+                        Thêm vào lịch trình
+                      </button>
+                    ) : null}
+
+                    {googleMapsUrl ? (
                       <a
                         href={googleMapsUrl}
                         target="_blank"
@@ -277,8 +296,8 @@ export function HotelChatCard({ result }: { result: HotelSearchResult }) {
                         Mở Google Maps
                         <ExternalLink size={12} />
                       </a>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </article>
