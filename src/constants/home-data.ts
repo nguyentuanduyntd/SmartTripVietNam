@@ -345,7 +345,7 @@ export const NAV_ITEMS = [
   },
   {
     label: "Ẩm thực",
-    href: "/#am-thuc",
+    href: "/food",
   },
   {
     label: "Hành trình",
