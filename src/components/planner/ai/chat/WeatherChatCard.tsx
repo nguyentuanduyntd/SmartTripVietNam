@@ -64,33 +64,39 @@ export function WeatherChatCard({ result }: { result: TravelWeatherResult }) {
       </div>
 
       <div className="grid gap-2 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
-        {result.days.map((day) => (
-          <div key={day.date} className="rounded-2xl border border-[#e1e8e5] bg-[#fbfdfc] p-3.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-extrabold text-[#173a3b]">{formatDate(day.date)}</p>
-
-              <span className="text-[11px] font-bold text-[#658079]">{getWeatherLabel(day.weatherCode)}</span>
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-[#6c7b77]">
-              <span className="inline-flex items-center gap-1">
-                <ThermometerSun size={12} />
-
-                {day.minTemperature !== undefined && day.maxTemperature !== undefined
-                  ? `${Math.round(day.minTemperature)}–${Math.round(day.maxTemperature)}°C`
-                  : "--"}
-              </span>
-
-              <span className="inline-flex items-center gap-1">
-                <CloudRain size={12} />
-
-                {day.precipitationProbabilityMax !== undefined
-                  ? `${Math.round(day.precipitationProbabilityMax)}% mưa`
-                  : "--"}
-              </span>
-            </div>
+        {result.days.length === 0 ? (
+          <div className="col-span-full py-3 text-center text-sm text-[#658079]">
+            {result.message ?? "Chưa có dữ liệu dự báo cho khoảng thời gian này."}
           </div>
-        ))}
+        ) : (
+          result.days.map((day) => (
+            <div key={day.date} className="rounded-2xl border border-[#e1e8e5] bg-[#fbfdfc] p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-extrabold text-[#173a3b]">{formatDate(day.date)}</p>
+
+                <span className="text-[11px] font-bold text-[#658079]">{getWeatherLabel(day.weatherCode)}</span>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-[#6c7b77]">
+                <span className="inline-flex items-center gap-1">
+                  <ThermometerSun size={12} />
+
+                  {day.minTemperature !== undefined && day.maxTemperature !== undefined
+                    ? `${Math.round(day.minTemperature)}–${Math.round(day.maxTemperature)}°C`
+                    : "--"}
+                </span>
+
+                <span className="inline-flex items-center gap-1">
+                  <CloudRain size={12} />
+
+                  {day.precipitationProbabilityMax !== undefined
+                    ? `${Math.round(day.precipitationProbabilityMax)}% mưa`
+                    : "--"}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {result.activityWarnings.length > 0 ? (

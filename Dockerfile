@@ -11,7 +11,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci
+RUN npm install --ignore-scripts
 
 # Build ứng dụng Next.js.
 FROM base AS builder

@@ -26,6 +26,55 @@ import {
 
 const GENERATION_TIMEOUT_MS = 90_000;
 
+// ─── Session Storage persistence ─────────────────────────────────────────────
+// Giữ lại đoạn chat khi user navigate away. Tự clear khi đóng tab/browser.
+
+const CHAT_SESSION_KEY = "smarttrip:ai-planner-chat";
+
+type ChatSessionData = {
+  messages: TravelChatMessage[];
+  state: PlannerConversationState;
+  latestGenerated: GeneratedItinerary | null;
+  savedAt: number;
+};
+
+function saveChatSession(data: ChatSessionData) {
+  try {
+    sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(data));
+  } catch {
+    // sessionStorage đầy hoặc bị block → bỏ qua
+  }
+}
+
+function loadChatSession(): ChatSessionData | null {
+  try {
+    const raw = sessionStorage.getItem(CHAT_SESSION_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    const data = JSON.parse(raw) as ChatSessionData;
+
+    // Validate cấu trúc cơ bản
+    if (!Array.isArray(data.messages) || !data.state || typeof data.savedAt !== "number") {
+      return null;
+    }
+
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function clearChatSession() {
+  try {
+    sessionStorage.removeItem(CHAT_SESSION_KEY);
+  } catch {
+    // Bỏ qua
+  }
+}
+
 function toHistory(messages: TravelChatMessage[]): TravelChatHistoryItem[] {
   return messages
     .filter((message) => message.type === "text")
@@ -67,9 +116,22 @@ function buildWeatherActivities(generated: GeneratedItinerary | null) {
 export function useTravelPlannerChat(locations: LocationOption[]) {
   const router = useRouter();
 
-  const [messages, setMessages] = useState<TravelChatMessage[]>(() => createWelcomeMessages());
+  // Khôi phục session trước đó (nếu có) khi mount
+  const restoredRef = useRef<ChatSessionData | null | undefined>(undefined);
 
-  const [state, setState] = useState<PlannerConversationState>(() => createInitialConversationState());
+  if (restoredRef.current === undefined && typeof window !== "undefined") {
+    restoredRef.current = loadChatSession();
+  }
+
+  const restored = restoredRef.current;
+
+  const [messages, setMessages] = useState<TravelChatMessage[]>(
+    () => restored?.messages ?? createWelcomeMessages(),
+  );
+
+  const [state, setState] = useState<PlannerConversationState>(
+    () => restored?.state ?? createInitialConversationState(),
+  );
 
   const [draft, setDraft] = useState("");
 
@@ -85,7 +147,9 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
 
   const [error, setError] = useState<string | null>(null);
 
-  const [latestGenerated, setLatestGenerated] = useState<GeneratedItinerary | null>(null);
+  const [latestGenerated, setLatestGenerated] = useState<GeneratedItinerary | null>(
+    () => restored?.latestGenerated ?? null,
+  );
 
   const generationControllerRef = useRef<AbortController | null>(null);
 
@@ -96,6 +160,21 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
       generationControllerRef.current?.abort();
     };
   }, []);
+
+  // Persist chat session vào sessionStorage mỗi khi messages/state thay đổi
+  useEffect(() => {
+    // Không persist nếu chỉ có welcome message (trạng thái mặc định)
+    if (messages.length <= 1 && messages[0]?.id === "assistant-welcome") {
+      return;
+    }
+
+    saveChatSession({
+      messages,
+      state,
+      latestGenerated,
+      savedAt: Date.now(),
+    });
+  }, [messages, state, latestGenerated]);
 
   useEffect(() => {
     if (foodHandoffConsumedRef.current || typeof window === "undefined") {
@@ -290,12 +369,22 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
         throw new Error(payload.message ?? "Chưa thể kiểm tra thời tiết.");
       }
 
+      if (!payload.data.available) {
+        // Ngày đi quá xa hoặc trong quá khứ → hiển thị text thường thay vì card trống
+        appendAssistantText(
+          payload.data.message ??
+            "Dự báo thời tiết chỉ khả dụng trong cửa sổ 16 ngày tới. Khi ngày khở hành gần hơn, mình sẽ tự đối chiếu thời tiết cho lịch trình của bạn.",
+        );
+
+        return;
+      }
+
       appendMessage({
         id: createChatId("weather"),
         role: "assistant",
         type: "weather",
         createdAt: Date.now(),
-        content: payload.data.message ?? "Mình đã đối chiếu dự báo theo thời gian chuyến đi.",
+        content: "Mình đã đối chiếu dự báo theo thời gian chuyến đi.",
         result: payload.data,
       });
     } catch (weatherError) {
@@ -582,6 +671,9 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
     generationControllerRef.current?.abort();
 
     generationControllerRef.current = null;
+
+    // Xóa session storage trước khi reset state
+    clearChatSession();
 
     setState(createInitialConversationState());
 

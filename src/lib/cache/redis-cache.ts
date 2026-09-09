@@ -2,8 +2,11 @@ import "server-only";
 
 import { getRedisConnection } from "@/src/lib/redis";
 
-// Trong development, bỏ qua cache để data mới (seed, DB thay đổi) có hiệu lực ngay
 const IS_DEV = process.env.NODE_ENV === "development";
+
+// TTL tối đa trong development (60s) để AI/embedding call vẫn được cache
+// nhưng data DB thay đổi vẫn cập nhật nhanh
+const DEV_MAX_TTL_SECONDS = 60;
 
 export const CACHE_TTL_SECONDS = {
   short: 5 * 60,
@@ -53,10 +56,9 @@ export async function setCachedValue<T>(key: string, value: T, ttlSeconds: numbe
 }
 
 export async function rememberCachedValue<T>(key: string, ttlSeconds: number, loader: () => Promise<T>): Promise<T> {
-  // Bypass cache hoàn toàn trong development để thấy data mới ngay
-  if (IS_DEV) {
-    return loader();
-  }
+  // Trong development, dùng TTL ngắn hơn thay vì bypass hoàn toàn
+  // Giúp AI/embedding call vẫn được cache, nhưng data DB thay đổi vẫn cập nhật sau tối đa DEV_MAX_TTL_SECONDS
+  const effectiveTtl = IS_DEV ? Math.min(ttlSeconds, DEV_MAX_TTL_SECONDS) : ttlSeconds;
 
   const cached = await getCachedValue<T>(key);
 
@@ -66,7 +68,7 @@ export async function rememberCachedValue<T>(key: string, ttlSeconds: number, lo
 
   const value = await loader();
 
-  await setCachedValue(key, value, ttlSeconds);
+  await setCachedValue(key, value, effectiveTtl);
 
   return value;
 }

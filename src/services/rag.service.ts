@@ -2,6 +2,8 @@ import { createEmbedding, createEmbeddings } from "@/src/lib/ai/openai";
 
 import { normalizeRagLimit, RAG_CHUNK_OVERLAP, RAG_CHUNK_SIZE, RAG_MIN_SIMILARITY } from "@/src/lib/pgvector";
 
+import { buildCacheKey, CACHE_TTL_SECONDS, getCachedValue, setCachedValue } from "@/src/lib/cache/redis-cache";
+
 import {
   findCuisineDestinationLinks,
   findCuisineEmbeddingSources,
@@ -399,7 +401,30 @@ function resolveRetrievalLimits(options?: RagRetrievalOptions) {
   };
 }
 
-export async function retrieveTravelContextService(query: string, options?: RagRetrievalOptions) {
+const RAG_RESULT_CACHE_PREFIX = "rag:retrieve:";
+
+// Cache TTL cho kết quả RAG retrieval (5 phút)
+// Query embedding + vector search rất tốn kém, cache giúp tốc độ đáng kể
+const RAG_CACHE_TTL_SECONDS = CACHE_TTL_SECONDS.short;
+
+type RagRetrievalResult = {
+  query: string;
+  resultCount: number;
+  retrievalStats: {
+    totalLimit: number;
+    destinationLimit: number;
+    cuisineLimit: number;
+    rawDestinationChunks: number;
+    rawCuisineChunks: number;
+    uniqueDestinations: number;
+    uniqueCuisines: number;
+    minSimilarity: number;
+  };
+  results: RagRetrievedItem[];
+  contextText: string;
+};
+
+export async function retrieveTravelContextService(query: string, options?: RagRetrievalOptions): Promise<RagRetrievalResult> {
   const normalizedQuery = query.replace(/\s+/g, " ").trim();
 
   if (!normalizedQuery) {
@@ -409,6 +434,26 @@ export async function retrieveTravelContextService(query: string, options?: RagR
   const { totalLimit, destinationLimit, cuisineLimit } = resolveRetrievalLimits(options);
 
   const minSimilarity = options?.minSimilarity ?? RAG_MIN_SIMILARITY;
+
+  // Tạo cache key từ query + tất cả params liên quan
+  const cacheKey =
+    RAG_RESULT_CACHE_PREFIX +
+    buildCacheKey({
+      q: normalizedQuery,
+      loc: options?.locationId ?? "",
+      dl: destinationLimit,
+      cl: cuisineLimit,
+      tl: totalLimit,
+      ms: minSimilarity,
+    });
+
+  const cached = await getCachedValue<RagRetrievalResult>(cacheKey);
+
+  if (cached !== null) {
+    console.info("[RAG CACHE HIT]", { query: normalizedQuery.slice(0, 80), locationId: options?.locationId });
+
+    return cached;
+  }
 
   const queryEmbedding = await createEmbedding(normalizedQuery);
 
@@ -560,7 +605,7 @@ export async function retrieveTravelContextService(query: string, options?: RagR
     })
     .join("\n\n------------------------------\n\n");
 
-  return {
+  const result = {
     query: normalizedQuery,
 
     resultCount: results.length,
@@ -587,4 +632,9 @@ export async function retrieveTravelContextService(query: string, options?: RagR
 
     contextText,
   };
+
+  // Cache kết quả RAG để tránh gọi lại OpenAI embedding + vector search
+  await setCachedValue(cacheKey, result, RAG_CACHE_TTL_SECONDS);
+
+  return result;
 }

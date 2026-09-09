@@ -331,7 +331,18 @@ export async function checkTravelWeatherService(input: WeatherInput): Promise<Tr
 
   const offset = daysBetween(today, input.startDate);
 
+  console.info("[WEATHER CHECK]", {
+    locationName: input.locationName,
+    startDate: input.startDate,
+    today,
+    offsetDays: offset,
+    dayCount: input.dayCount,
+    activitiesCount: input.activities.length,
+  });
+
   if (offset < 0) {
+    console.info("[WEATHER CHECK] Unavailable: past date", { offset });
+
     return {
       source: "open-meteo",
 
@@ -350,6 +361,8 @@ export async function checkTravelWeatherService(input: WeatherInput): Promise<Tr
   }
 
   if (offset > 15) {
+    console.info("[WEATHER CHECK] Unavailable: too far in future", { offset, maxAllowed: 15 });
+
     return {
       source: "open-meteo",
 
@@ -371,6 +384,8 @@ export async function checkTravelWeatherService(input: WeatherInput): Promise<Tr
   const location = await geocodeLocation(input.locationName);
 
   if (!location) {
+    console.warn("[WEATHER CHECK] Geocoding failed - no location found", { locationName: input.locationName });
+
     return {
       source: "open-meteo",
 
@@ -387,6 +402,14 @@ export async function checkTravelWeatherService(input: WeatherInput): Promise<Tr
       message: "Không xác định được tọa độ để kiểm tra thời tiết.",
     };
   }
+
+  console.info("[WEATHER CHECK] Geocoded location", {
+    locationName: input.locationName,
+    resolvedName: location.name,
+    countryCode: location.country_code,
+    lat: location.latitude,
+    lng: location.longitude,
+  });
 
   const forecast = await fetchForecast(location.latitude, location.longitude);
 

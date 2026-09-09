@@ -876,7 +876,7 @@ function detectIntentFallback(message: string, hasGeneratedPlan: boolean): Trave
     return "lodging";
   }
 
-  if (/\b(thoi tiet|mua|nang|bao|du bao|nhiet do)\b/.test(normalized)) {
+  if (/\b(thoi tiet|troi mua|mua lon|mua rao|nang nong|nang gay|troi nang|du bao|nhiet do)\b/.test(normalized)) {
     return "weather";
   }
 
@@ -903,7 +903,7 @@ function canUseDeterministicOnly(input: AiTravelChatRequest, patch: StatePatch) 
   }
 
   const requiresSemanticAi =
-    /\b(hotel|khach san|homestay|nha nghi|cho o|luu tru|phong|ho boi|be boi|bai dau xe|cho dau xe|parking|an sang|breakfast|ban cong|balcony|gan bien|sat bien|yen tinh|view dep|gan trung tam|thu cung|pet friendly|thoi tiet|du bao|nhiet do|mua|bao|khong can|bo|xoa|doi sang|chuyen sang|sua|thay)\b/.test(
+    /\b(hotel|khach san|homestay|nha nghi|cho o|luu tru|phong|ho boi|be boi|bai dau xe|cho dau xe|parking|an sang|breakfast|ban cong|balcony|gan bien|sat bien|yen tinh|view dep|gan trung tam|thu cung|pet friendly|thoi tiet|du bao|nhiet do|troi mua|mua lon|nang nong|nang gay|troi nang|khong can|bo|xoa|doi sang|chuyen sang|sua|thay)\b/.test(
       normalized,
     );
 
