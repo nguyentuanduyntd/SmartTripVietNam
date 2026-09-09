@@ -12,6 +12,18 @@ export function LogoutButton() {
   async function handleLogout() {
     setIsLoading(true);
 
+    if (typeof window !== "undefined") {
+      try {
+        Object.keys(sessionStorage).forEach((key) => {
+          if (key.startsWith("smarttrip:ai-planner-chat")) {
+            sessionStorage.removeItem(key);
+          }
+        });
+      } catch {
+        // Bỏ qua lỗi sessionStorage
+      }
+    }
+
     const { error } = await supabase.auth.signOut();
 
     if (error) {

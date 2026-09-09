@@ -27,7 +27,7 @@ export default async function AiPlannerPage() {
     <main className="h-dvh overflow-hidden bg-[#f4efe6] p-2 text-[#173a3b] sm:p-3 lg:p-4">
       <div className="h-full w-full">
         {locations.length > 0 ? (
-          <AiPlannerBuilder locations={locations} />
+          <AiPlannerBuilder locations={locations} userId={user.id} />
         ) : (
           <section className="flex h-full items-center justify-center">
             <div className="w-full max-w-xl rounded-[30px] border border-dashed border-[#d2c4b3] bg-[#fffaf1] px-6 py-14 text-center shadow-[0_20px_60px_rgba(23,58,59,0.08)]">

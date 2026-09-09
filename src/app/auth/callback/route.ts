@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/src/lib/supabase/server";
 import { normalizeReturnPath } from "@/src/lib/auth/return-path";
+import { getRequestOrigin } from "@/src/lib/auth/request-origin";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = getRequestOrigin(request);
 
   const code = searchParams.get("code");
 

@@ -172,7 +172,7 @@ export function buildAiItineraryJsonSchema(input: BuildAiItineraryJsonSchemaInpu
 
             category: {
               type: "string",
-              enum: ["ticket", "food", "transport", "accommodation", "activity", "shopping", "other"],
+              enum: ["ticket", "food", "transport", "activity", "shopping", "other"],
             },
 
             calculationUnit: {

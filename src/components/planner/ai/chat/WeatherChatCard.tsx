@@ -50,7 +50,14 @@ export function WeatherChatCard({ result }: { result: TravelWeatherResult }) {
       <div className="border-b border-[#dbe9e5] bg-[#edf7f4] px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-[#3d766e]">Weather check</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-[#3d766e]">Thời tiết lịch trình</p>
+              {result.sourceLabel ? (
+                <span className="rounded-full bg-[#dcf0eb] px-2 py-0.5 text-[10px] font-bold text-[#236056]">
+                  {result.sourceLabel}
+                </span>
+              ) : null}
+            </div>
 
             <h3 className="mt-1 font-display text-xl font-semibold text-[#173a3b]">
               {result.resolvedLocationName ?? result.locationName}
@@ -151,8 +158,12 @@ export function WeatherChatCard({ result }: { result: TravelWeatherResult }) {
       )}
 
       <div className="border-t border-[#dce8e5] bg-[#f7fbfa] px-5 py-3 text-[11px] leading-5 text-[#74847f]">
-        Dữ liệu: {result.sourceLabel}. Dự báo chỉ dùng khi chuyến đi nằm trong cửa sổ dự báo ngắn hạn; không dùng AI để
-        tự đoán thời tiết.
+        {result.message ? (
+          <p className="font-semibold text-[#4e645e]">{result.message}</p>
+        ) : null}
+        <p className="mt-0.5 text-[#859691]">
+          Nguồn dữ liệu: {result.sourceLabel}. SmartTrip tự động đối chiếu thông số từ Open-Meteo theo khoảng thời gian chuyến đi thực tế.
+        </p>
       </div>
     </div>
   );

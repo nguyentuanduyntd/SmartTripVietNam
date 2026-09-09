@@ -107,7 +107,7 @@ async function validateCanonicalIds(
     throw new AiItineraryServiceError("AI trả về destination ID không tồn tại.", 422);
   }
 
-  if (destinations.some((destination) => destination.locationId !== locationId)) {
+  if (!allowedDestinationIds && destinations.some((destination) => destination.locationId !== locationId)) {
     throw new AiItineraryServiceError("Lịch trình chứa điểm đến ngoài khu vực đã chọn.", 422);
   }
 
@@ -311,6 +311,24 @@ function hydrateGeneratedPlan(raw: unknown, keyContext: RagKeyContext): unknown 
       throw new Error("days không phải array.");
     }
 
+    const dayCount = generated.days.length;
+    const filteredCosts = (generated.estimatedCosts ?? []).filter((cost) => cost.category !== "accommodation");
+    const finalCosts =
+      filteredCosts.length > 0
+        ? filteredCosts
+        : [
+            {
+              title: `Chi phí di chuyển nội thành (${dayCount} ngày)`,
+              category: "transport" as const,
+              calculationUnit: "per_group" as const,
+              travelerScope: "all" as const,
+              unitPrice: 150_000 * dayCount,
+              quantity: 1,
+              nightCount: null,
+              note: "AI ước tính",
+            },
+          ];
+
     return {
       title: generated.title,
 
@@ -384,7 +402,7 @@ function hydrateGeneratedPlan(raw: unknown, keyContext: RagKeyContext): unknown 
         };
       }),
 
-      estimatedCosts: generated.estimatedCosts,
+      estimatedCosts: finalCosts,
     };
   } catch (error) {
     if (error instanceof AiItineraryServiceError) {
@@ -409,8 +427,6 @@ function buildAiPlannerPrompt(input: {
   outputSchema: Record<string, unknown>;
 }) {
   const { request, locationName, ragContext, cuisineKeysAvailable, outputSchema } = input;
-
-  const nightCount = Math.max(request.dayCount - 1, 1);
 
   const compactOutputSchema = JSON.stringify(outputSchema);
 
@@ -445,20 +461,21 @@ QUY TẮC RAG
 QUY TẮC LỊCH TRÌNH
 1. days phải có chính xác ${request.dayCount} phần tử.
 2. Mỗi ngày có ít nhất 1 activity; ưu tiên 2-4 activity tùy nhịp độ.
-3. Không xếp hai activity trùng thời gian.
-4. startTime phải nhỏ hơn endTime và dùng định dạng HH:mm.
-5. Lịch phải thực tế, có thời gian nghỉ và di chuyển hợp lý.
-6. Không chép dài nội dung CONTEXT vào description.
+3. Nếu "Yêu cầu thêm" có danh sách điểm đến ưu tiên/bắt buộc hoặc chủ đề (như đi biển, các bãi biển cụ thể), BẮT BUỘC ưu tiên chọn các destinationKey (Dxx) thuộc các điểm này, tuyệt đối không đưa các điểm lạc đề ngoài mong muốn của người dùng.
+4. Nếu "Yêu cầu thêm" có khung giờ hoạt động (canh sáng, trưa, tối, cả ngày), hãy phân bổ startTime và endTime các hoạt động tập trung đúng vào khung giờ đó.
+5. Không xếp hai activity trùng thời gian.
+6. startTime phải nhỏ hơn endTime và dùng định dạng HH:mm.
+7. Lịch phải thực tế, có thời gian nghỉ và di chuyển hợp lý.
+8. Không chép dài nội dung CONTEXT vào description.
 
 CHI PHÍ
 1. estimatedCosts phải có ít nhất 1 phần tử và chỉ là dự toán tham khảo.
 2. Với món ăn có AVG_PRICE trong CONTEXT thì ưu tiên dùng AVG_PRICE.
 3. Food: calculationUnit="per_person", travelerScope="all" khi phù hợp.
 4. Transport có thể dùng calculationUnit="per_group".
-5. Nếu chuyến đi từ 2 ngày trở lên, nên có accommodation.
-6. Accommodation: calculationUnit="per_room", nightCount=${nightCount}.
-7. quantity thông thường bằng 1.
-8. Nếu phải tự ước tính giá, note phải ghi rõ "AI ước tính".
+5. TUYỆT ĐỐI KHÔNG tạo chi phí accommodation (lưu trú) trong estimatedCosts. Chi phí lưu trú chỉ được cộng khi người dùng tự thêm nơi lưu trú sau.
+6. quantity thông thường bằng 1.
+7. Nếu phải tự ước tính giá, note phải ghi rõ "AI ước tính".
 
 GIỚI HẠN OUTPUT ĐỂ PHẢN HỒI NHANH
 - title toàn plan: ngắn gọn, khoảng tối đa 80 ký tự.
@@ -481,7 +498,166 @@ ${ragContext}
 `.trim();
 }
 
-export async function generateAiItineraryService(request: AiPlannerRequest,userId: string,) {
+export function generateItineraryForSelectedDestinations(
+  request: AiPlannerRequest,
+  location: NonNullable<Awaited<ReturnType<typeof findAiPlannerLocationById>>>,
+  dbDestinations: NonNullable<Awaited<ReturnType<typeof findAiDestinationsByIds>>>,
+  userId: string,
+) {
+  const selectedList = request.selectedDestinations ?? [];
+  const destMap = new Map(dbDestinations.map((d) => [d.id, d]));
+  const dayCount = request.dayCount;
+  const activitiesPerDay = request.activitiesPerDay ?? PACE_ACTIVITY_TARGET[request.pace] ?? 3;
+
+  const timeSlotsByCount: Record<number, Array<{ startTime: string; endTime: string }>> = {
+    1: [{ startTime: "09:00", endTime: "12:00" }],
+    2: [
+      { startTime: "08:30", endTime: "11:30" },
+      { startTime: "14:30", endTime: "17:30" },
+    ],
+    3: [
+      { startTime: "08:30", endTime: "11:00" },
+      { startTime: "14:00", endTime: "16:30" },
+      { startTime: "18:00", endTime: "20:30" },
+    ],
+    4: [
+      { startTime: "08:00", endTime: "10:30" },
+      { startTime: "11:00", endTime: "12:30" },
+      { startTime: "14:30", endTime: "17:00" },
+      { startTime: "18:30", endTime: "20:30" },
+    ],
+    5: [
+      { startTime: "07:30", endTime: "09:30" },
+      { startTime: "10:00", endTime: "12:00" },
+      { startTime: "13:30", endTime: "15:30" },
+      { startTime: "16:00", endTime: "18:00" },
+      { startTime: "19:00", endTime: "21:00" },
+    ],
+  };
+
+  const slots = timeSlotsByCount[activitiesPerDay] ?? timeSlotsByCount[3];
+
+  const dayBuckets: Array<Array<{ destinationId: string; destinationName: string }>> = Array.from(
+    { length: dayCount },
+    () => [],
+  );
+
+  selectedList.forEach((dest, index) => {
+    const targetDayIndex = index % dayCount;
+    dayBuckets[targetDayIndex].push(dest);
+  });
+
+  const days: AiItineraryPlan["days"] = dayBuckets.map((bucket, dayIdx) => {
+    const dayNumber = dayIdx + 1;
+    const activities: AiItineraryPlan["days"][number]["activities"] = [];
+    const fallbackDest = selectedList[0];
+
+    slots.forEach((slot, slotIdx) => {
+      const assigned = bucket[slotIdx];
+      if (assigned) {
+        const desc = `Khám phá và trải nghiệm các hoạt động thú vị tại ${assigned.destinationName}.`;
+
+        activities.push({
+          destinationId: assigned.destinationId,
+          destinationName: assigned.destinationName,
+          title: `Tham quan ${assigned.destinationName}`,
+          description: desc,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          transportMethod: slotIdx === 0 ? "car" : "motobike",
+          estimatedTravelMinutes: slotIdx === 0 ? 20 : 15,
+        });
+      } else {
+        const anchorDest = bucket[0] || fallbackDest;
+        activities.push({
+          destinationId: anchorDest.destinationId,
+          destinationName: anchorDest.destinationName,
+          title: "Thời gian tự do & Nghỉ ngơi",
+          description:
+            "Khoảng thời gian tự do để bạn nghỉ ngơi, dạo phố, chụp ảnh hoặc thư giãn theo sở thích cá nhân.",
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          transportMethod: "walking",
+          estimatedTravelMinutes: 0,
+        });
+      }
+    });
+
+    const primaryDestName = bucket[0]?.destinationName || fallbackDest?.destinationName || location.name;
+
+    return {
+      dayNumber,
+      title: `Ngày ${dayNumber}: Trải nghiệm ${primaryDestName}`,
+      description: `Khám phá các điểm đến hấp dẫn và dành thời gian nghỉ ngơi thư giãn tại ${location.name}.`,
+      activities,
+      meals: [],
+    };
+  });
+
+  const estimatedCosts: AiItineraryPlan["estimatedCosts"] = [];
+
+  estimatedCosts.push({
+    title: `Chi phí di chuyển nội thành (${dayCount} ngày)`,
+    category: "transport",
+    calculationUnit: "per_group",
+    travelerScope: "all",
+    unitPrice: 150_000 * dayCount,
+    quantity: 1,
+    nightCount: null,
+    note: "Ước tính taxi / thuê xe máy di chuyển",
+  });
+
+  selectedList.forEach((dest) => {
+    estimatedCosts.push({
+      title: `Vé tham quan & dịch vụ tại ${dest.destinationName}`,
+      category: "ticket",
+      calculationUnit: "per_person",
+      travelerScope: "adult",
+      unitPrice: 50_000,
+      quantity: 1,
+      nightCount: null,
+      note: "Vé vào cổng hoặc dịch vụ trải nghiệm cơ bản",
+    });
+  });
+
+  const selectedNames = selectedList.map((d) => d.destinationName).join(", ");
+  const finalPlan: AiItineraryPlan = {
+    title: `Hành trình ${location.name} ${dayCount} ngày`,
+    description: `Lịch trình được thiết kế riêng tập trung vào các điểm đến bạn đã chọn: ${selectedNames}.`,
+    days,
+    estimatedCosts,
+  };
+
+  const allowedDestinationIds = new Set(selectedList.map((d) => d.destinationId));
+  const allowedCuisineIds = new Set<string>();
+
+  const generationProof = createAiItineraryGenerationProof({
+    userId,
+    request,
+    plan: finalPlan,
+    allowedDestinationIds,
+    allowedCuisineIds,
+  });
+
+  return {
+    request,
+    location,
+    plan: finalPlan,
+    generationProof,
+    rag: {
+      query: `Du lịch ${location.name} theo các điểm chọn: ${selectedNames}`,
+      sourceCount: selectedList.length,
+      sources: selectedList.map((s) => ({
+        kind: "destination" as const,
+        id: s.destinationId,
+        name: s.destinationName,
+        similarity: 1.0,
+      })),
+    },
+  };
+}
+
+export async function generateAiItineraryService(request: AiPlannerRequest, userId: string) {
   const totalStartedAt = nowMs();
 
   const locationStartedAt = nowMs();
@@ -492,6 +668,12 @@ export async function generateAiItineraryService(request: AiPlannerRequest,userI
 
   if (!location) {
     throw new AiItineraryServiceError("Không tìm thấy khu vực.", 404);
+  }
+
+  if (request.selectedDestinations && request.selectedDestinations.length > 0) {
+    const selectedIds = request.selectedDestinations.map((d) => d.destinationId);
+    const dbDestinations = await findAiDestinationsByIds(selectedIds);
+    return generateItineraryForSelectedDestinations(request, location, dbDestinations, userId);
   }
 
   const query = [
@@ -711,6 +893,8 @@ export async function saveAiItineraryService(input: {
   if (validatedPlan.days.length !== input.request.dayCount) {
     throw new AiItineraryServiceError("Số ngày của lịch trình không hợp lệ.", 422);
   }
+
+  validatedPlan.estimatedCosts = validatedPlan.estimatedCosts.filter((cost) => cost.category !== "accommodation");
 
   return createAiItinerary({
     userId: input.userId,

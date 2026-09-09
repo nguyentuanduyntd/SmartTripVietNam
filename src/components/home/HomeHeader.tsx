@@ -203,6 +203,16 @@ export function HomeHeader() {
         setLoadedProfile(null);
 
         setIsUserMenuOpen(false);
+
+        try {
+          Object.keys(sessionStorage).forEach((key) => {
+            if (key.startsWith("smarttrip:ai-planner-chat")) {
+              sessionStorage.removeItem(key);
+            }
+          });
+        } catch {
+          // Bỏ qua lỗi sessionStorage
+        }
       }
     });
 
@@ -401,6 +411,16 @@ export function HomeHeader() {
       setUnreadNotificationCount(0);
       setIsOpen(false);
       setIsUserMenuOpen(false);
+
+      try {
+        Object.keys(sessionStorage).forEach((key) => {
+          if (key.startsWith("smarttrip:ai-planner-chat")) {
+            sessionStorage.removeItem(key);
+          }
+        });
+      } catch {
+        // Bỏ qua lỗi sessionStorage
+      }
 
       router.replace("/");
       router.refresh();

@@ -23,6 +23,7 @@ export function createChatId(prefix = "msg") {
 
 export function createInitialConversationState(): PlannerConversationState {
   return {
+    currentStep: "collect_experience",
     childCount: 0,
     childAges: [],
     roomCount: 1,
@@ -30,6 +31,10 @@ export function createInitialConversationState(): PlannerConversationState {
     lodgingRequirements: [],
     pace: "balanced",
     interests: [],
+    activitiesPerDay: undefined,
+    selectedDestinations: [],
+    rejectedDestinationIds: [],
+    suggestedDestinations: [],
   };
 }
 
@@ -41,21 +46,21 @@ export function createWelcomeMessages(): TravelChatMessage[] {
       type: "text",
       createdAt: Date.now(),
       content:
-        "Xin chào 👋 Mình là SmartTrip AI. Bạn cứ nói chuyến đi theo cách tự nhiên nhất — muốn đi đâu, mấy người, thích gì hoặc ngân sách khoảng bao nhiêu. Mình sẽ hỏi thêm khi cần rồi lên lịch trình cho bạn.",
+        "Xin chào 👋 Mình là SmartTrip AI. Hãy chia sẻ sở thích du lịch hoặc nơi bạn muốn đến (ví dụ: “tôi muốn đi biển”, “khám phá ẩm thực”, “văn hóa lịch sử”...), mình sẽ gợi ý địa điểm tuyệt vời nhất cho bạn.",
       quickReplies: [
         {
-          label: "Đà Nẵng 3 ngày cho 2 người",
-          value: "Tôi muốn đi Đà Nẵng 3 ngày cho 2 người",
+          label: "🏖️ Tôi muốn đi biển",
+          value: "Tôi muốn đi biển",
           action: "send",
         },
         {
-          label: "Chuyến đi khoảng 3 triệu",
-          value: "Tôi có ngân sách khoảng 3 triệu",
+          label: "🍜 Thích ẩm thực đặc sản",
+          value: "Tôi thích trải nghiệm ẩm thực đặc sản",
           action: "send",
         },
         {
-          label: "Thích chỗ mát về đêm",
-          value: "Tôi thích chỗ mát mẻ và đi chơi về đêm",
+          label: "🏛️ Văn hóa & lịch sử",
+          value: "Tôi thích văn hóa và lịch sử",
           action: "send",
         },
       ],
@@ -72,6 +77,28 @@ export function buildPlannerRequestFromConversation(state: PlannerConversationSt
     return null;
   }
 
+  const interests = [...state.interests];
+  if (state.contextTheme && !interests.some((i) => i.toLowerCase().includes(state.contextTheme!.toLowerCase()))) {
+    interests.unshift(state.contextTheme);
+  }
+
+  const noteParts: string[] = [];
+  if (state.contextTheme) {
+    noteParts.push(`Chủ đề chuyến đi: ${state.contextTheme}`);
+  }
+  if (state.selectedDestinations && state.selectedDestinations.length > 0) {
+    const names = state.selectedDestinations.map((d) => d.destinationName);
+    noteParts.push(`Điểm đến ưu tiên/bắt buộc: ${names.join(", ")}`);
+  }
+  if (state.preferredTimeSlot) {
+    noteParts.push(`Khung giờ hoạt động trong ngày: ${state.preferredTimeSlot}`);
+  }
+  if (state.note?.trim()) {
+    noteParts.push(state.note.trim());
+  }
+
+  const combinedNote = noteParts.join(". ").slice(0, 1000);
+
   return {
     locationId: state.locationId!,
     startDate: state.startDate!,
@@ -85,12 +112,14 @@ export function buildPlannerRequestFromConversation(state: PlannerConversationSt
         }
       : {}),
     pace: state.pace,
-    interests: state.interests.length > 0 ? state.interests : ["Trải nghiệm địa phương"],
-    ...(state.note?.trim()
+    interests: interests.length > 0 ? interests.slice(0, 10) : ["Trải nghiệm địa phương"],
+    ...(combinedNote
       ? {
-          note: state.note.trim(),
+          note: combinedNote,
         }
       : {}),
+    selectedDestinations: state.selectedDestinations,
+    activitiesPerDay: state.activitiesPerDay ?? 3,
   };
 }
 

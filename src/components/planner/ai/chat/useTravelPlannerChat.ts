@@ -7,13 +7,16 @@ import { useRouter } from "next/navigation";
 import type { GeneratedItinerary, LocationOption, SavedItinerary } from "@/src/components/planner/ai/ai-planner.types";
 
 import type {
+  DestinationCardItem,
   HotelSearchResult,
   PlannerConversationState,
+  TravelChatActionPayload,
   TravelChatHistoryItem,
   TravelChatMessage,
   TravelChatServerResponse,
   TravelQuickReply,
   TravelWeatherResult,
+  TripSummaryInfo,
 } from "@/src/components/planner/ai/chat/ai-travel-chat.types";
 
 import {
@@ -28,36 +31,65 @@ const GENERATION_TIMEOUT_MS = 90_000;
 
 // ─── Session Storage persistence ─────────────────────────────────────────────
 // Giữ lại đoạn chat khi user navigate away. Tự clear khi đóng tab/browser.
+// Tách biệt theo userId để tránh trường hợp tài khoản B đăng nhập vào thấy chat của tài khoản A.
 
-const CHAT_SESSION_KEY = "smarttrip:ai-planner-chat";
+const CHAT_SESSION_KEY_PREFIX = "smarttrip:ai-planner-chat";
+
+function getChatSessionKey(userId?: string): string | null {
+  return userId ? `${CHAT_SESSION_KEY_PREFIX}:${userId}` : null;
+}
 
 type ChatSessionData = {
+  userId: string;
   messages: TravelChatMessage[];
   state: PlannerConversationState;
   latestGenerated: GeneratedItinerary | null;
   savedAt: number;
 };
 
-function saveChatSession(data: ChatSessionData) {
+function saveChatSession(data: ChatSessionData, userId?: string) {
+  if (typeof window === "undefined" || !userId) {
+    return;
+  }
+
   try {
-    sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(data));
+    const key = getChatSessionKey(userId);
+    if (!key) return;
+
+    sessionStorage.setItem(key, JSON.stringify(data));
   } catch {
     // sessionStorage đầy hoặc bị block → bỏ qua
   }
 }
 
-function loadChatSession(): ChatSessionData | null {
-  try {
-    const raw = sessionStorage.getItem(CHAT_SESSION_KEY);
+function loadChatSession(userId?: string): ChatSessionData | null {
+  if (typeof window === "undefined" || !userId) {
+    return null;
+  }
 
+  try {
+    // Luôn dọn dẹp key cũ không có scope userId (nếu còn sót lại từ version trước)
+    sessionStorage.removeItem(CHAT_SESSION_KEY_PREFIX);
+
+    const key = getChatSessionKey(userId);
+    if (!key) {
+      return null;
+    }
+
+    const raw = sessionStorage.getItem(key);
     if (!raw) {
       return null;
     }
 
     const data = JSON.parse(raw) as ChatSessionData;
 
-    // Validate cấu trúc cơ bản
-    if (!Array.isArray(data.messages) || !data.state || typeof data.savedAt !== "number") {
+    // Validate cấu trúc cơ bản và đảm bảo đúng user sở hữu đoạn chat
+    if (
+      !Array.isArray(data.messages) ||
+      !data.state ||
+      typeof data.savedAt !== "number" ||
+      data.userId !== userId
+    ) {
       return null;
     }
 
@@ -67,9 +99,19 @@ function loadChatSession(): ChatSessionData | null {
   }
 }
 
-function clearChatSession() {
+function clearChatSession(userId?: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
   try {
-    sessionStorage.removeItem(CHAT_SESSION_KEY);
+    sessionStorage.removeItem(CHAT_SESSION_KEY_PREFIX);
+    if (userId) {
+      const key = getChatSessionKey(userId);
+      if (key) {
+        sessionStorage.removeItem(key);
+      }
+    }
   } catch {
     // Bỏ qua
   }
@@ -98,29 +140,31 @@ function getHotelNightCount(state: PlannerConversationState) {
 }
 
 function buildWeatherActivities(generated: GeneratedItinerary | null) {
-  if (!generated) {
+  if (!generated?.plan?.days) {
     return [];
   }
 
-  return generated.plan.days.flatMap((day) =>
-    day.activities.map((activity) => ({
-      dayNumber: day.dayNumber,
-      destinationName: activity.destinationName,
-      title: activity.title,
-      description: activity.description,
-      startTime: activity.startTime,
-    })),
-  );
+  return generated.plan.days
+    .flatMap((day) =>
+      (day.activities ?? []).map((activity) => ({
+        dayNumber: day.dayNumber,
+        destinationName: (activity.destinationName || "").trim().slice(0, 250),
+        title: (activity.title || "").trim().slice(0, 250),
+        description: (activity.description || "").trim().slice(0, 1000),
+        startTime: activity.startTime || "08:00",
+      })),
+    )
+    .slice(0, 80);
 }
 
-export function useTravelPlannerChat(locations: LocationOption[]) {
+export function useTravelPlannerChat(locations: LocationOption[], userId?: string) {
   const router = useRouter();
 
-  // Khôi phục session trước đó (nếu có) khi mount
+  // Khôi phục session trước đó (nếu có) của riêng user này khi mount
   const restoredRef = useRef<ChatSessionData | null | undefined>(undefined);
 
   if (restoredRef.current === undefined && typeof window !== "undefined") {
-    restoredRef.current = loadChatSession();
+    restoredRef.current = loadChatSession(userId);
   }
 
   const restored = restoredRef.current;
@@ -155,26 +199,63 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
 
   const foodHandoffConsumedRef = useRef(false);
 
+  // Theo dõi userId: nếu đổi tài khoản (hoặc chuyển user), nạp lại dữ liệu tương ứng của user đó
+  const currentUserIdRef = useRef<string | undefined>(userId);
+
+  useEffect(() => {
+    if (currentUserIdRef.current !== userId) {
+      currentUserIdRef.current = userId;
+      generationControllerRef.current?.abort();
+      generationControllerRef.current = null;
+
+      const session = loadChatSession(userId);
+      if (session) {
+        setMessages(session.messages);
+        setState(session.state);
+        setLatestGenerated(session.latestGenerated);
+      } else {
+        setMessages(createWelcomeMessages());
+        setState(createInitialConversationState());
+        setLatestGenerated(null);
+      }
+      setDraft("");
+      setError(null);
+      setIsChatting(false);
+      setIsGenerating(false);
+      setIsSaving(false);
+      setIsSearchingLodging(false);
+      setIsCheckingWeather(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
     return () => {
       generationControllerRef.current?.abort();
     };
   }, []);
 
-  // Persist chat session vào sessionStorage mỗi khi messages/state thay đổi
+  // Persist chat session vào sessionStorage của riêng user này mỗi khi messages/state thay đổi
   useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
     // Không persist nếu chỉ có welcome message (trạng thái mặc định)
     if (messages.length <= 1 && messages[0]?.id === "assistant-welcome") {
       return;
     }
 
-    saveChatSession({
-      messages,
-      state,
-      latestGenerated,
-      savedAt: Date.now(),
-    });
-  }, [messages, state, latestGenerated]);
+    saveChatSession(
+      {
+        userId,
+        messages,
+        state,
+        latestGenerated,
+        savedAt: Date.now(),
+      },
+      userId,
+    );
+  }, [userId, messages, state, latestGenerated]);
 
   useEffect(() => {
     if (foodHandoffConsumedRef.current || typeof window === "undefined") {
@@ -208,7 +289,13 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
     setMessages((current) => [...current, message]);
   }
 
-  function appendAssistantText(content: string, quickReplies?: TravelQuickReply[]) {
+  function appendAssistantText(
+    content: string,
+    quickReplies?: TravelQuickReply[],
+    destinations?: DestinationCardItem[],
+    followUpQuestion?: string,
+    tripSummary?: TripSummaryInfo,
+  ) {
     appendMessage({
       id: createChatId("assistant"),
       role: "assistant",
@@ -216,6 +303,9 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
       createdAt: Date.now(),
       content,
       quickReplies,
+      destinations,
+      followUpQuestion,
+      tripSummary,
     });
   }
 
@@ -328,10 +418,28 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
       return;
     }
 
-    if (!nextState.locationName || !nextState.startDate || !nextState.dayCount) {
+    const resolvedLocationName =
+      generated?.location?.name ??
+      nextState.locationName ??
+      locations.find((l) => l.id === nextState.locationId)?.name;
+
+    const resolvedStartDate = generated?.request?.startDate ?? nextState.startDate;
+    const resolvedDayCount = generated?.request?.dayCount ?? nextState.dayCount;
+
+    if (!resolvedLocationName || !resolvedStartDate || !resolvedDayCount) {
       appendAssistantText("Mình cần điểm đến, ngày khởi hành và số ngày trước khi kiểm tra thời tiết.");
 
       return;
+    }
+
+    // Keep conversation state in sync with resolved details
+    if (resolvedLocationName && !nextState.locationName) {
+      setState((curr) => ({
+        ...curr,
+        locationName: resolvedLocationName,
+        startDate: curr.startDate ?? resolvedStartDate,
+        dayCount: curr.dayCount ?? resolvedDayCount,
+      }));
     }
 
     setIsCheckingWeather(true);
@@ -347,11 +455,11 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
         },
 
         body: JSON.stringify({
-          locationName: nextState.locationName,
+          locationName: resolvedLocationName,
 
-          startDate: nextState.startDate,
+          startDate: resolvedStartDate,
 
-          dayCount: nextState.dayCount,
+          dayCount: resolvedDayCount,
 
           activities: buildWeatherActivities(generated),
         }),
@@ -370,10 +478,9 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
       }
 
       if (!payload.data.available) {
-        // Ngày đi quá xa hoặc trong quá khứ → hiển thị text thường thay vì card trống
         appendAssistantText(
           payload.data.message ??
-            "Dự báo thời tiết chỉ khả dụng trong cửa sổ 16 ngày tới. Khi ngày khở hành gần hơn, mình sẽ tự đối chiếu thời tiết cho lịch trình của bạn.",
+            "Chưa có thông tin dự báo thời tiết cho khoảng thời gian này.",
         );
 
         return;
@@ -384,9 +491,68 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
         role: "assistant",
         type: "weather",
         createdAt: Date.now(),
-        content: "Mình đã đối chiếu dự báo theo thời gian chuyến đi.",
+        content: payload.data.message ?? "Mình đã đối chiếu dự báo theo thời gian chuyến đi.",
         result: payload.data,
       });
+
+      // Tự động kiểm tra nếu có hoạt động đi biển / ngoài trời và dự báo mưa lớn -> Gửi tin nhắn gợi ý đổi hoạt động
+      const weatherData = payload.data;
+      const rainyDays = (weatherData.days ?? []).filter(
+        (day) => (day.precipitationProbabilityMax ?? 0) >= 50 || (day.precipitationSum ?? 0) >= 3,
+      );
+      const dangerWarnings = (weatherData.activityWarnings ?? []).filter(
+        (w) => w.severity === "danger" || /mưa/i.test(w.label),
+      );
+
+      const hasBeachOrOutdoorContext =
+        Boolean(nextState.contextTheme && /biển|bien|núi|nui|thiên nhiên|thien nhien/i.test(nextState.contextTheme)) ||
+        (nextState.interests ?? []).some((i) => /biển|bien|núi|nui|thiên nhiên|thien nhien|ngoài trời|ngoai troi/i.test(i)) ||
+        (generated?.plan?.days ?? []).some((d) =>
+          (d.activities ?? []).some((act) =>
+            /biển|bãi|tắm|lặn|cano|đảo|núi|rừng|công viên|sơn trà|mỹ khê/i.test(act.destinationName + " " + act.title),
+          ),
+        );
+
+      const alreadyAdaptedForRain = Boolean(
+        nextState.contextTheme && /trong nha|tranh mua/i.test(nextState.contextTheme),
+      );
+
+      if (!alreadyAdaptedForRain && (rainyDays.length > 0 || dangerWarnings.length > 0) && hasBeachOrOutdoorContext) {
+        const rainyDates = rainyDays.map((d) => {
+          const parts = d.date.split("-");
+          const formatted = parts.length === 3 ? `${parts[2]}/${parts[1]}` : d.date;
+          return `${formatted} (khả năng mưa ${d.precipitationProbabilityMax ?? 60}%)`;
+        });
+
+        const rainDescription = rainyDates.length > 0 ? rainyDates.join(", ") : "trong chuyến đi";
+
+        window.setTimeout(() => {
+          appendMessage({
+            id: createChatId("assistant"),
+            role: "assistant",
+            type: "text",
+            createdAt: Date.now(),
+            content: `⚠️ Dự báo thời tiết cho thấy vào ${rainDescription} có khả năng mưa lớn, có thể ảnh hưởng đến các hoạt động tắm biển và vui chơi ngoài trời.\n\nBạn có muốn mình điều chỉnh các hoạt động ngày mưa sang trải nghiệm trong nhà (như bảo tàng, cafe ngắm mưa, thưởng thức ẩm thực đặc sản, mua sắm...) hoặc sắp xếp lại thứ tự các ngày không?`,
+            quickReplies: [
+              {
+                label: "🏛️ Đổi sang hoạt động trong nhà",
+                value: "Đổi các hoạt động ngày có mưa sang trải nghiệm trong nhà giúp mình",
+                action: "send",
+              },
+              {
+                label: "🔄 Đổi thứ tự các ngày",
+                value: "Sắp xếp lại thứ tự các ngày, ngày nắng đi biển, ngày mưa đi trong nhà",
+                action: "send",
+              },
+              {
+                label: "👌 Giữ nguyên lịch trình",
+                value: "Tôi vẫn muốn giữ nguyên lịch trình hiện tại",
+                action: "send",
+              },
+            ],
+          });
+        }, 600);
+      }
     } catch (weatherError) {
       console.error("[TRAVEL CHAT WEATHER ERROR]", weatherError);
 
@@ -575,7 +741,13 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
 
       setState(result.state);
 
-      appendAssistantText(result.reply, result.quickReplies);
+      appendAssistantText(
+        result.reply,
+        result.quickReplies,
+        result.destinations,
+        result.followUpQuestion,
+        result.tripSummary,
+      );
 
       if (result.action === "generate" && result.readyToGenerate) {
         window.setTimeout(() => void generatePlan(result.state), 150);
@@ -605,10 +777,121 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
     }
   }
 
+  async function sendAction(actionPayload: TravelChatActionPayload, userDisplayText?: string) {
+    if (isChatting || isGenerating) {
+      return;
+    }
+
+    if (userDisplayText) {
+      const userMessage: TravelChatMessage = {
+        id: createChatId("user"),
+        role: "user",
+        type: "text",
+        createdAt: Date.now(),
+        content: userDisplayText,
+      };
+      setMessages((current) => [...current, userMessage]);
+    }
+
+    setIsChatting(true);
+    setError(null);
+
+    const history = toHistory(messages);
+
+    try {
+      const response = await fetch("/api/ai/travel/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: userDisplayText || "",
+          state,
+          locations,
+          history,
+          hasGeneratedPlan: Boolean(latestGenerated),
+          actionPayload,
+        }),
+      });
+
+      const payload = await readPlannerApiResponse<TravelChatServerResponse>(response);
+
+      if (response.status === 401) {
+        window.location.href = "/auth/login?next=%2Fplanner%2Fai";
+        return;
+      }
+
+      if (!response.ok || !payload.success || !payload.data) {
+        throw new Error(payload.message ?? "SmartTrip AI chưa thể xử lý yêu cầu.");
+      }
+
+      const result = payload.data;
+      setState(result.state);
+
+      appendAssistantText(
+        result.reply,
+        result.quickReplies,
+        result.destinations,
+        result.followUpQuestion,
+        result.tripSummary,
+      );
+
+      if (result.action === "generate" && result.readyToGenerate) {
+        window.setTimeout(() => void generatePlan(result.state), 150);
+        return;
+      }
+
+      if (result.action === "lodging_search") {
+        window.setTimeout(() => void searchLodging(result.state), 50);
+        return;
+      }
+
+      if (result.action === "weather_check") {
+        window.setTimeout(() => void checkWeather(result.state, latestGenerated), 50);
+      }
+    } catch (chatError) {
+      console.error("[TRAVEL CHAT ACTION ERROR]", chatError);
+      const message = chatError instanceof Error ? chatError.message : "SmartTrip AI chưa thể xử lý yêu cầu.";
+      setError(message);
+      appendAssistantText(`${message} Bạn thử lại giúp mình nhé.`);
+    } finally {
+      setIsChatting(false);
+    }
+  }
+
   async function handleQuickReply(quickReply: TravelQuickReply) {
     if (quickReply.action === "generate") {
       await generatePlan(state);
+      return;
+    }
 
+    if (quickReply.value === "Có, thêm địa điểm khác") {
+      await sendAction({ actionType: "confirm_add_more" }, quickReply.value);
+      return;
+    }
+
+    if (quickReply.value === "Không, tiếp tục lên lịch") {
+      await sendAction({ actionType: "decline_add_more" }, quickReply.value);
+      return;
+    }
+
+    if (quickReply.value === "Tạo lịch trình ngay") {
+      await sendAction({ actionType: "confirm_summary" }, quickReply.value);
+      return;
+    }
+
+    if (quickReply.value === "Đổi các hoạt động ngày có mưa sang trải nghiệm trong nhà giúp mình") {
+      await sendAction({ actionType: "adapt_weather_rain" }, quickReply.value);
+      return;
+    }
+
+    if (quickReply.value === "Sắp xếp lại thứ tự các ngày, ngày nắng đi biển, ngày mưa đi trong nhà") {
+      await sendAction({ actionType: "reorder_weather_days" }, quickReply.value);
+      return;
+    }
+
+    if (quickReply.value === "Tôi vẫn muốn giữ nguyên lịch trình hiện tại") {
+      await sendAction({ actionType: "keep_weather_plan" }, quickReply.value);
       return;
     }
 
@@ -672,8 +955,8 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
 
     generationControllerRef.current = null;
 
-    // Xóa session storage trước khi reset state
-    clearChatSession();
+    // Xóa session storage của riêng user này trước khi reset state
+    clearChatSession(userId);
 
     setState(createInitialConversationState());
 
@@ -696,6 +979,25 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
     setIsCheckingWeather(false);
   }
 
+  function selectDestination(destination: DestinationCardItem) {
+    void sendAction(
+      {
+        actionType: "select_destination",
+        destinationId: destination.id,
+        destinationName: destination.name,
+        locationName: destination.locationName,
+      },
+      `Tôi chọn: ${destination.name}`,
+    );
+  }
+
+  function rejectDestination(destination: DestinationCardItem) {
+    void sendAction({
+      actionType: "reject_destination",
+      destinationId: destination.id,
+    });
+  }
+
   return {
     messages,
     state,
@@ -713,6 +1015,9 @@ export function useTravelPlannerChat(locations: LocationOption[]) {
     setDraft,
 
     sendMessage,
+    sendAction,
+    selectDestination,
+    rejectDestination,
     handleQuickReply,
     generatePlan,
     saveGenerated,

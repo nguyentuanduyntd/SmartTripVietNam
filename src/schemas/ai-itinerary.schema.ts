@@ -14,6 +14,17 @@ export const aiPlannerRequestSchema = z.object({
   pace: z.enum(["relaxed", "balanced", "packed"]),
   interests: z.array(z.string().trim().min(1).max(80)).min(1).max(10),
   note: z.string().trim().max(1000).optional(),
+  selectedDestinations: z
+    .array(
+      z.object({
+        destinationId: z.string(),
+        destinationName: z.string(),
+        locationName: z.string().optional(),
+        activityType: z.string().optional(),
+      }),
+    )
+    .optional(),
+  activitiesPerDay: z.number().int().min(1).max(5).optional(),
 });
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);

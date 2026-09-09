@@ -1,7 +1,51 @@
 import type { GeneratedItinerary, LocationOption, Pace } from "@/src/components/planner/ai/ai-planner.types";
 
 export type LodgingPreference = "any" | "hotel" | "homestay";
+
+export type SelectedDestinationItem = {
+  destinationId: string;
+  destinationName: string;
+  locationName: string;
+  activityType: string;
+};
+
+export type PlannerChatStep =
+  | "collect_experience"
+  | "suggest_one_destination"
+  | "confirm_destination"
+  | "ask_add_more"
+  | "collect_trip_details"
+  | "confirm_trip_summary"
+  | "generate_itinerary";
+
+export type TravelChatActionPayload = {
+  actionType:
+    | "select_destination"
+    | "reject_destination"
+    | "confirm_add_more"
+    | "decline_add_more"
+    | "confirm_summary"
+    | "adapt_weather_rain"
+    | "reorder_weather_days"
+    | "keep_weather_plan";
+  destinationId?: string;
+  destinationName?: string;
+  locationName?: string;
+  activityType?: string;
+};
+
+export type TripSummaryInfo = {
+  destinations: SelectedDestinationItem[];
+  dayCount: number;
+  adultCount: number;
+  startDate: string;
+  budget?: number;
+  activitiesPerDay: number;
+  freeSlots: number;
+};
+
 export type PlannerConversationState = {
+  currentStep: PlannerChatStep;
   locationId?: string;
   locationName?: string;
   startDate?: string;
@@ -17,9 +61,22 @@ export type PlannerConversationState = {
   pace: Pace;
   interests: string[];
   note?: string;
+  contextTheme?: string;
+  activitiesPerDay?: number;
+  selectedDestinations: SelectedDestinationItem[];
+  pendingDestination?: DestinationCardItem;
+  rejectedDestinationIds: string[];
+  preferredTimeSlot?: string;
+  suggestedDestinations: string[];
 };
 export type TravelChatIntent =
-  "planning" | "modify_plan" | "lodging" | "weather" | "general" | "out_of_scope" | "unsupported_destination";
+  | "planning"
+  | "modify_plan"
+  | "lodging"
+  | "weather"
+  | "general"
+  | "out_of_scope"
+  | "unsupported_destination";
 
 export type TravelChatAction = "none" | "generate" | "offer_regenerate" | "lodging_search" | "weather_check";
 
@@ -28,13 +85,29 @@ export type TravelQuickReply = {
   value: string;
   action: "send" | "generate";
 };
+export type DestinationCardItem = {
+  id: string;
+  name: string;
+  locationName: string;
+  locationId?: string;
+  imageUrl?: string;
+  address?: string;
+  description: string;
+  tags?: string[];
+  relevanceScore?: number;
+};
+
 export type TravelChatServerResponse = {
   state: PlannerConversationState;
   reply: string;
+  message?: string;
   intent: TravelChatIntent;
   action: TravelChatAction;
   readyToGenerate: boolean;
   quickReplies: TravelQuickReply[];
+  destinations?: DestinationCardItem[];
+  followUpQuestion?: string;
+  tripSummary?: TripSummaryInfo;
 };
 
 export type TravelChatHistoryItem = {
@@ -111,7 +184,7 @@ export type TravelWeatherDay = {
 };
 export type TravelWeatherResult = {
   source: "open-meteo";
-  sourceLabel: "Open-Meteo";
+  sourceLabel: string;
   available: boolean;
   locationName: string;
   resolvedLocationName?: string;
@@ -128,6 +201,7 @@ export type TravelChatRequestBody = {
   locations: LocationOption[];
   history?: TravelChatHistoryItem[];
   hasGeneratedPlan?: boolean;
+  actionPayload?: TravelChatActionPayload;
 };
 
 type ChatMessageBase = {
@@ -145,6 +219,9 @@ export type AssistantChatMessage = ChatMessageBase & {
   type: "text";
   content: string;
   quickReplies?: TravelQuickReply[];
+  destinations?: DestinationCardItem[];
+  followUpQuestion?: string;
+  tripSummary?: TripSummaryInfo;
 };
 
 export type ItineraryChatMessage = ChatMessageBase & {

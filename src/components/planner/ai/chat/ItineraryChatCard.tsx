@@ -40,7 +40,11 @@ const TRANSPORT_LABELS: Record<string, string> = {
 };
 
 function calculateTotal(generated: GeneratedItinerary) {
-  return calculateCostsTotal(generated.plan.estimatedCosts, {
+  const nonAccommodationCosts = (generated.plan.estimatedCosts ?? []).filter(
+    (cost) => cost.category !== "accommodation",
+  );
+
+  return calculateCostsTotal(nonAccommodationCosts, {
     adultCount: generated.request.adultCount,
     childCount: generated.request.childCount,
     roomCount: generated.request.roomCount,

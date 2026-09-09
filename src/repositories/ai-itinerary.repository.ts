@@ -207,9 +207,11 @@ export async function createAiItinerary(input: {
       }
     }
 
-    if (input.plan.estimatedCosts.length > 0) {
+    const nonAccommodationCosts = input.plan.estimatedCosts.filter((cost) => cost.category !== "accommodation");
+
+    if (nonAccommodationCosts.length > 0) {
       await tx.insert(itineraryCosts).values(
-        input.plan.estimatedCosts.map((cost, index) => ({
+        nonAccommodationCosts.map((cost, index) => ({
           itineraryId: itinerary.id,
 
           itineraryDayId: null,

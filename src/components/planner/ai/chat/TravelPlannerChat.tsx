@@ -22,12 +22,29 @@ import { useTravelPlannerChat } from "@/src/components/planner/ai/chat/useTravel
 import { findLocationLabel, formatCurrency } from "@/src/components/planner/ai/chat/travel-chat.utils";
 import type { AssistantChatMessage, HotelChatMessage } from "@/src/components/planner/ai/chat/ai-travel-chat.types";
 import { AddHotelToItineraryDialog } from "@/src/components/planner/ai/chat/AddHotelToItineraryDialog";
+import { DestinationChatCards } from "@/src/components/planner/ai/chat/DestinationChatCards";
+
+function renderCleanText(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-bold text-[#173a3b]">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+}
 
 type TravelPlannerChatProps = {
   locations: LocationOption[];
+  userId?: string;
 };
 
-export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
+export function TravelPlannerChat({ locations, userId }: TravelPlannerChatProps) {
   const {
     messages,
     state,
@@ -40,11 +57,13 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
     error,
     setDraft,
     sendMessage,
+    selectDestination,
+    rejectDestination,
     handleQuickReply,
     generatePlan,
     saveGenerated,
     resetConversation,
-  } = useTravelPlannerChat(locations);
+  } = useTravelPlannerChat(locations, userId);
 
   const [selectedHotelMsg, setSelectedHotelMsg] = useState<{
     hotel: import("@/src/components/planner/ai/chat/ai-travel-chat.types").HotelSearchItem;
@@ -231,19 +250,109 @@ export function TravelPlannerChat({ locations }: TravelPlannerChatProps) {
               }
 
               const assistantMessage = message as AssistantChatMessage;
+              const hasDestinations = Boolean(
+                assistantMessage.destinations && assistantMessage.destinations.length > 0,
+              );
+
+              // Lọc gợi ý nhanh để đảm bảo tối đa 3 nút và không trùng tên địa điểm trong card
+              const destNames = (assistantMessage.destinations ?? []).map((d) => d.name.toLowerCase());
+              const displayQuickReplies = (assistantMessage.quickReplies ?? [])
+                .filter(
+                  (qr) =>
+                    !destNames.some(
+                      (dn) => qr.label.toLowerCase().includes(dn) || qr.value.toLowerCase().includes(dn),
+                    ),
+                )
+                .slice(0, 3);
 
               return (
                 <div key={message.id} className="flex items-start gap-3">
                   <AssistantAvatar />
-                  <div className="min-w-0 max-w-[92%] sm:max-w-[78%]">
+                  <div
+                    className={`min-w-0 ${
+                      hasDestinations ? "w-full max-w-[96%] sm:max-w-[88%]" : "max-w-[92%] sm:max-w-[78%]"
+                    }`}
+                  >
                     <p className="mb-1.5 text-xs font-bold text-[#667873]">SmartTrip AI</p>
+
+                    {/* Đoạn trả lời tự nhiên ngắn gọn */}
                     <div className="rounded-[24px] rounded-tl-[8px] border border-[#e3dacd] bg-white px-4 py-3 text-sm leading-6 text-[#405652] shadow-[0_8px_26px_rgba(23,58,59,0.06)] sm:px-5">
-                      {assistantMessage.content}
+                      {renderCleanText(assistantMessage.content)}
                     </div>
 
-                    {assistantMessage.quickReplies?.length ? (
+                    {/* Danh sách thẻ địa điểm riêng biệt */}
+                    {hasDestinations && (
+                      <DestinationChatCards
+                        destinations={assistantMessage.destinations!}
+                        selectedDestinations={state.selectedDestinations}
+                        onSelectDestination={selectDestination}
+                        onRejectDestination={rejectDestination}
+                      />
+                    )}
+
+                    {/* Tóm tắt kế hoạch chuyến đi */}
+                    {assistantMessage.tripSummary && (
+                      <div className="mt-3 rounded-[20px] border border-[#d8e6e1] bg-[#f7faf8] p-4 text-xs sm:text-sm shadow-sm">
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#e1ece8]">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#173a3b] text-white">
+                            <Sparkles size={13} />
+                          </span>
+                          <span className="font-bold text-[#173a3b] text-sm">Tóm tắt kế hoạch chuyến đi</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[#405652]">
+                          <div className="flex items-start gap-1.5">
+                            <MapPin size={14} className="text-[#356b63] shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Điểm đến:</strong>{" "}
+                              {assistantMessage.tripSummary.destinations.length > 0
+                                ? assistantMessage.tripSummary.destinations.map((d) => d.destinationName).join(", ")
+                                : state.locationName ?? "Đã chọn"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CalendarDays size={14} className="text-[#356b63] shrink-0" />
+                            <span>
+                              <strong>Thời gian:</strong> {assistantMessage.tripSummary.dayCount} ngày (khởi hành{" "}
+                              {assistantMessage.tripSummary.startDate})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <UsersRound size={14} className="text-[#356b63] shrink-0" />
+                            <span>
+                              <strong>Thành viên:</strong> {assistantMessage.tripSummary.adultCount} người lớn
+                              {state.childCount > 0 ? `, ${state.childCount} trẻ em` : ""}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <WalletCards size={14} className="text-[#356b63] shrink-0" />
+                            <span>
+                              <strong>Ngân sách:</strong>{" "}
+                              {formatCurrency(assistantMessage.tripSummary.budget) || "Linh hoạt"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-2.5 border-t border-[#e1ece8] flex items-center justify-between">
+                          <span className="text-xs text-[#607570]">
+                            Nhịp độ: <strong>{assistantMessage.tripSummary.activitiesPerDay} hoạt động/ngày</strong>{" "}
+                            ({assistantMessage.tripSummary.freeSlots > 0
+                              ? `${assistantMessage.tripSummary.freeSlots} slot tự do`
+                              : "kín lịch"})
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Câu hỏi tiếp theo sau danh sách thẻ */}
+                    {assistantMessage.followUpQuestion && (
+                      <div className="mt-3 rounded-[16px] bg-[#fffaf1] border border-[#e8dfd3] px-4 py-2.5 text-xs sm:text-sm text-[#35524c] font-medium leading-relaxed shadow-sm">
+                        {renderCleanText(assistantMessage.followUpQuestion)}
+                      </div>
+                    )}
+
+                    {/* Nút gợi ý nhanh */}
+                    {displayQuickReplies.length ? (
                       <div className="mt-2.5 flex flex-wrap gap-2">
-                        {assistantMessage.quickReplies.map((quickReply, index) => (
+                        {displayQuickReplies.map((quickReply, index) => (
                           <button
                             key={`${message.id}-${quickReply.label}-${index}`}
                             type="button"

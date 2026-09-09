@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
 import { normalizeReturnPath } from "@/src/lib/auth/return-path";
+import { getRequestOrigin } from "@/src/lib/auth/request-origin";
 
 function getCurrentRequestPath(request: NextRequest) {
   return [request.nextUrl.pathname, request.nextUrl.search, request.nextUrl.hash].join("");
@@ -30,7 +31,8 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   function redirectWithCookies(path: string) {
-    const redirectResponse = NextResponse.redirect(new URL(path, request.url));
+    const origin = getRequestOrigin(request);
+    const redirectResponse = NextResponse.redirect(new URL(path, origin));
 
     for (const cookie of supabaseResponse.cookies.getAll()) {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie);

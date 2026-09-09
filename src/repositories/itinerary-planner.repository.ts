@@ -186,7 +186,10 @@ export async function findUserItineraryPlannerDetailById(itineraryId: string, us
     defaultNightCount,
   };
 
-  const calculatedCosts: CalculatedItineraryCost[] = costRows.map((cost) => ({
+  const effectiveCostRows =
+    itinerary.source === "ai" ? costRows.filter((cost) => cost.category !== "accommodation") : costRows;
+
+  const calculatedCosts: CalculatedItineraryCost[] = effectiveCostRows.map((cost) => ({
     ...cost,
     calculatedAmount: calculateItineraryCostAmount(cost, costContext),
   }));
